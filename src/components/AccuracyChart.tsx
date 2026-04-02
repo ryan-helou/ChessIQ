@@ -65,8 +65,8 @@ export function AccuracyOverTime({ games }: Props) {
               borderRadius: "8px",
               color: "#e2e8f0",
             }}
-            formatter={(value: number, name: string) => [
-              `${value.toFixed(1)}%`,
+            formatter={(value, name) => [
+              `${Number(value).toFixed(1)}%`,
               name === "rollingAvg" ? "Rolling Avg" : "Accuracy",
             ]}
           />
@@ -143,8 +143,8 @@ export function AccuracyVsRating({ games }: Props) {
               borderRadius: "8px",
               color: "#e2e8f0",
             }}
-            formatter={(value: number, name: string) => [
-              name === "accuracy" ? `${value.toFixed(1)}%` : value,
+            formatter={(value, name) => [
+              name === "accuracy" ? `${Number(value).toFixed(1)}%` : value,
               name === "accuracy" ? "Accuracy" : "Opp Rating",
             ]}
           />

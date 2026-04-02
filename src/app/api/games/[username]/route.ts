@@ -1,3 +1,5 @@
+export const maxDuration = 30;
+
 import { NextRequest, NextResponse } from "next/server";
 import { getAllGames, getProfile, getStats } from "@/lib/chess-com-api";
 import {
@@ -7,6 +9,8 @@ import {
   getResultBreakdown,
   getTimeControlStats,
   getStreaks,
+  getColorStats,
+  getRatingHistoryByTimeClass,
 } from "@/lib/game-analysis";
 
 export async function GET(
@@ -30,6 +34,8 @@ export async function GET(
     const resultBreakdown = getResultBreakdown(games);
     const timeControlStats = getTimeControlStats(games);
     const streaks = getStreaks(games);
+    const colorStats = getColorStats(games);
+    const ratingHistoryByTimeClass = getRatingHistoryByTimeClass(games);
 
     return NextResponse.json({
       profile,
@@ -39,6 +45,8 @@ export async function GET(
       ratingHistory,
       resultBreakdown,
       timeControlStats,
+      colorStats,
+      ratingHistoryByTimeClass,
       streaks,
       totalGames: games.length,
     });

@@ -58,6 +58,18 @@ export interface ResultBreakdown {
   count: number;
 }
 
+export interface ColorStats {
+  color: "white" | "black";
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  winRate: number;
+  avgAccuracy: number | null;
+  currentRating: number;
+  bestRating: number;
+}
+
 const RESULT_MAP: Record<string, "win" | "loss" | "draw"> = {
   win: "win",
   checkmated: "loss",
@@ -329,4 +341,56 @@ export function getAccuracyByPhase(games: ParsedGame[]): {
         ? accuracies.reduce((a, b) => a + b, 0) / accuracies.length
         : null,
   };
+}
+
+export function getColorStats(games: ParsedGame[]): ColorStats[] {
+  const map = new Map<"white" | "black", ParsedGame[]>();
+
+  for (const g of games) {
+    if (!map.has(g.playerColor)) map.set(g.playerColor, []);
+    map.get(g.playerColor)!.push(g);
+  }
+
+  return Array.from(map.entries()).map(([color, colorGames]) => {
+    const wins = colorGames.filter((g) => g.result === "win").length;
+    const losses = colorGames.filter((g) => g.result === "loss").length;
+    const draws = colorGames.filter((g) => g.result === "draw").length;
+    const accuracies = colorGames
+      .map((g) => g.accuracy)
+      .filter((a): a is number => a !== null);
+    const ratings = colorGames.map((g) => g.playerRating);
+
+    return {
+      color,
+      games: colorGames.length,
+      wins,
+      losses,
+      draws,
+      winRate: (wins / colorGames.length) * 100,
+      avgAccuracy:
+        accuracies.length > 0
+          ? accuracies.reduce((a, b) => a + b, 0) / accuracies.length
+          : null,
+      currentRating: ratings[ratings.length - 1] ?? 0,
+      bestRating: Math.max(...ratings),
+    };
+  });
+}
+
+export function getRatingHistoryByTimeClass(
+  games: ParsedGame[]
+): Record<string, RatingDataPoint[]> {
+  const map = new Map<string, RatingDataPoint[]>();
+
+  for (const g of games) {
+    if (!map.has(g.timeClass)) map.set(g.timeClass, []);
+    const dateStr = g.date instanceof Date ? g.date.toISOString().split("T")[0] : g.date;
+    map.get(g.timeClass)!.push({
+      date: dateStr,
+      rating: g.playerRating,
+      timeClass: g.timeClass,
+    });
+  }
+
+  return Object.fromEntries(map);
 }
