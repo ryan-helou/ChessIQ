@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
+import ChessLoader from "@/components/ChessLoader";
 import SectionNav from "@/components/SectionNav";
 import StatsCards from "@/components/StatsCards";
 import RatingChart from "@/components/RatingChart";
@@ -135,25 +136,7 @@ export default function PlayerPage() {
       )}
 
       {/* Loading state */}
-      {loading && !data && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Profile skeleton */}
-          <div className="flex items-center gap-5 mb-10 animate-pulse">
-            <div className="w-20 h-20 rounded-full bg-slate-800/60" />
-            <div>
-              <div className="h-8 bg-slate-700/40 rounded w-48 mb-2" />
-              <div className="h-4 bg-slate-700/30 rounded w-32" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[...Array(8)].map((_, i) => <StatCardSkeleton key={i} />)}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <ChartSkeleton height="h-[400px]" />
-            <ChartSkeleton height="h-[400px]" />
-          </div>
-        </div>
-      )}
+      {loading && !data && <ChessLoader username={username} />}
 
       {/* Dashboard */}
       {data && (
