@@ -47,7 +47,7 @@ function MiniBoard() {
   }, []);
 
   return (
-    <div className="grid grid-cols-8 w-48 h-48 sm:w-56 sm:h-56 rounded-lg overflow-hidden shadow-2xl shadow-black/40 border border-slate-700/50">
+    <div className="grid grid-cols-8 w-48 sm:w-56 aspect-square rounded-lg overflow-hidden shadow-2xl shadow-black/40 border border-slate-700/50">
       {Array.from({ length: 64 }).map((_, i) => {
         const row = Math.floor(i / 8);
         const col = i % 8;
@@ -58,7 +58,7 @@ function MiniBoard() {
         return (
           <div
             key={i}
-            className={`relative flex items-center justify-center transition-colors duration-300 ${
+            className={`relative flex items-center justify-center aspect-square transition-colors duration-300 ${
               isActive
                 ? "bg-blue-500"
                 : isTrail
