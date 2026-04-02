@@ -94,13 +94,19 @@ export function AccuracyOverTime({ games }: Props) {
 }
 
 export function AccuracyVsRating({ games }: Props) {
-  const data = games
+  const raw = games
     .filter((g) => g.accuracy !== null)
     .map((g) => ({
       opponentRating: g.opponentRating,
       accuracy: g.accuracy!,
       result: g.result,
     }));
+
+  // Remove outliers: filter to within 2 standard deviations of mean opponent rating
+  const ratings = raw.map((d) => d.opponentRating);
+  const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+  const std = Math.sqrt(ratings.reduce((s, r) => s + (r - mean) ** 2, 0) / ratings.length);
+  const data = raw.filter((d) => Math.abs(d.opponentRating - mean) <= 2 * std);
 
   const wins = data.filter((d) => d.result === "win");
   const losses = data.filter((d) => d.result === "loss");
