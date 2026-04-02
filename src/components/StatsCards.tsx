@@ -30,6 +30,7 @@ interface Props {
   bestWinStreak: number;
   worstLossStreak: number;
   ratings: { timeClass: string; current: number; best: number }[];
+  periodLabel?: string;
 }
 
 export default function StatsCards({
@@ -40,6 +41,7 @@ export default function StatsCards({
   bestWinStreak,
   worstLossStreak,
   ratings,
+  periodLabel = "Last 6 months",
 }: Props) {
   const streakColor =
     currentStreak.type === "win"
@@ -60,7 +62,7 @@ export default function StatsCards({
       <StatCard
         title="Games Analyzed"
         value={totalGames}
-        subtitle="Last 6 months"
+        subtitle={periodLabel}
       />
       <StatCard
         title="Win Rate"
