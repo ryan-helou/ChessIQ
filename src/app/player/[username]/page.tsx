@@ -249,7 +249,7 @@ export default function PlayerPage() {
             {/* Openings */}
             <div id="openings" className="scroll-mt-28 bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-8">
               <h2 className="text-lg font-semibold mb-4">Opening Statistics</h2>
-              <OpeningTable openings={data.openings} />
+              <OpeningTable openings={data.openings} games={data.games} />
             </div>
 
             {/* Recent Games */}
