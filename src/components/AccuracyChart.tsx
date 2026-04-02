@@ -115,7 +115,7 @@ export function AccuracyVsRating({ games }: Props) {
   return (
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart>
+        <ScatterChart margin={{ bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis
             dataKey="opponentRating"
@@ -123,13 +123,6 @@ export function AccuracyVsRating({ games }: Props) {
             tick={{ fill: "#94a3b8", fontSize: 11 }}
             name="Opponent Rating"
             domain={["auto", "auto"]}
-            label={{
-              value: "Opponent Rating",
-              position: "insideBottom",
-              offset: -5,
-              fill: "#64748b",
-              fontSize: 11,
-            }}
           />
           <YAxis
             dataKey="accuracy"
