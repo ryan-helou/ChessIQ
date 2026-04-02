@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Chessify",
+  title: "Chess IQ",
   description: "Analyze your Chess.com games in depth",
 };
 

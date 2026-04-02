@@ -111,7 +111,7 @@ export default function Dashboard() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
           <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">
-              Chessify
+              Chess IQ
             </h1>
             <p className="text-slate-400 text-lg">
               Analyze your Chess.com performance in depth
