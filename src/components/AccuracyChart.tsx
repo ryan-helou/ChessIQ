@@ -113,8 +113,10 @@ export function AccuracyVsRating({ games }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis
             dataKey="opponentRating"
+            type="number"
             tick={{ fill: "#94a3b8", fontSize: 11 }}
             name="Opponent Rating"
+            domain={["auto", "auto"]}
             label={{
               value: "Opponent Rating",
               position: "insideBottom",
