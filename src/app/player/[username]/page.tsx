@@ -10,6 +10,7 @@ import RatingChart from "@/components/RatingChart";
 import DateRangePicker from "@/components/DateRangePicker";
 import { WinLossDrawChart, ResultBreakdownChart } from "@/components/ResultsChart";
 import { AccuracyOverTime, AccuracyVsRating } from "@/components/AccuracyChart";
+import { AccuracyByPhase } from "@/components/AccuracyPhaseChart";
 import OpeningTable from "@/components/OpeningTable";
 import GamesList from "@/components/GamesList";
 import type {
@@ -244,6 +245,12 @@ export default function PlayerPage() {
             <div className="bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-8">
               <h2 className="text-lg font-semibold mb-4">Accuracy vs Opponent Rating</h2>
               <AccuracyVsRating games={data.games} />
+            </div>
+
+            {/* Accuracy by Game Phase */}
+            <div className="bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-8">
+              <h2 className="text-lg font-semibold mb-4">Accuracy by Game Phase</h2>
+              <AccuracyByPhase games={data.games} />
             </div>
 
             {/* Openings */}
