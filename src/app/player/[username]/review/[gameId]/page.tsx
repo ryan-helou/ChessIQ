@@ -8,11 +8,44 @@ import EvalBar from "@/components/game-review/EvalBar";
 import EvalGraph from "@/components/game-review/EvalGraph";
 import MoveList from "@/components/game-review/MoveList";
 import {
-  analyzeGameBrowser,
-  type AnalyzedMove,
-  type GameAnalysis,
-  type MoveClassification,
-} from "@/lib/analyze-game-browser";
+  submitGameAnalysis,
+  getGameAnalysis,
+  getAnalysisStatus,
+} from "@/lib/backend-api";
+
+type MoveClassification =
+  | "brilliant"
+  | "great"
+  | "best"
+  | "excellent"
+  | "good"
+  | "inaccuracy"
+  | "mistake"
+  | "blunder"
+  | "book";
+
+interface AnalyzedMove {
+  moveNumber: number;
+  move: string;
+  san: string;
+  fen: string;
+  bestMove: string;
+  engineEval: number;
+  accuracy: number;
+  isBlunder: boolean;
+  isMistake: boolean;
+  isInaccuracy: boolean;
+}
+
+interface GameAnalysis {
+  moves: AnalyzedMove[];
+  whiteAccuracy: number;
+  blackAccuracy: number;
+  evalGraph: { move: number; eval: number; mate: number | null }[];
+  blunders: { white: number; black: number };
+  mistakes: { white: number; black: number };
+  inaccuracies: { white: number; black: number };
+}
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
@@ -80,44 +113,20 @@ function AnalysisSummary({
   );
 }
 
-function AnalysisProgress({
-  current,
-  total,
-  lastMove,
-}: {
-  current: number;
-  total: number;
-  lastMove: AnalyzedMove | null;
-}) {
-  const pct = total > 0 ? (current / total) * 100 : 0;
-
+function AnalysisProgress() {
   return (
     <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-slate-300">
-          Analyzing with Stockfish...
+          Analyzing with Stockfish on server...
         </h3>
-        <span className="text-sm text-slate-500">
-          {current}/{total} moves
-        </span>
       </div>
       <div className="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden mb-3">
-        <div
-          className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all duration-300"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full animate-pulse" />
       </div>
-      {lastMove && (
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="font-mono">{lastMove.san}</span>
-          <span
-            className={CLASSIFICATION_LABELS[lastMove.classification].color}
-          >
-            {CLASSIFICATION_LABELS[lastMove.classification].label}
-          </span>
-          <span>— Accuracy: {lastMove.accuracy.toFixed(0)}%</span>
-        </div>
-      )}
+      <p className="text-xs text-slate-500">
+        This may take a few minutes for deeper analysis. We'll check back every 30 seconds.
+      </p>
     </div>
   );
 }
@@ -132,8 +141,6 @@ export default function GameReviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
-  const [progressMoves, setProgressMoves] = useState<AnalyzedMove[]>([]);
-  const [progressTotal, setProgressTotal] = useState(0);
   const [gameInfo, setGameInfo] = useState<{
     white: string;
     black: string;
@@ -200,45 +207,89 @@ export default function GameReviewPage() {
     fetchGame();
   }, [username, gameId]);
 
-  // Step 2: Run browser-side analysis once we have the PGN
+  // Step 2: Submit game for backend analysis
   useEffect(() => {
     if (!gameInfo?.pgn || analyzing || analysis) return;
 
     setAnalyzing(true);
 
-    analyzeGameBrowser(gameInfo.pgn, 16, (moveIndex, total, move) => {
-      setProgressTotal(total);
-      setProgressMoves((prev) => [...prev, move]);
-    })
-      .then((result) => {
-        setAnalysis(result);
-        setAnalyzing(false);
-      })
-      .catch((err) => {
+    (async () => {
+      try {
+        // Submit game to backend for analysis
+        const result = await submitGameAnalysis(gameInfo.pgn, undefined, {
+          white_username: gameInfo.white,
+          black_username: gameInfo.black,
+          opening_name: gameInfo.opening,
+        });
+
+        // Poll for completion
+        let attempts = 0;
+        const maxAttempts = 360; // 3 hours at 30-second intervals
+        while (attempts < maxAttempts) {
+          try {
+            const status = await getAnalysisStatus(result.gameId);
+            if (status.analysisComplete) {
+              const fullAnalysis = await getGameAnalysis(result.gameId);
+
+              // Convert to expected format
+              const analysis: GameAnalysis = {
+                moves: fullAnalysis.moves,
+                whiteAccuracy: fullAnalysis.whiteAccuracy,
+                blackAccuracy: fullAnalysis.blackAccuracy,
+                evalGraph: fullAnalysis.evalGraph,
+                blunders: {
+                  white: fullAnalysis.blunderCounts.white,
+                  black: fullAnalysis.blunderCounts.black,
+                },
+                mistakes: {
+                  white: fullAnalysis.mistakeCounts.white,
+                  black: fullAnalysis.mistakeCounts.black,
+                },
+                inaccuracies: {
+                  white: fullAnalysis.inaccuracyCounts.white,
+                  black: fullAnalysis.inaccuracyCounts.black,
+                },
+              };
+              setAnalysis(analysis);
+              setAnalyzing(false);
+              return;
+            }
+          } catch (err) {
+            console.error("Status check failed:", err);
+          }
+
+          // Wait before next poll
+          await new Promise((r) => setTimeout(r, 30000));
+          attempts++;
+        }
+
+        throw new Error("Analysis timeout");
+      } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Stockfish analysis failed"
+          err instanceof Error ? err.message : "Analysis failed"
         );
         setAnalyzing(false);
-      });
-  }, [gameInfo?.pgn, analyzing, analysis]);
+      }
+    })();
+  }, [gameInfo?.pgn, analyzing, analysis, gameInfo?.white, gameInfo?.black, gameInfo?.opening]);
 
   // Current position FEN
   const getCurrentFen = useCallback(() => {
-    const moves = analysis?.moves ?? progressMoves;
-    if (currentMoveIndex < 0 || !moves.length) {
+    const moves = analysis?.moves;
+    if (currentMoveIndex < 0 || !moves?.length) {
       return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     }
     return (
       moves[currentMoveIndex]?.fen ??
       "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     );
-  }, [currentMoveIndex, analysis, progressMoves]);
+  }, [currentMoveIndex, analysis]);
 
   // Keyboard navigation
   useEffect(() => {
-    const moves = analysis?.moves ?? progressMoves;
+    const moves = analysis?.moves;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!moves.length) return;
+      if (!moves?.length) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         setCurrentMoveIndex((prev) => Math.max(-1, prev - 1));
@@ -258,13 +309,12 @@ export default function GameReviewPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [analysis, progressMoves]);
+  }, [analysis]);
 
-  const displayMoves = analysis?.moves ?? progressMoves;
+  const displayMoves = analysis?.moves ?? [];
   const currentMove =
     currentMoveIndex >= 0 ? displayMoves[currentMoveIndex] : null;
   const currentEval = currentMove?.engineEval ?? 0;
-  const currentMate = currentMove?.mate ?? null;
 
   // Highlight squares
   const customSquareStyles: Record<string, React.CSSProperties> = {};
@@ -361,7 +411,7 @@ export default function GameReviewPage() {
           <div className="flex gap-2 shrink-0">
             {/* Eval bar */}
             <div className="relative h-[min(480px,80vw)] w-8">
-              <EvalBar eval_={currentEval} mate={currentMate} />
+              <EvalBar eval_={currentEval} mate={null} />
             </div>
 
             {/* Board */}
@@ -383,17 +433,7 @@ export default function GameReviewPage() {
           {/* Right: Analysis panel */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
             {/* Analysis progress */}
-            {analyzing && !analysis && (
-              <AnalysisProgress
-                current={progressMoves.length}
-                total={progressTotal}
-                lastMove={
-                  progressMoves.length > 0
-                    ? progressMoves[progressMoves.length - 1]
-                    : null
-                }
-              />
-            )}
+            {analyzing && !analysis && <AnalysisProgress />}
 
             {/* Current move info */}
             {currentMove && (

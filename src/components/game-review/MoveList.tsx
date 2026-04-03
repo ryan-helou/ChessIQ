@@ -1,7 +1,31 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import type { AnalyzedMove, MoveClassification } from "@/lib/analyze-game-browser";
+
+type MoveClassification =
+  | "brilliant"
+  | "great"
+  | "best"
+  | "excellent"
+  | "good"
+  | "inaccuracy"
+  | "mistake"
+  | "blunder"
+  | "book";
+
+interface AnalyzedMove {
+  moveNumber: number;
+  move: string;
+  san: string;
+  fen: string;
+  bestMove: string;
+  engineEval: number;
+  accuracy: number;
+  isBlunder: boolean;
+  isMistake: boolean;
+  isInaccuracy: boolean;
+  classification?: MoveClassification;
+}
 
 interface Props {
   moves: AnalyzedMove[];
