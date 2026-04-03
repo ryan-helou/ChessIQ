@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import type { AnalyzedMove, MoveClassification } from "@/modules/game-review/analyzer";
+import type { AnalyzedMove, MoveClassification } from "@/lib/analyze-game-browser";
 
 interface Props {
   moves: AnalyzedMove[];
