@@ -255,7 +255,7 @@ export default function PlayerPage() {
             {/* Recent Games */}
             <div id="games" className="scroll-mt-28 bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-16">
               <h2 className="text-lg font-semibold mb-4">Game History</h2>
-              <GamesList games={data.games} />
+              <GamesList games={data.games} username={username} />
             </div>
           </div>
         </>

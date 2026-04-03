@@ -5,9 +5,10 @@ import type { ParsedGame } from "@/lib/game-analysis";
 
 interface Props {
   games: ParsedGame[];
+  username?: string;
 }
 
-export default function GamesList({ games }: Props) {
+export default function GamesList({ games, username }: Props) {
   const [filter, setFilter] = useState<"all" | "win" | "loss" | "draw">("all");
   const [page, setPage] = useState(0);
   const perPage = 20;
@@ -72,9 +73,9 @@ export default function GamesList({ games }: Props) {
         {pageGames.map((g) => (
           <a
             key={g.id}
-            href={g.url}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={username ? `/player/${username}/review/${g.id}` : g.url}
+            target={username ? undefined : "_blank"}
+            rel={username ? undefined : "noopener noreferrer"}
             className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:bg-slate-800/60 transition-colors group"
           >
             {/* Result badge */}
