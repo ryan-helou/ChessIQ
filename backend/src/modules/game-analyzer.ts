@@ -195,7 +195,9 @@ export async function analyzeGame(
       fenBefore,
       color,
       engineEval: afterEvalWhite,
-      mate: afterEval.mate,
+      mate: afterEval.mate !== null
+        ? (color === "white" ? -afterEval.mate : afterEval.mate)
+        : null,
       bestMove: bestEval.bestMove,
       bestMoveSan,
       evalBefore: bestEvalWhite,
@@ -227,7 +229,9 @@ export async function analyzeGame(
     evalGraph.push({
       move: halfMoveNumber,
       eval: afterEvalWhite,
-      mate: afterEval.mate,
+      mate: afterEval.mate !== null
+        ? (color === "white" ? -afterEval.mate : afterEval.mate)
+        : null,
     });
 
   }
