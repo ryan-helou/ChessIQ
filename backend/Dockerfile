@@ -7,7 +7,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Verify Stockfish works
-RUN stockfish quit <<< "quit" || true
+RUN echo "quit" | stockfish || true
 
 WORKDIR /app
 
