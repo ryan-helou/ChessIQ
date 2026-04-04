@@ -20,9 +20,10 @@ interface Props {
   data: EvalPoint[];
   currentMove: number;
   onMoveClick: (move: number) => void;
+  mini?: boolean;
 }
 
-export default function EvalGraph({ data, currentMove, onMoveClick }: Props) {
+export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Props) {
   // Clamp eval for display (-500 to 500 centipawns)
   const chartData = data.map((d) => ({
     ...d,
@@ -32,8 +33,10 @@ export default function EvalGraph({ data, currentMove, onMoveClick }: Props) {
     isCurrent: d.move === currentMove,
   }));
 
+  const height = mini ? "100%" : "100%";
+
   return (
-    <div className="w-full h-[120px]">
+    <div className={`w-full ${mini ? "h-full" : "h-[120px]"}`}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}
@@ -42,7 +45,8 @@ export default function EvalGraph({ data, currentMove, onMoveClick }: Props) {
               onMoveClick(e.activePayload[0].payload.move);
             }
           }}
-          style={{ cursor: "pointer" }}
+          style={{ cursor: mini ? "default" : "pointer" }}
+          margin={mini ? { top: 2, right: 2, bottom: 2, left: 2 } : undefined}
         >
           <defs>
             <linearGradient id="evalWhite" x1="0" y1="0" x2="0" y2="1">
@@ -57,7 +61,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick }: Props) {
           <XAxis dataKey="move" hide />
           <YAxis domain={[-500, 500]} hide />
           <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
-          {currentMove > 0 && (
+          {!mini && currentMove > 0 && (
             <ReferenceLine
               x={currentMove}
               stroke="#3b82f6"
@@ -65,30 +69,32 @@ export default function EvalGraph({ data, currentMove, onMoveClick }: Props) {
               strokeDasharray="3 3"
             />
           )}
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "#0f172a",
-              border: "1px solid #1e293b",
-              borderRadius: "6px",
-              color: "#e2e8f0",
-              fontSize: 12,
-            }}
-            formatter={(value: any, _name: any, props: any) => {
-              const point = props?.payload;
-              if (point?.mate != null) {
-                return [`M${Math.abs(point.mate)}`, point.mate > 0 ? "White wins" : "Black wins"];
-              }
-              const v = Number(value);
-              const evalStr = v > 0 ? `+${(v / 100).toFixed(1)}` : (v / 100).toFixed(1);
-              return [evalStr, "Eval"];
-            }}
-            labelFormatter={(label) => `Move ${label}`}
-          />
+          {!mini && (
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#0f172a",
+                border: "1px solid #1e293b",
+                borderRadius: "6px",
+                color: "#e2e8f0",
+                fontSize: 12,
+              }}
+              formatter={(value: any, _name: any, props: any) => {
+                const point = props?.payload;
+                if (point?.mate != null) {
+                  return [`M${Math.abs(point.mate)}`, point.mate > 0 ? "White wins" : "Black wins"];
+                }
+                const v = Number(value);
+                const evalStr = v > 0 ? `+${(v / 100).toFixed(1)}` : (v / 100).toFixed(1);
+                return [evalStr, "Eval"];
+              }}
+              labelFormatter={(label) => `Move ${label}`}
+            />
+          )}
           <Area
             type="monotone"
             dataKey="displayEval"
             stroke="#94a3b8"
-            strokeWidth={1.5}
+            strokeWidth={mini ? 1 : 1.5}
             fill="url(#evalWhite)"
             fillOpacity={1}
             isAnimationActive={false}

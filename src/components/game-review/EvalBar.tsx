@@ -31,23 +31,23 @@ export default function EvalBar({ eval_, mate }: Props) {
   const isWhiteAdvantage = mate !== null ? mate > 0 : eval_ >= 0;
 
   return (
-    <div className="flex flex-col items-center w-8 h-full rounded overflow-hidden bg-slate-900 border border-slate-700/50 select-none">
+    <div className="flex flex-col items-center w-8 h-full rounded overflow-hidden bg-[#262522] border border-[#3a3835] select-none relative">
       {/* Black portion (top) */}
       <div
-        className="w-full bg-slate-800 transition-all duration-500 ease-out"
+        className="w-full bg-[#3a3835] transition-all duration-500 ease-out"
         style={{ height: `${100 - whitePercent}%` }}
       />
       {/* White portion (bottom) */}
       <div
-        className="w-full bg-slate-100 transition-all duration-500 ease-out relative"
+        className="w-full bg-[#e8e6e1] transition-all duration-500 ease-out"
         style={{ height: `${whitePercent}%` }}
       />
       {/* Eval text */}
       <div
         className={`absolute text-[10px] font-bold tracking-tight ${
           isWhiteAdvantage
-            ? "bottom-1 text-slate-800"
-            : "top-1 text-slate-300"
+            ? "bottom-1 text-[#3a3835]"
+            : "top-1 text-[#b0aea8]"
         }`}
         style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
       >
