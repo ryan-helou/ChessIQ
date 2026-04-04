@@ -68,34 +68,144 @@ export interface GameAnalysis {
   analysisDepth: number;
 }
 
-// Classify moves based on centipawn loss
+// ============================================================
+// Chess.com Expected Points Model (Classification V2)
+// ============================================================
+//
+// Expected Points converts engine eval to a 0.0-1.0 scale
+// representing the expected game outcome (1.0 = win, 0.5 = draw, 0.0 = loss).
+// Moves are classified by how many expected points are lost.
+//
+// The win probability function uses a logistic curve scaled by rating.
+// Higher-rated players convert smaller advantages more reliably.
+
+/**
+ * Convert centipawns (from the player's perspective) to expected points (0-1).
+ * Uses a logistic model similar to Chess.com's, where the steepness
+ * depends on the player's rating.
+ */
+function expectedPoints(cpFromPlayerPerspective: number, rating: number = 1500): number {
+  // K factor controls how steep the curve is.
+  // Higher-rated players convert advantages more efficiently.
+  // Chess.com uses a rating-dependent model; we approximate:
+  //   ~1200 rating: K ≈ 580 (needs bigger advantage to be "winning")
+  //   ~1500 rating: K ≈ 500
+  //   ~2000 rating: K ≈ 400
+  //   ~2500 rating: K ≈ 320 (small advantages are significant)
+  const K = Math.max(280, 640 - rating * 0.12);
+
+  return 1 / (1 + Math.pow(10, -cpFromPlayerPerspective / K));
+}
+
+/**
+ * Classify a move based on expected points lost (Chess.com V2 thresholds).
+ */
 function classifyMove(
-  evalDrop: number,
-  isBook: boolean
+  epLost: number,
+  isBook: boolean,
+  isBrilliant: boolean,
+  isGreat: boolean,
 ): MoveClassification {
   if (isBook) return "book";
-  const loss = Math.abs(evalDrop);
-  if (loss <= 10) return "best";
-  if (loss <= 25) return "excellent";
-  if (loss <= 50) return "good";
-  if (loss <= 100) return "inaccuracy";
-  if (loss <= 250) return "mistake";
+  if (isBrilliant) return "brilliant";
+  if (isGreat) return "great";
+
+  // Chess.com Classification V2 thresholds:
+  if (epLost <= 0.005) return "best";      // effectively 0
+  if (epLost <= 0.02)  return "excellent";
+  if (epLost <= 0.05)  return "good";
+  if (epLost <= 0.10)  return "inaccuracy";
+  if (epLost <= 0.20)  return "mistake";
   return "blunder";
 }
 
-// Convert centipawn loss to accuracy (Chess.com-like formula)
+/**
+ * Detect if a move is a "Brilliant" move (Chess.com definition):
+ * - Best or near-best move in the position
+ * - Involves a piece sacrifice
+ * - Player is not already completely winning
+ * - Position is not lost even without the move
+ */
+function detectBrilliant(
+  move: { san: string; piece: string; captured?: string },
+  epLost: number,
+  epBefore: number,
+  epAfter: number,
+): boolean {
+  // Must be a good move (low EP loss)
+  if (epLost > 0.02) return false;
+
+  // Must involve a sacrifice — capturing with a higher-value piece
+  // or moving a piece to a square where it can be captured
+  // Simplified: look for piece sacrifices via SAN (captures where attacker > defender)
+  const pieceValues: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  const isCapture = move.san.includes("x");
+
+  if (!isCapture) return false;
+
+  const attackerValue = pieceValues[move.piece] ?? 0;
+  const capturedValue = move.captured ? (pieceValues[move.captured] ?? 0) : 0;
+
+  // Sacrifice: giving up more material than gaining
+  const isSacrifice = attackerValue > capturedValue + 1;
+  if (!isSacrifice) return false;
+
+  // Should not already be completely winning (EP > 0.90)
+  if (epBefore > 0.90) return false;
+
+  // Should not be in a bad position after (EP < 0.35)
+  if (epAfter < 0.35) return false;
+
+  return true;
+}
+
+/**
+ * Detect if a move is a "Great" move (Chess.com definition):
+ * - Critical to the outcome of the game
+ * - Turns a losing position into equal, or equal into winning
+ */
+function detectGreat(
+  epLost: number,
+  epBefore: number,
+  epAfter: number,
+): boolean {
+  // Must be a good move
+  if (epLost > 0.03) return false;
+
+  // Must represent a significant improvement in the game state
+  // (opponent blundered and player found the refutation)
+  // Detect: position was bad/equal for player and is now much better
+  const wasLosing = epBefore < 0.40;
+  const nowWinning = epAfter > 0.65;
+
+  const wasEqual = epBefore >= 0.40 && epBefore <= 0.60;
+  const nowClearlyBetter = epAfter > 0.75;
+
+  return (wasLosing && nowWinning) || (wasEqual && nowClearlyBetter);
+}
+
+/**
+ * Calculate move accuracy (0-100) using expected points model.
+ * Chess.com accuracy = expected points retained as a percentage.
+ */
 function moveAccuracy(
   evalBefore: number,
   evalAfter: number,
-  color: "white" | "black"
+  color: "white" | "black",
+  rating: number = 1500,
 ): number {
-  const winProb = (cp: number) => 1 / (1 + Math.pow(10, -cp / 400));
+  // Convert evals (white perspective) to player perspective
+  const cpBefore = color === "white" ? evalBefore : -evalBefore;
+  const cpAfter = color === "white" ? evalAfter : -evalAfter;
 
-  const probBefore = color === "white" ? winProb(evalBefore) : winProb(-evalBefore);
-  const probAfter = color === "white" ? winProb(evalAfter) : winProb(-evalAfter);
+  const epBefore = expectedPoints(cpBefore, rating);
+  const epAfter = expectedPoints(cpAfter, rating);
 
-  if (probBefore <= 0.001) return 100;
-  const accuracy = (probAfter / probBefore) * 100;
+  // If position was already lost, any move is "100% accurate" (nothing to lose)
+  if (epBefore <= 0.01) return 100;
+
+  // Accuracy = how much of your expected points you retained
+  const accuracy = (epAfter / epBefore) * 100;
   return Math.max(0, Math.min(100, accuracy));
 }
 
@@ -177,9 +287,26 @@ export async function analyzeGame(
     // evalDrop from mover's perspective (negative = worse move)
     const evalDrop = -afterEval.eval - bestEval.eval;
 
+    // Expected Points model (Chess.com Classification V2)
+    // Convert evals to player's perspective for EP calculation
+    const cpBeforePlayer = color === "white" ? bestEvalWhite : -bestEvalWhite;
+    const cpAfterPlayer = color === "white" ? afterEvalWhite : -afterEvalWhite;
+
+    // TODO: pass actual player rating from game metadata
+    const playerRating = 1500;
+
+    const epBefore = expectedPoints(cpBeforePlayer, playerRating);
+    const epAfter = expectedPoints(cpAfterPlayer, playerRating);
+    const epLost = Math.max(0, epBefore - epAfter);
+
     const isBook = i < bookMoves;
-    const classification = classifyMove(evalDrop, isBook);
-    const accuracy = isBook ? 100 : moveAccuracy(bestEvalWhite, afterEvalWhite, color);
+
+    // Detect special classifications
+    const isBrilliant = !isBook && detectBrilliant(move, epLost, epBefore, epAfter);
+    const isGreat = !isBook && !isBrilliant && detectGreat(epLost, epBefore, epAfter);
+
+    const classification = classifyMove(epLost, isBook, isBrilliant, isGreat);
+    const accuracy = isBook ? 100 : moveAccuracy(bestEvalWhite, afterEvalWhite, color, playerRating);
 
     const bestMoveSan = uciToSan(fenBefore, bestEval.bestMove);
 
