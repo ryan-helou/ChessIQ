@@ -165,18 +165,21 @@ export async function analyzeGame(
       afterEval = { bestMove: "", eval: 0, mate: null, depth: 0, pv: [] };
     }
 
-    // Calculate eval drop from mover's perspective
-    const evalAfterMove = afterEval.eval;
-    let evalDrop: number;
-    if (color === "white") {
-      evalDrop = evalAfterMove - bestEval.eval;
-    } else {
-      evalDrop = -evalAfterMove - -bestEval.eval;
-    }
+    // Stockfish UCI returns eval from side-to-move perspective.
+    // bestEval.eval = from mover's perspective (before the move)
+    // afterEval.eval = from OPPONENT's perspective (after the move)
+    // Negate afterEval to get mover's perspective, then compare.
+
+    // Convert both to white's perspective for consistent storage
+    const bestEvalWhite = color === "white" ? bestEval.eval : -bestEval.eval;
+    const afterEvalWhite = color === "white" ? -afterEval.eval : afterEval.eval;
+
+    // evalDrop from mover's perspective (negative = worse move)
+    const evalDrop = -afterEval.eval - bestEval.eval;
 
     const isBook = i < bookMoves;
     const classification = classifyMove(evalDrop, isBook);
-    const accuracy = isBook ? 100 : moveAccuracy(bestEval.eval, evalAfterMove, color);
+    const accuracy = isBook ? 100 : moveAccuracy(bestEvalWhite, afterEvalWhite, color);
 
     const bestMoveSan = uciToSan(fenBefore, bestEval.bestMove);
 
@@ -191,11 +194,11 @@ export async function analyzeGame(
       fen: fenAfter,
       fenBefore,
       color,
-      engineEval: evalAfterMove,
+      engineEval: afterEvalWhite,
       mate: afterEval.mate,
       bestMove: bestEval.bestMove,
       bestMoveSan,
-      evalBefore: bestEval.eval,
+      evalBefore: bestEvalWhite,
       evalDrop,
       classification,
       accuracy,
@@ -213,8 +216,8 @@ export async function analyzeGame(
         moveNumber,
         playerMove: analyzedMove.move,
         bestMove: bestEval.bestMove,
-        evalBeforeCp: bestEval.eval,
-        evalAfterCp: evalAfterMove,
+        evalBeforeCp: bestEvalWhite,
+        evalAfterCp: afterEvalWhite,
         severity: isBlunder ? "blunder" : isMistake ? "mistake" : "inaccuracy",
         missedTactic: null, // Will be determined in Phase 3
         consequence: null, // Will be determined in Phase 3
@@ -223,7 +226,7 @@ export async function analyzeGame(
 
     evalGraph.push({
       move: halfMoveNumber,
-      eval: evalAfterMove,
+      eval: afterEvalWhite,
       mate: afterEval.mate,
     });
 
