@@ -332,14 +332,14 @@ export default function GameReviewPage() {
 
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left: Board + Eval */}
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-3 shrink-0">
             {/* Eval bar */}
-            <div className="relative h-[min(480px,80vw)] w-8">
+            <div className="w-8" style={{ height: "min(520px, 80vw)" }}>
               <EvalBar eval_={currentEval} mate={null} />
             </div>
 
             {/* Board */}
-            <div className="w-[min(480px,calc(80vw-40px))]">
+            <div style={{ width: "min(520px, calc(80vw - 44px))", aspectRatio: "1" }}>
               <Chessboard
                 options={{
                   position: getCurrentFen(),
@@ -349,6 +349,10 @@ export default function GameReviewPage() {
                   boardOrientation: gameInfo?.playerColor ?? "white",
                   allowDragging: false,
                   animationDurationInMs: 200,
+                  boardStyle: {
+                    width: "100%",
+                    height: "100%",
+                  },
                 }}
               />
             </div>
