@@ -362,13 +362,26 @@ export async function analyzeGame(
     game.move(move.san);
     const fenAfter = game.fen();
 
-    // Evaluate the position after the player's move
+    // Check if this move ends the game (checkmate or stalemate)
+    const isCheckmate = game.isCheckmate();
+    const isStalemate = game.isStalemate();
+    // If checkmate: no need to evaluate — this is always the best move
+    // Stockfish can't evaluate terminal positions, so skip the eval call
     let afterEval: EngineEval;
-    try {
-      afterEval = await engine.evaluatePosition(fenAfter, depth, 15000);
-    } catch (error) {
-      console.error(`Failed to evaluate position after move ${moveNumber}:`, error);
+    if (isCheckmate) {
+      // From opponent's perspective: they're mated = worst possible score
+      // Use a large centipawn value to represent mate
+      afterEval = { bestMove: "", eval: -10000, mate: 0, depth: 0, pv: [] };
+    } else if (isStalemate) {
+      // Stalemate = draw = 0 from both perspectives
       afterEval = { bestMove: "", eval: 0, mate: null, depth: 0, pv: [] };
+    } else {
+      try {
+        afterEval = await engine.evaluatePosition(fenAfter, depth, 15000);
+      } catch (error) {
+        console.error(`Failed to evaluate position after move ${moveNumber}:`, error);
+        afterEval = { bestMove: "", eval: 0, mate: null, depth: 0, pv: [] };
+      }
     }
 
     // Stockfish UCI returns eval from side-to-move perspective.
