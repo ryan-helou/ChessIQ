@@ -35,6 +35,7 @@ const CLASSIFICATION_LABELS: Record<
   inaccuracy: { label: "Inaccuracy", color: "text-yellow-400" },
   mistake: { label: "Mistake", color: "text-orange-400" },
   blunder: { label: "Blunder", color: "text-red-400" },
+  miss: { label: "Miss", color: "text-amber-400" },
   book: { label: "Book Move", color: "text-violet-400" },
 };
 

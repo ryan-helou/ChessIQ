@@ -27,6 +27,7 @@ export type MoveClassification =
   | "inaccuracy"
   | "mistake"
   | "blunder"
+  | "miss"
   | "book";
 
 export interface GameAnalysis {

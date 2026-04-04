@@ -11,6 +11,7 @@ type MoveClassification =
   | "inaccuracy"
   | "mistake"
   | "blunder"
+  | "miss"
   | "book";
 
 interface AnalyzedMove {
@@ -42,6 +43,7 @@ const CLASSIFICATION_COLORS: Record<MoveClassification, string> = {
   inaccuracy: "text-yellow-400 bg-yellow-500/10",
   mistake: "text-orange-400 bg-orange-500/10",
   blunder: "text-red-400 bg-red-500/15",
+  miss: "text-amber-400 bg-amber-500/10",
   book: "text-violet-400 bg-violet-500/10",
 };
 
@@ -54,6 +56,7 @@ const CLASSIFICATION_ICONS: Record<MoveClassification, string> = {
   inaccuracy: "?!",
   mistake: "?",
   blunder: "??",
+  miss: "⊘",
   book: "📖",
 };
 

@@ -32,6 +32,7 @@ export type MoveClassification =
   | "inaccuracy"
   | "mistake"
   | "blunder"
+  | "miss"
   | "book";
 
 export interface Blunder {
@@ -98,20 +99,33 @@ function expectedPoints(cpFromPlayerPerspective: number, rating: number = 1500):
 }
 
 /**
- * Classify a move based on expected points lost (Chess.com V2 thresholds).
+ * Classify a move based on expected points lost (Chess.com Classification V2).
+ *
+ * From Chess.com's article:
+ *   Best:       EP lost = 0.00
+ *   Excellent:  0.00 < EP lost <= 0.02
+ *   Good:       0.02 < EP lost <= 0.05
+ *   Inaccuracy: 0.05 < EP lost <= 0.10
+ *   Mistake:    0.10 < EP lost <= 0.20
+ *   Blunder:    0.20 < EP lost <= 1.00
+ *
+ * "Miss" is a special classification: failing to capitalize on opponent's
+ * mistake (not gaining a winning position when one was available).
  */
 function classifyMove(
   epLost: number,
   isBook: boolean,
   isBrilliant: boolean,
   isGreat: boolean,
+  isMissedOpportunity: boolean,
 ): MoveClassification {
   if (isBook) return "book";
   if (isBrilliant) return "brilliant";
   if (isGreat) return "great";
+  if (isMissedOpportunity) return "miss";
 
-  // Chess.com Classification V2 thresholds:
-  if (epLost <= 0.005) return "best";      // effectively 0
+  // Chess.com Classification V2 exact thresholds:
+  if (epLost <= 0.002) return "best";      // ~0.00 (float tolerance)
   if (epLost <= 0.02)  return "excellent";
   if (epLost <= 0.05)  return "good";
   if (epLost <= 0.10)  return "inaccuracy";
@@ -122,22 +136,23 @@ function classifyMove(
 /**
  * Detect if a move is a "Brilliant" move (Chess.com definition):
  * - Best or near-best move in the position
- * - Involves a piece sacrifice
+ * - Involves a good piece sacrifice
  * - Player is not already completely winning
  * - Position is not lost even without the move
+ *
+ * Chess.com: "more generous in defining a piece sacrifice for newer
+ * players compared to those who are higher-rated."
  */
 function detectBrilliant(
   move: { san: string; piece: string; captured?: string },
   epLost: number,
   epBefore: number,
   epAfter: number,
+  rating: number = 1500,
 ): boolean {
   // Must be a good move (low EP loss)
   if (epLost > 0.02) return false;
 
-  // Must involve a sacrifice — capturing with a higher-value piece
-  // or moving a piece to a square where it can be captured
-  // Simplified: look for piece sacrifices via SAN (captures where attacker > defender)
   const pieceValues: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
   const isCapture = move.san.includes("x");
 
@@ -146,14 +161,19 @@ function detectBrilliant(
   const attackerValue = pieceValues[move.piece] ?? 0;
   const capturedValue = move.captured ? (pieceValues[move.captured] ?? 0) : 0;
 
-  // Sacrifice: giving up more material than gaining
-  const isSacrifice = attackerValue > capturedValue + 1;
+  // Rating-dependent sacrifice threshold:
+  // Lower-rated players: material difference of 1 counts as sacrifice
+  // Higher-rated players: need material difference of 2+
+  const sacrificeThreshold = rating < 1200 ? 0.5 : rating < 1800 ? 1 : 2;
+  const isSacrifice = attackerValue > capturedValue + sacrificeThreshold;
   if (!isSacrifice) return false;
 
-  // Should not already be completely winning (EP > 0.90)
-  if (epBefore > 0.90) return false;
+  // Should not already be completely winning
+  // More generous for lower-rated players (they convert less reliably)
+  const winningThreshold = rating < 1200 ? 0.95 : rating < 1800 ? 0.92 : 0.88;
+  if (epBefore > winningThreshold) return false;
 
-  // Should not be in a bad position after (EP < 0.35)
+  // Should not be in a bad position after
   if (epAfter < 0.35) return false;
 
   return true;
@@ -163,30 +183,82 @@ function detectBrilliant(
  * Detect if a move is a "Great" move (Chess.com definition):
  * - Critical to the outcome of the game
  * - Turns a losing position into equal, or equal into winning
+ * - Finding the only good move in a position
+ *
+ * Chess.com: "more generous in what we call a Great Move for new
+ * players compared to higher-rated players."
  */
 function detectGreat(
   epLost: number,
   epBefore: number,
   epAfter: number,
+  rating: number = 1500,
 ): boolean {
   // Must be a good move
   if (epLost > 0.03) return false;
 
-  // Must represent a significant improvement in the game state
-  // (opponent blundered and player found the refutation)
-  // Detect: position was bad/equal for player and is now much better
-  const wasLosing = epBefore < 0.40;
-  const nowWinning = epAfter > 0.65;
+  // Rating-dependent thresholds for what counts as "losing" and "winning"
+  // Lower-rated players get more generous thresholds
+  const losingThreshold = rating < 1200 ? 0.45 : rating < 1800 ? 0.40 : 0.35;
+  const winningThreshold = rating < 1200 ? 0.60 : rating < 1800 ? 0.65 : 0.70;
+  const clearlyBetterThreshold = rating < 1200 ? 0.70 : rating < 1800 ? 0.75 : 0.80;
 
-  const wasEqual = epBefore >= 0.40 && epBefore <= 0.60;
-  const nowClearlyBetter = epAfter > 0.75;
+  const wasLosing = epBefore < losingThreshold;
+  const nowWinning = epAfter > winningThreshold;
+
+  const wasEqual = epBefore >= losingThreshold && epBefore <= 0.60;
+  const nowClearlyBetter = epAfter > clearlyBetterThreshold;
 
   return (wasLosing && nowWinning) || (wasEqual && nowClearlyBetter);
 }
 
 /**
- * Calculate move accuracy (0-100) using expected points model.
- * Chess.com accuracy = expected points retained as a percentage.
+ * Detect if a move is a "Miss" (Chess.com Classification V2):
+ * - Opponent just made a mistake (EP swung in your favor)
+ * - You failed to capitalize and missed the winning opportunity
+ * - Position goes from potentially winning back to equal/worse
+ *
+ * The engine evaluation required to determine winning/equal/losing
+ * varies according to the player's rating.
+ */
+function detectMiss(
+  epLost: number,
+  epBefore: number,
+  epAfter: number,
+  opponentPreviousEpLost: number,
+  rating: number = 1500,
+): boolean {
+  // Opponent must have just made a meaningful mistake (lost significant EP)
+  if (opponentPreviousEpLost < 0.08) return false;
+
+  // Player must have had a good position (opponent blundered into it)
+  // Rating-dependent: higher-rated players should convert smaller advantages
+  const winningEp = rating < 1200 ? 0.70 : rating < 1800 ? 0.65 : 0.60;
+  if (epBefore < winningEp) return false;
+
+  // Player's move must have given back significant advantage
+  if (epLost < 0.08) return false;
+
+  // Position after should no longer be clearly winning
+  const stillWinning = rating < 1200 ? 0.65 : rating < 1800 ? 0.60 : 0.55;
+  if (epAfter > stillWinning) return false;
+
+  return true;
+}
+
+/**
+ * Calculate move accuracy (0-100) using CAPS2 formula.
+ *
+ * Chess.com's CAPS2 uses an exponential decay model based on win percentage
+ * points lost. This produces scores mostly between 50-95 for normal play,
+ * giving a "school test grade" feel (per Chess.com's Accuracy article).
+ *
+ * The old CAPS (v1) used simple EP retention (epAfter/epBefore * 100),
+ * which skewed too high (most moves scored 98-100). CAPS2 spreads the
+ * distribution more naturally.
+ *
+ * Formula: accuracy = 103.1668 * exp(-0.04354 * wpLost) - 3.1668
+ * where wpLost = (winPercentBefore - winPercentAfter) on a 0-100 scale.
  */
 function moveAccuracy(
   evalBefore: number,
@@ -201,11 +273,16 @@ function moveAccuracy(
   const epBefore = expectedPoints(cpBefore, rating);
   const epAfter = expectedPoints(cpAfter, rating);
 
+  // Win percentage lost (0-100 scale)
+  const wpLost = Math.max(0, (epBefore - epAfter) * 100);
+
   // If position was already lost, any move is "100% accurate" (nothing to lose)
   if (epBefore <= 0.01) return 100;
 
-  // Accuracy = how much of your expected points you retained
-  const accuracy = (epAfter / epBefore) * 100;
+  // CAPS2 exponential decay formula
+  // wpLost=0 → 100, wpLost=1 → ~95.6, wpLost=5 → ~80, wpLost=10 → ~63.6
+  // wpLost=20 → ~40, wpLost=50 → ~8.5
+  const accuracy = 103.1668 * Math.exp(-0.04354 * wpLost) - 3.1668;
   return Math.max(0, Math.min(100, accuracy));
 }
 
@@ -223,6 +300,19 @@ function uciToSan(fen: string, uci: string): string {
   }
 }
 
+/**
+ * Extract player ratings from PGN headers.
+ * Chess.com PGNs contain [WhiteElo "1234"] and [BlackElo "1234"] headers.
+ */
+function extractRatings(pgn: string): { white: number; black: number } {
+  const whiteMatch = pgn.match(/\[WhiteElo\s+"(\d+)"\]/);
+  const blackMatch = pgn.match(/\[BlackElo\s+"(\d+)"\]/);
+  return {
+    white: whiteMatch ? parseInt(whiteMatch[1], 10) : 1500,
+    black: blackMatch ? parseInt(blackMatch[1], 10) : 1500,
+  };
+}
+
 export async function analyzeGame(
   pgn: string,
   depth: number = 18
@@ -236,6 +326,9 @@ export async function analyzeGame(
     throw new Error("No moves in PGN");
   }
 
+  // Extract player ratings from PGN headers for rating-dependent classification
+  const ratings = extractRatings(pgn);
+
   const engine = await getEngine();
   const moves: AnalyzedMove[] = [];
   const blunders: Blunder[] = [];
@@ -244,6 +337,9 @@ export async function analyzeGame(
   // Reset to starting position
   const game = new Chess();
   const bookMoves = Math.min(6, Math.floor(history.length * 0.1));
+
+  // Track EP loss per move for Miss detection
+  let previousEpLost = 0;
 
   // Analyze each move
   for (let i = 0; i < history.length; i++) {
@@ -292,8 +388,8 @@ export async function analyzeGame(
     const cpBeforePlayer = color === "white" ? bestEvalWhite : -bestEvalWhite;
     const cpAfterPlayer = color === "white" ? afterEvalWhite : -afterEvalWhite;
 
-    // TODO: pass actual player rating from game metadata
-    const playerRating = 1500;
+    // Use actual player rating from PGN headers
+    const playerRating = color === "white" ? ratings.white : ratings.black;
 
     const epBefore = expectedPoints(cpBeforePlayer, playerRating);
     const epAfter = expectedPoints(cpAfterPlayer, playerRating);
@@ -301,12 +397,19 @@ export async function analyzeGame(
 
     const isBook = i < bookMoves;
 
-    // Detect special classifications
-    const isBrilliant = !isBook && detectBrilliant(move, epLost, epBefore, epAfter);
-    const isGreat = !isBook && !isBrilliant && detectGreat(epLost, epBefore, epAfter);
+    // Detect special classifications (all rating-dependent per Chess.com)
+    const isBrilliant = !isBook && detectBrilliant(move, epLost, epBefore, epAfter, playerRating);
+    const isGreat = !isBook && !isBrilliant && detectGreat(epLost, epBefore, epAfter, playerRating);
 
-    const classification = classifyMove(epLost, isBook, isBrilliant, isGreat);
+    // Detect "Miss": failing to capitalize on opponent's previous mistake
+    const isMissedOpportunity = !isBook && !isBrilliant && !isGreat &&
+      detectMiss(epLost, epBefore, epAfter, previousEpLost, playerRating);
+
+    const classification = classifyMove(epLost, isBook, isBrilliant, isGreat, isMissedOpportunity);
     const accuracy = isBook ? 100 : moveAccuracy(bestEvalWhite, afterEvalWhite, color, playerRating);
+
+    // Store this move's EP loss for next move's Miss detection
+    previousEpLost = epLost;
 
     const bestMoveSan = uciToSan(fenBefore, bestEval.bestMove);
 
