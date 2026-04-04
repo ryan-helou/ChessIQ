@@ -133,7 +133,7 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
             padding: "8px",
           }}
           labelStyle={{ color: "#e2e8f0" }}
-          formatter={(value: number) => `${value.toFixed(1)}%`}
+          formatter={(value: any) => `${Number(value).toFixed(1)}%`}
           cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
         />
         <Bar dataKey="accuracy" radius={[8, 8, 0, 0]}>

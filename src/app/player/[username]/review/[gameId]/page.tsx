@@ -8,44 +8,10 @@ import EvalBar from "@/components/game-review/EvalBar";
 import EvalGraph from "@/components/game-review/EvalGraph";
 import MoveList from "@/components/game-review/MoveList";
 import {
-  submitGameAnalysis,
-  getGameAnalysis,
-  getAnalysisStatus,
+  analyzeGame,
+  type GameAnalysisResult,
+  type MoveClassification,
 } from "@/lib/backend-api";
-
-type MoveClassification =
-  | "brilliant"
-  | "great"
-  | "best"
-  | "excellent"
-  | "good"
-  | "inaccuracy"
-  | "mistake"
-  | "blunder"
-  | "book";
-
-interface AnalyzedMove {
-  moveNumber: number;
-  move: string;
-  san: string;
-  fen: string;
-  bestMove: string;
-  engineEval: number;
-  accuracy: number;
-  isBlunder: boolean;
-  isMistake: boolean;
-  isInaccuracy: boolean;
-}
-
-interface GameAnalysis {
-  moves: AnalyzedMove[];
-  whiteAccuracy: number;
-  blackAccuracy: number;
-  evalGraph: { move: number; eval: number; mate: number | null }[];
-  blunders: { white: number; black: number };
-  mistakes: { white: number; black: number };
-  inaccuracies: { white: number; black: number };
-}
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
@@ -76,16 +42,20 @@ function AnalysisSummary({
   analysis,
   playerColor,
 }: {
-  analysis: GameAnalysis;
+  analysis: GameAnalysisResult;
   playerColor: "white" | "black";
 }) {
   const isWhite = playerColor === "white";
   const accuracy = isWhite ? analysis.whiteAccuracy : analysis.blackAccuracy;
-  const blunders = isWhite ? analysis.blunders.white : analysis.blunders.black;
-  const mistakes = isWhite ? analysis.mistakes.white : analysis.mistakes.black;
+  const blunders = isWhite
+    ? analysis.blunderCounts.white
+    : analysis.blunderCounts.black;
+  const mistakes = isWhite
+    ? analysis.mistakeCounts.white
+    : analysis.mistakeCounts.black;
   const inaccuracies = isWhite
-    ? analysis.inaccuracies.white
-    : analysis.inaccuracies.black;
+    ? analysis.inaccuracyCounts.white
+    : analysis.inaccuracyCounts.black;
 
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -118,14 +88,17 @@ function AnalysisProgress() {
     <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-slate-300">
-          Analyzing with Stockfish on server...
+          Analyzing with Stockfish...
         </h3>
       </div>
       <div className="w-full h-2 bg-slate-700/50 rounded-full overflow-hidden mb-3">
-        <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full animate-pulse" />
+        <div
+          className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full animate-pulse"
+          style={{ width: "100%" }}
+        />
       </div>
       <p className="text-xs text-slate-500">
-        This may take a few minutes for deeper analysis. We'll check back every 30 seconds.
+        Deep analysis of every move. This typically takes 1-3 minutes.
       </p>
     </div>
   );
@@ -136,7 +109,7 @@ export default function GameReviewPage() {
   const username = params.username as string;
   const gameId = params.gameId as string;
 
-  const [analysis, setAnalysis] = useState<GameAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<GameAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -153,7 +126,7 @@ export default function GameReviewPage() {
     pgn: string;
   } | null>(null);
 
-  // Step 1: Fetch game data
+  // Step 1: Fetch game data from Chess.com API
   useEffect(() => {
     async function fetchGame() {
       try {
@@ -207,71 +180,22 @@ export default function GameReviewPage() {
     fetchGame();
   }, [username, gameId]);
 
-  // Step 2: Submit game for backend analysis
+  // Step 2: Send PGN to backend for Stockfish analysis
   useEffect(() => {
     if (!gameInfo?.pgn || analyzing || analysis) return;
 
     setAnalyzing(true);
 
-    (async () => {
-      try {
-        // Submit game to backend for analysis
-        const result = await submitGameAnalysis(gameInfo.pgn, undefined, {
-          white_username: gameInfo.white,
-          black_username: gameInfo.black,
-          opening_name: gameInfo.opening,
-        });
-
-        // Poll for completion
-        let attempts = 0;
-        const maxAttempts = 360; // 3 hours at 30-second intervals
-        while (attempts < maxAttempts) {
-          try {
-            const status = await getAnalysisStatus(result.gameId);
-            if (status.analysisComplete) {
-              const fullAnalysis = await getGameAnalysis(result.gameId);
-
-              // Convert to expected format
-              const analysis: GameAnalysis = {
-                moves: fullAnalysis.moves,
-                whiteAccuracy: fullAnalysis.whiteAccuracy,
-                blackAccuracy: fullAnalysis.blackAccuracy,
-                evalGraph: fullAnalysis.evalGraph,
-                blunders: {
-                  white: fullAnalysis.blunderCounts.white,
-                  black: fullAnalysis.blunderCounts.black,
-                },
-                mistakes: {
-                  white: fullAnalysis.mistakeCounts.white,
-                  black: fullAnalysis.mistakeCounts.black,
-                },
-                inaccuracies: {
-                  white: fullAnalysis.inaccuracyCounts.white,
-                  black: fullAnalysis.inaccuracyCounts.black,
-                },
-              };
-              setAnalysis(analysis);
-              setAnalyzing(false);
-              return;
-            }
-          } catch (err) {
-            console.error("Status check failed:", err);
-          }
-
-          // Wait before next poll
-          await new Promise((r) => setTimeout(r, 30000));
-          attempts++;
-        }
-
-        throw new Error("Analysis timeout");
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Analysis failed"
-        );
+    analyzeGame(gameInfo.pgn)
+      .then((result) => {
+        setAnalysis(result);
         setAnalyzing(false);
-      }
-    })();
-  }, [gameInfo?.pgn, analyzing, analysis, gameInfo?.white, gameInfo?.black, gameInfo?.opening]);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Analysis failed");
+        setAnalyzing(false);
+      });
+  }, [gameInfo?.pgn, analyzing, analysis]);
 
   // Current position FEN
   const getCurrentFen = useCallback(() => {
@@ -485,7 +409,7 @@ export default function GameReviewPage() {
                   data={displayMoves.map((m, i) => ({
                     move: i + 1,
                     eval: m.engineEval,
-                    mate: m.mate,
+                    mate: m.mate ?? null,
                   }))}
                   currentMove={currentMoveIndex + 1}
                   onMoveClick={(move) => setCurrentMoveIndex(move - 1)}
@@ -493,7 +417,7 @@ export default function GameReviewPage() {
               </div>
             )}
 
-            {/* Summary (only when complete) */}
+            {/* Summary */}
             {analysis && gameInfo && (
               <AnalysisSummary
                 analysis={analysis}

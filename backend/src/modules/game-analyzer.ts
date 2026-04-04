@@ -133,17 +133,6 @@ export async function analyzeGame(
 
   // Reset to starting position
   const game = new Chess();
-  let prevEval = 0;
-
-  // Evaluate starting position
-  try {
-    const startEval = await engine.evaluatePosition(game.fen(), depth);
-    prevEval = startEval.eval;
-  } catch (error) {
-    console.error("Failed to evaluate starting position:", error);
-    prevEval = 0;
-  }
-
   const bookMoves = Math.min(6, Math.floor(history.length * 0.1));
 
   // Analyze each move
@@ -238,7 +227,6 @@ export async function analyzeGame(
       mate: afterEval.mate,
     });
 
-    prevEval = evalAfterMove;
   }
 
   // Calculate overall stats

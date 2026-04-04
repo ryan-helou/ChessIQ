@@ -3,20 +3,40 @@
  * Frontend client for calling the game analysis backend (Railway)
  */
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
 export interface AnalyzedMove {
   moveNumber: number;
   move: string;
   san: string;
   fen: string;
+  fenBefore: string;
+  color: "white" | "black";
   bestMove: string;
+  bestMoveSan: string;
   engineEval: number;
+  mate: number | null;
+  evalBefore: number;
+  evalDrop: number;
+  classification: MoveClassification;
   accuracy: number;
   isBlunder: boolean;
   isMistake: boolean;
   isInaccuracy: boolean;
+  tacticalThemes: string[];
 }
+
+export type MoveClassification =
+  | "brilliant"
+  | "great"
+  | "best"
+  | "excellent"
+  | "good"
+  | "inaccuracy"
+  | "mistake"
+  | "blunder"
+  | "book";
 
 export interface Blunder {
   moveNumber: number;
@@ -25,6 +45,8 @@ export interface Blunder {
   evalBeforeCp: number;
   evalAfterCp: number;
   severity: "blunder" | "mistake" | "inaccuracy";
+  missedTactic: string | null;
+  consequence: string | null;
 }
 
 export interface GameAnalysisResult {
@@ -35,48 +57,24 @@ export interface GameAnalysisResult {
   whiteAccuracy: number;
   blackAccuracy: number;
   evalGraph: { move: number; eval: number; mate: number | null }[];
+  blunderCounts: { white: number; black: number };
+  mistakeCounts: { white: number; black: number };
+  inaccuracyCounts: { white: number; black: number };
   analysisDepth: number;
-  status: "pending" | "quick_pass" | "deep_pass" | "complete";
 }
 
 /**
- * Submit a game for analysis
- * @param pgn Game PGN string
- * @param userId Optional user ID
- * @param metadata Game metadata (ratings, time control, etc.)
- * @returns Promise with gameId and analysis summary
+ * Submit a game PGN for Stockfish analysis.
+ * Returns the full analysis synchronously (may take 1-5 minutes).
  */
-export async function submitGameAnalysis(
+export async function analyzeGame(
   pgn: string,
-  userId?: string,
-  metadata?: {
-    chess_com_id?: number;
-    result?: string;
-    played_at?: string;
-    white_username?: string;
-    black_username?: string;
-    time_control?: string;
-    opening_eco?: string;
-    opening_name?: string;
-  }
-): Promise<{
-  gameId: string;
-  whiteAccuracy: number;
-  blackAccuracy: number;
-  movesAnalyzed: number;
-  blundersFound: number;
-  analysisDepth: number;
-}> {
+  depth: number = 18
+): Promise<GameAnalysisResult> {
   const response = await fetch(`${BACKEND_URL}/api/analyze/game`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      pgn,
-      userId,
-      metadata,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pgn, depth }),
   });
 
   if (!response.ok) {
@@ -88,89 +86,14 @@ export async function submitGameAnalysis(
 }
 
 /**
- * Get full analysis results for a game
- * @param gameId Game ID returned from submitGameAnalysis
- * @returns Promise with complete analysis including moves and blunders
- */
-export async function getGameAnalysis(gameId: string): Promise<GameAnalysisResult> {
-  const response = await fetch(`${BACKEND_URL}/api/analyze/game/${gameId}`);
-
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error("Game analysis not found");
-    }
-    throw new Error(`Failed to get analysis: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Check analysis status (lightweight endpoint)
- * @param gameId Game ID
- * @returns Promise with status and accuracy scores
- */
-export async function getAnalysisStatus(
-  gameId: string
-): Promise<{
-  gameId: string;
-  status: "pending" | "quick_pass" | "deep_pass" | "complete";
-  whiteAccuracy: number | null;
-  blackAccuracy: number | null;
-  analysisComplete: boolean;
-}> {
-  const response = await fetch(`${BACKEND_URL}/api/analyze/game/${gameId}/status`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to get status: ${response.status}`);
-  }
-
-  return response.json();
-}
-
-/**
- * Poll for analysis completion
- * Useful for waiting for analysis to complete in the UI
- * @param gameId Game ID
- * @param maxAttempts Maximum number of polling attempts (default: 180 = 1.5 hours every 30s)
- * @param delayMs Delay between polls in milliseconds (default: 30000 = 30 seconds)
- * @returns Promise that resolves when analysis is complete
- */
-export async function waitForAnalysisCompletion(
-  gameId: string,
-  maxAttempts: number = 180,
-  delayMs: number = 30000
-): Promise<GameAnalysisResult> {
-  let attempts = 0;
-
-  while (attempts < maxAttempts) {
-    try {
-      const status = await getAnalysisStatus(gameId);
-      if (status.analysisComplete) {
-        return getGameAnalysis(gameId);
-      }
-    } catch (error) {
-      console.error("Error checking analysis status:", error);
-    }
-
-    attempts++;
-    if (attempts < maxAttempts) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  throw new Error("Analysis timeout: exceeded maximum wait time");
-}
-
-/**
  * Check backend health
- * @returns Promise<boolean> true if backend is healthy
  */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${BACKEND_URL}/health`);
+    const response = await fetch(`${BACKEND_URL}/health`, {
+      signal: AbortSignal.timeout(5000),
+    });
     if (!response.ok) return false;
-
     const data = await response.json();
     return data.status === "healthy";
   } catch {

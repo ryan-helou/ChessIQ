@@ -1,11 +1,11 @@
-import { Pool, QueryResult } from "pg";
+import { Pool } from "pg";
 import { AnalyzedMove, Blunder } from "../modules/game-analyzer.js";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-pool.on("error", (err) => {
+pool.on("error", (err: Error) => {
   console.error("Unexpected error on idle client", err);
 });
 

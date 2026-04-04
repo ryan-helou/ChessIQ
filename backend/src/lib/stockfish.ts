@@ -119,7 +119,7 @@ export class StockfishEngine {
     };
   }
 
-  private parseOutput(output: string, multiPv: number): EngineEval[] {
+  private parseOutput(output: string, _multiPv: number): EngineEval[] {
     const outputLines = output.split("\n");
     const evals = new Map<number, EngineEval>();
 

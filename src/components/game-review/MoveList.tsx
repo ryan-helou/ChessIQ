@@ -24,7 +24,7 @@ interface AnalyzedMove {
   isBlunder: boolean;
   isMistake: boolean;
   isInaccuracy: boolean;
-  classification?: MoveClassification;
+  classification: MoveClassification;
 }
 
 interface Props {

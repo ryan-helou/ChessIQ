@@ -5,16 +5,26 @@ import { getEngine, shutdownEngine } from "./lib/stockfish.js";
 import analyzeRouter from "./routes/analyze.js";
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || "3001", 10);
 
 // Middleware
 app.use(express.json({ limit: "50mb" }));
 app.use(express.text({ limit: "50mb", type: "text/plain" }));
 
 // CORS
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(",") || [
+  "http://localhost:3000",
+  "https://chess-iq.vercel.app",
+];
+
 app.use((req: Request, res: Response, next: NextFunction) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  } else {
+    res.header("Access-Control-Allow-Origin", ALLOWED_ORIGINS[0]);
+  }
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
     res.sendStatus(200);
@@ -24,30 +34,16 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 // Health check endpoint
-app.get("/health", async (req: Request, res: Response) => {
+app.get("/health", async (_req: Request, res: Response) => {
   try {
-    const dbHealthy = await dbHealthCheck();
-    const redisHealthy = await initRedis();
     const engine = await getEngine();
     const engineHealthy = engine.isRunning();
 
-    if (dbHealthy && redisHealthy && engineHealthy) {
-      res.json({
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-        database: "connected",
-        redis: "connected",
-        engine: "ready",
-      });
-    } else {
-      res.status(503).json({
-        status: "unhealthy",
-        timestamp: new Date().toISOString(),
-        database: dbHealthy ? "connected" : "disconnected",
-        redis: redisHealthy ? "connected" : "disconnected",
-        engine: engineHealthy ? "ready" : "not ready",
-      });
-    }
+    res.json({
+      status: engineHealthy ? "healthy" : "degraded",
+      timestamp: new Date().toISOString(),
+      engine: engineHealthy ? "ready" : "not ready",
+    });
   } catch (error) {
     res.status(500).json({
       status: "error",
@@ -60,12 +56,12 @@ app.get("/health", async (req: Request, res: Response) => {
 app.use("/api/analyze", analyzeRouter);
 
 // 404
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });
 });
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Unhandled error:", err);
   res.status(500).json({
     error: "Internal server error",
@@ -77,7 +73,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 async function shutdown() {
   console.log("Shutting down server...");
   await shutdownEngine();
-  await closePool();
+  try { await closePool(); } catch { /* db may not be connected */ }
   process.exit(0);
 }
 
@@ -87,23 +83,30 @@ process.on("SIGINT", shutdown);
 // Start server
 async function main() {
   try {
-    // Initialize services
+    // Initialize Stockfish (required)
     console.log("Initializing Stockfish engine...");
     await getEngine();
     console.log("Stockfish engine ready");
 
-    console.log("Initializing Redis cache...");
-    await initRedis();
-    console.log("Redis connected");
+    // Initialize optional services
+    try {
+      await initRedis();
+      console.log("Redis connected");
+    } catch (error) {
+      console.warn("Redis not available (optional):", (error as Error).message);
+    }
 
-    console.log("Initializing database...");
-    const dbHealthy = await dbHealthCheck();
-    if (!dbHealthy) throw new Error("Database not healthy");
-    console.log("Database connected");
+    try {
+      const dbHealthy = await dbHealthCheck();
+      if (dbHealthy) console.log("Database connected");
+      else console.warn("Database not available (optional)");
+    } catch (error) {
+      console.warn("Database not available (optional):", (error as Error).message);
+    }
 
     // Start server
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🎯 Chess IQ Backend running on port ${PORT}`);
+      console.log(`Chess IQ Backend running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
