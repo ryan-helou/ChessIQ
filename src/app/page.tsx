@@ -75,33 +75,33 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className="min-h-screen bg-[#302e2b] text-[#e8e6e1]">
       <Header />
 
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-blue-500/[0.04] rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -left-40 w-96 h-96 bg-emerald-500/[0.03] rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/[0.03] rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#81b64c]/[0.03] rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -left-40 w-96 h-96 bg-[#81b64c]/[0.02] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#769656]/[0.03] rounded-full blur-3xl" />
       </div>
 
       {/* Hero */}
       <div className="relative z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-32 pb-16 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-8">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#81b64c]/10 border border-[#81b64c]/20 text-[#81b64c] text-xs font-medium mb-8">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#81b64c] animate-pulse" />
             Free &middot; No sign-up required
           </div>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-white">
             Know your chess.
             <br />
-            <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-emerald-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-[#81b64c] via-[#96bc4b] to-[#769656] bg-clip-text text-transparent">
               Play smarter.
             </span>
           </h1>
 
-          <p className="text-slate-400 text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-[#989795] text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
             Deep analytics for your Chess.com games. Track your rating,
             find your best openings, and understand your play patterns.
           </p>
@@ -109,18 +109,18 @@ export default function Home() {
           {/* Search */}
           <form onSubmit={handleSearch} className="max-w-lg mx-auto mb-6">
             <div className="relative group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-emerald-500/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#81b64c]/20 to-[#769656]/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition-opacity" />
               <div className="relative flex">
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Enter your Chess.com username..."
-                  className="flex-1 px-6 py-4 bg-slate-900/80 border border-slate-700/50 rounded-l-xl text-slate-50 placeholder-slate-500 focus:outline-none transition-all text-base sm:text-lg"
+                  className="flex-1 px-6 py-4 bg-[#262522] border border-[#3a3835] rounded-l-xl text-white placeholder-[#706e6b] focus:outline-none transition-all text-base sm:text-lg"
                 />
                 <button
                   type="submit"
-                  className="px-6 sm:px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-r-xl transition-colors font-semibold text-base sm:text-lg shrink-0"
+                  className="px-6 sm:px-8 py-4 bg-[#81b64c] hover:bg-[#6fa33e] text-white rounded-r-xl transition-colors font-semibold text-base sm:text-lg shrink-0"
                 >
                   Analyze
                 </button>
@@ -128,7 +128,7 @@ export default function Home() {
             </div>
           </form>
 
-          <p className="text-slate-600 text-sm">
+          <p className="text-[#706e6b] text-sm">
             Works with any public Chess.com profile
           </p>
         </div>
@@ -139,30 +139,30 @@ export default function Home() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="group p-5 rounded-xl border border-slate-800/60 bg-slate-900/30 hover:bg-slate-800/30 hover:border-slate-700/60 transition-all"
+                className="group p-5 rounded-xl border border-[#3a3835] bg-[#262522]/60 hover:bg-[#3a3835]/60 hover:border-[#3a3835] transition-all"
               >
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-3 group-hover:bg-blue-500/15 transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-[#81b64c]/10 border border-[#81b64c]/20 flex items-center justify-center text-[#81b64c] mb-3 group-hover:bg-[#81b64c]/15 transition-colors">
                   {f.icon}
                 </div>
-                <h3 className="font-semibold text-slate-200 mb-1">{f.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{f.desc}</p>
+                <h3 className="font-semibold text-white mb-1">{f.title}</h3>
+                <p className="text-sm text-[#706e6b] leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="border-t border-slate-800/60 py-8">
+        <footer className="border-t border-[#3a3835] py-8">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-slate-600">
+            <div className="text-sm text-[#706e6b]">
               Chess IQ &middot; Powered by the Chess.com Public API
             </div>
-            <div className="flex items-center gap-4 text-sm text-slate-600">
+            <div className="flex items-center gap-4 text-sm text-[#706e6b]">
               <a
                 href="https://github.com/ryan-helou/ChessIQ"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-slate-400 transition-colors"
+                className="hover:text-[#989795] transition-colors"
               >
                 GitHub
               </a>

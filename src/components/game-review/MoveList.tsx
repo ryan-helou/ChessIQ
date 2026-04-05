@@ -40,12 +40,12 @@ const CLASSIFICATION_COLORS: Record<MoveClassification, string> = {
   great: "text-blue-400 bg-blue-500/10",
   best: "text-emerald-400 bg-emerald-500/10",
   excellent: "text-emerald-300 bg-emerald-500/5",
-  good: "text-slate-300 bg-transparent",
+  good: "text-[#989795] bg-transparent",
   inaccuracy: "text-yellow-400 bg-yellow-500/10",
   mistake: "text-orange-400 bg-orange-500/10",
   blunder: "text-red-400 bg-red-500/15",
   miss: "text-amber-400 bg-amber-500/10",
-  forced: "text-slate-400 bg-slate-500/10",
+  forced: "text-[#989795] bg-[#706e6b]/10",
   book: "text-violet-400 bg-violet-500/10",
 };
 
@@ -100,7 +100,7 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
         onClick={() => onMoveClick(index)}
         className={`px-1.5 py-1 rounded text-sm font-mono transition-all ${colors} ${
           isActive
-            ? "ring-2 ring-blue-500 ring-offset-1 ring-offset-slate-900 font-bold"
+            ? "ring-2 ring-[#81b64c] ring-offset-1 ring-offset-[#262522] font-bold"
             : "hover:brightness-125"
         }`}
       >
@@ -118,7 +118,7 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
             key={pair.number}
             className="flex items-center gap-1 text-sm"
           >
-            <span className="w-8 text-right text-slate-600 text-xs font-mono shrink-0">
+            <span className="w-8 text-right text-[#706e6b] text-xs font-mono shrink-0">
               {pair.number}.
             </span>
             <div className="flex-1 min-w-0">

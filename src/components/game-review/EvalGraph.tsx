@@ -33,8 +33,6 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
     isCurrent: d.move === currentMove,
   }));
 
-  const height = mini ? "100%" : "100%";
-
   return (
     <div className={`w-full ${mini ? "h-full" : "h-[120px]"}`}>
       <ResponsiveContainer width="100%" height="100%">
@@ -50,21 +48,21 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
         >
           <defs>
             <linearGradient id="evalWhite" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#f8fafc" stopOpacity={0.6} />
-              <stop offset="100%" stopColor="#f8fafc" stopOpacity={0.05} />
+              <stop offset="0%" stopColor="#e8e6e1" stopOpacity={0.6} />
+              <stop offset="100%" stopColor="#e8e6e1" stopOpacity={0.05} />
             </linearGradient>
             <linearGradient id="evalBlack" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#1e293b" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#1e293b" stopOpacity={0.05} />
+              <stop offset="0%" stopColor="#262522" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#262522" stopOpacity={0.05} />
             </linearGradient>
           </defs>
           <XAxis dataKey="move" hide />
           <YAxis domain={[-500, 500]} hide />
-          <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
+          <ReferenceLine y={0} stroke="#706e6b" strokeWidth={1} />
           {!mini && currentMove > 0 && (
             <ReferenceLine
               x={currentMove}
-              stroke="#3b82f6"
+              stroke="#81b64c"
               strokeWidth={2}
               strokeDasharray="3 3"
             />
@@ -72,10 +70,10 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           {!mini && (
             <Tooltip
               contentStyle={{
-                backgroundColor: "#0f172a",
-                border: "1px solid #1e293b",
+                backgroundColor: "#1a1916",
+                border: "1px solid #3a3835",
                 borderRadius: "6px",
-                color: "#e2e8f0",
+                color: "#e8e6e1",
                 fontSize: 12,
               }}
               formatter={(value: any, _name: any, props: any) => {
@@ -93,7 +91,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           <Area
             type="monotone"
             dataKey="displayEval"
-            stroke="#94a3b8"
+            stroke="#989795"
             strokeWidth={mini ? 1 : 1.5}
             fill="url(#evalWhite)"
             fillOpacity={1}

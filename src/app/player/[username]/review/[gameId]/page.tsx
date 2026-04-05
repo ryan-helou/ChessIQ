@@ -19,7 +19,7 @@ const Chessboard = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full aspect-square bg-slate-800/40 rounded-lg animate-pulse" />
+      <div className="w-full aspect-square bg-[#3a3835]/40 rounded-lg animate-pulse" />
     ),
   }
 );
@@ -44,7 +44,7 @@ const CLASSIFICATIONS: { key: MoveClassification; info: ClassInfo }[] = [
   { key: "mistake", info: { label: "Mistake", color: "text-orange-400", bg: "#e08a20", icon: "?" } },
   { key: "miss", info: { label: "Miss", color: "text-amber-400", bg: "#d4a82a", icon: "⊘" } },
   { key: "blunder", info: { label: "Blunder", color: "text-red-400", bg: "#ca3431", icon: "??" } },
-  { key: "forced", info: { label: "Forced", color: "text-slate-400", bg: "#888888", icon: "→" } },
+  { key: "forced", info: { label: "Forced", color: "text-[#989795]", bg: "#888888", icon: "→" } },
 ];
 
 const CLASSIFICATION_LABELS: Record<MoveClassification, ClassInfo> = Object.fromEntries(
@@ -81,7 +81,7 @@ function getGamePhaseRating(
 }
 
 function phaseIcon(acc: number | null): { icon: string; color: string } {
-  if (acc === null) return { icon: "-", color: "text-slate-600" };
+  if (acc === null) return { icon: "-", color: "text-[#706e6b]" };
   if (acc >= 90) return { icon: "👍", color: "text-green-400" };
   if (acc >= 70) return { icon: "✓", color: "text-green-500" };
   if (acc >= 50) return { icon: "~", color: "text-yellow-400" };
@@ -170,7 +170,7 @@ function GameReviewPanel({
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
           {/* White player */}
           <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-1.5 rounded bg-slate-700 flex items-center justify-center text-lg">
+            <div className="w-12 h-12 mx-auto mb-1.5 rounded bg-[#3a3835] flex items-center justify-center text-lg">
               ♔
             </div>
             <div className="text-sm font-semibold text-white truncate">{gameInfo.white}</div>
@@ -179,12 +179,12 @@ function GameReviewPanel({
           {/* Label column */}
           <div className="text-center">
             <div className="h-12 mb-1.5" />
-            <div className="text-xs text-slate-500">Players</div>
+            <div className="text-xs text-[#e8e6e1]0">Players</div>
           </div>
 
           {/* Black player */}
           <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-1.5 rounded bg-slate-700 flex items-center justify-center text-lg">
+            <div className="w-12 h-12 mx-auto mb-1.5 rounded bg-[#3a3835] flex items-center justify-center text-lg">
               ♚
             </div>
             <div className="text-sm font-semibold text-white truncate">{gameInfo.black}</div>
@@ -204,7 +204,7 @@ function GameReviewPanel({
               {analysis.whiteAccuracy.toFixed(1)}
             </span>
           </div>
-          <div className="text-xs text-slate-500 text-center">Accuracy</div>
+          <div className="text-xs text-[#e8e6e1]0 text-center">Accuracy</div>
           <div className="text-center">
             <span
               className="inline-block px-3 py-1 rounded-md font-bold text-lg"
@@ -239,7 +239,7 @@ function GameReviewPanel({
               </div>
 
               {/* Label */}
-              <div className="text-xs text-slate-400 w-20 text-center">{info.label}</div>
+              <div className="text-xs text-[#989795] w-20 text-center">{info.label}</div>
 
               {/* Black count */}
               <div className="flex items-center justify-center gap-1.5">
@@ -266,9 +266,9 @@ function GameReviewPanel({
                 {gameInfo.whiteElo}
               </span>
             </div>
-            <div className="text-xs text-slate-400 w-20 text-center">Game Rating</div>
+            <div className="text-xs text-[#989795] w-20 text-center">Game Rating</div>
             <div className="text-center">
-              <span className="inline-block px-2.5 py-0.5 rounded bg-slate-600 text-white font-bold text-sm">
+              <span className="inline-block px-2.5 py-0.5 rounded bg-[#3a3835] text-white font-bold text-sm">
                 {gameInfo.blackElo}
               </span>
             </div>
@@ -282,17 +282,17 @@ function GameReviewPanel({
               ) : phaseIcon(whiteOpening?.accuracy ?? null).icon === "✓" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
               ) : (
-                <span className="text-slate-600">{phaseIcon(whiteOpening?.accuracy ?? null).icon}</span>
+                <span className="text-[#706e6b]">{phaseIcon(whiteOpening?.accuracy ?? null).icon}</span>
               )}
             </div>
-            <div className="text-xs text-slate-400 w-20 text-center">Opening</div>
+            <div className="text-xs text-[#989795] w-20 text-center">Opening</div>
             <div className="text-center text-lg">
               {phaseIcon(blackOpening?.accuracy ?? null).icon === "👍" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
               ) : phaseIcon(blackOpening?.accuracy ?? null).icon === "✓" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
               ) : (
-                <span className="text-slate-600">{phaseIcon(blackOpening?.accuracy ?? null).icon}</span>
+                <span className="text-[#706e6b]">{phaseIcon(blackOpening?.accuracy ?? null).icon}</span>
               )}
             </div>
           </div>
@@ -305,17 +305,17 @@ function GameReviewPanel({
               ) : phaseIcon(whiteMiddle?.accuracy ?? null).icon === "✓" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
               ) : (
-                <span className="text-slate-600">{phaseIcon(whiteMiddle?.accuracy ?? null).icon}</span>
+                <span className="text-[#706e6b]">{phaseIcon(whiteMiddle?.accuracy ?? null).icon}</span>
               )}
             </div>
-            <div className="text-xs text-slate-400 w-20 text-center">Middlegame</div>
+            <div className="text-xs text-[#989795] w-20 text-center">Middlegame</div>
             <div className="text-center text-lg">
               {phaseIcon(blackMiddle?.accuracy ?? null).icon === "👍" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
               ) : phaseIcon(blackMiddle?.accuracy ?? null).icon === "✓" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
               ) : (
-                <span className="text-slate-600">{phaseIcon(blackMiddle?.accuracy ?? null).icon}</span>
+                <span className="text-[#706e6b]">{phaseIcon(blackMiddle?.accuracy ?? null).icon}</span>
               )}
             </div>
           </div>
@@ -328,17 +328,17 @@ function GameReviewPanel({
               ) : phaseIcon(whiteEnd?.accuracy ?? null).icon === "✓" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
               ) : (
-                <span className="text-slate-600">{phaseIcon(whiteEnd?.accuracy ?? null).icon}</span>
+                <span className="text-[#706e6b]">{phaseIcon(whiteEnd?.accuracy ?? null).icon}</span>
               )}
             </div>
-            <div className="text-xs text-slate-400 w-20 text-center">Endgame</div>
+            <div className="text-xs text-[#989795] w-20 text-center">Endgame</div>
             <div className="text-center text-lg">
               {phaseIcon(blackEnd?.accuracy ?? null).icon === "👍" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
               ) : phaseIcon(blackEnd?.accuracy ?? null).icon === "✓" ? (
                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
               ) : (
-                <span className="text-slate-600">{phaseIcon(blackEnd?.accuracy ?? null).icon}</span>
+                <span className="text-[#706e6b]">{phaseIcon(blackEnd?.accuracy ?? null).icon}</span>
               )}
             </div>
           </div>
@@ -402,23 +402,23 @@ function ReviewPanel({
             </div>
             {["blunder", "mistake", "inaccuracy", "miss"].includes(currentMove.classification) &&
               currentMove.bestMoveSan && (
-                <div className="text-sm text-slate-400 mt-1 pl-7">
+                <div className="text-sm text-[#989795] mt-1 pl-7">
                   Best was{" "}
                   <span className="text-emerald-400 font-semibold font-mono">
                     {currentMove.bestMoveSan}
                   </span>
-                  <span className="text-slate-600 ml-2">
+                  <span className="text-[#706e6b] ml-2">
                     ({currentMove.evalDrop > 0 ? "+" : ""}
                     {(currentMove.evalDrop / 100).toFixed(1)})
                   </span>
                 </div>
               )}
-            <div className="text-xs text-slate-500 mt-1 pl-7">
+            <div className="text-xs text-[#e8e6e1]0 mt-1 pl-7">
               Accuracy: {currentMove.accuracy.toFixed(0)}%
             </div>
           </div>
         ) : (
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-[#e8e6e1]0">
             Starting position — press → or click a move
           </div>
         )}
@@ -443,13 +443,13 @@ function ReviewPanel({
       <div className="px-4 pb-2 flex gap-1">
         <button
           onClick={() => setCurrentMoveIndex(-1)}
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-slate-300 rounded hover:bg-[#4a4845] transition-colors font-bold"
+          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
         >
           ⟨⟨
         </button>
         <button
           onClick={() => setCurrentMoveIndex((prev: number) => Math.max(-1, prev - 1))}
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-slate-300 rounded hover:bg-[#4a4845] transition-colors font-bold"
+          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
         >
           ⟨
         </button>
@@ -457,13 +457,13 @@ function ReviewPanel({
           onClick={() =>
             setCurrentMoveIndex((prev: number) => Math.min(displayMoves.length - 1, prev + 1))
           }
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-slate-300 rounded hover:bg-[#4a4845] transition-colors font-bold"
+          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
         >
           ⟩
         </button>
         <button
           onClick={() => setCurrentMoveIndex(displayMoves.length - 1)}
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-slate-300 rounded hover:bg-[#4a4845] transition-colors font-bold"
+          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
         >
           ⟩⟩
         </button>
@@ -482,7 +482,7 @@ function ReviewPanel({
       <div className="border-t border-[#3a3835] px-4 py-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">♔</span>
+            <span className="text-xs text-[#e8e6e1]0">♔</span>
             <span className="text-sm text-white font-semibold">{gameInfo.white}</span>
             <span
               className="text-xs px-1.5 py-0.5 rounded font-bold"
@@ -499,7 +499,7 @@ function ReviewPanel({
               {analysis.blackAccuracy.toFixed(1)}
             </span>
             <span className="text-sm text-white font-semibold">{gameInfo.black}</span>
-            <span className="text-xs text-slate-500">♚</span>
+            <span className="text-xs text-[#e8e6e1]0">♚</span>
           </div>
         </div>
       </div>
@@ -530,7 +530,7 @@ function AnalysisProgress() {
           style={{ width: "100%" }}
         />
       </div>
-      <p className="text-xs text-slate-500 text-center">
+      <p className="text-xs text-[#e8e6e1]0 text-center">
         Deep analysis of every move. This typically takes 1-3 minutes.
       </p>
     </div>
@@ -711,10 +711,10 @@ export default function GameReviewPage() {
   // Loading game data
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-slate-50">
+      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
         <Header username={username} />
         <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="text-slate-500 text-lg">Loading game...</div>
+          <div className="text-[#e8e6e1]0 text-lg">Loading game...</div>
         </div>
       </div>
     );
@@ -723,16 +723,16 @@ export default function GameReviewPage() {
   // Error
   if (error && !analysis) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-slate-50">
+      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
         <Header username={username} />
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8">
             <div className="text-4xl mb-4">♟</div>
             <h2 className="text-red-400 font-semibold text-lg mb-2">Analysis Failed</h2>
-            <p className="text-slate-400">{error}</p>
+            <p className="text-[#989795]">{error}</p>
             <a
               href={`/player/${username}`}
-              className="inline-block mt-4 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+              className="inline-block mt-4 px-4 py-2 bg-[#3a3835] text-[#989795] rounded-lg hover:bg-[#3a3835] transition-colors"
             >
               Back to Dashboard
             </a>
@@ -743,7 +743,7 @@ export default function GameReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#312e2b] text-slate-50">
+    <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
       <Header username={username} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -754,9 +754,9 @@ export default function GameReviewPage() {
               <h1 className="text-lg font-bold text-white">
                 {gameInfo.white} ({gameInfo.whiteElo}) vs {gameInfo.black} ({gameInfo.blackElo})
               </h1>
-              <span className="text-slate-500">{gameInfo.result}</span>
+              <span className="text-[#e8e6e1]0">{gameInfo.result}</span>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-[#e8e6e1]0">
               {gameInfo.opening} &middot; {gameInfo.date}
             </p>
           </div>

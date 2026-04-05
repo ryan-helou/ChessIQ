@@ -42,7 +42,7 @@ export default function SectionNav() {
   };
 
   return (
-    <nav className="sticky top-14 z-40 border-b border-slate-800/60 bg-slate-950/70 backdrop-blur-lg">
+    <nav className="sticky top-14 z-40 border-b border-[#3a3835] bg-[#262522]/90 backdrop-blur-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex gap-1 overflow-x-auto scrollbar-hide py-2 -mb-px">
           {SECTIONS.map((s) => (
@@ -51,8 +51,8 @@ export default function SectionNav() {
               onClick={() => scrollTo(s.id)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all ${
                 active === s.id
-                  ? "bg-blue-500/15 text-blue-400"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  ? "bg-[#81b64c]/15 text-[#81b64c]"
+                  : "text-[#989795] hover:text-white hover:bg-[#3a3835]/60"
               }`}
             >
               {s.label}

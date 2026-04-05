@@ -10,13 +10,13 @@ interface StatCardProps {
 
 function StatCard({ title, value, subtitle, color = "text-white" }: StatCardProps) {
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 backdrop-blur-sm">
-      <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+    <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5">
+      <div className="text-xs font-medium text-[#989795] uppercase tracking-wider mb-1">
         {title}
       </div>
       <div className={`text-2xl font-bold ${color}`}>{value}</div>
       {subtitle && (
-        <div className="text-xs text-slate-500 mt-1">{subtitle}</div>
+        <div className="text-xs text-[#706e6b] mt-1">{subtitle}</div>
       )}
     </div>
   );
@@ -45,10 +45,10 @@ export default function StatsCards({
 }: Props) {
   const streakColor =
     currentStreak.type === "win"
-      ? "text-emerald-400"
+      ? "text-[#81b64c]"
       : currentStreak.type === "loss"
-      ? "text-red-400"
-      : "text-slate-400";
+      ? "text-[#e62929]"
+      : "text-[#989795]";
 
   const streakLabel =
     currentStreak.type === "win"
@@ -67,12 +67,12 @@ export default function StatsCards({
       <StatCard
         title="Win Rate"
         value={`${winRate.toFixed(1)}%`}
-        color={winRate >= 50 ? "text-emerald-400" : "text-red-400"}
+        color={winRate >= 50 ? "text-[#81b64c]" : "text-[#e62929]"}
       />
       <StatCard
         title="Avg Accuracy"
         value={avgAccuracy ? `${avgAccuracy.toFixed(1)}%` : "N/A"}
-        color="text-blue-400"
+        color="text-[#81b64c]"
       />
       <StatCard
         title="Current Streak"

@@ -13,9 +13,9 @@ import {
 import type { RatingDataPoint } from "@/lib/game-analysis";
 
 const TIME_CLASS_COLORS: Record<string, string> = {
-  bullet: "#ef4444",
-  blitz: "#f59e0b",
-  rapid: "#3b82f6",
+  bullet: "#e62929",
+  blitz: "#e6a117",
+  rapid: "#81b64c",
   daily: "#8b5cf6",
 };
 
@@ -61,10 +61,10 @@ export default function RatingChart({ data, filter }: Props) {
     <div className="w-full h-[350px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={displayData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis
             dataKey="date"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "#989795", fontSize: 11 }}
             tickFormatter={(v) => {
               const d = new Date(v);
               return `${d.toLocaleString("default", { month: "short" })} ${d.getDate()}`;
@@ -73,15 +73,15 @@ export default function RatingChart({ data, filter }: Props) {
             minTickGap={60}
           />
           <YAxis
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "#989795", fontSize: 11 }}
             domain={["auto", "auto"]}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0f172a",
-              border: "1px solid #1e293b",
+              backgroundColor: "#1a1916",
+              border: "1px solid #3a3835",
               borderRadius: "8px",
-              color: "#e2e8f0",
+              color: "#e8e6e1",
             }}
           />
           <Legend />
@@ -90,7 +90,7 @@ export default function RatingChart({ data, filter }: Props) {
               key={tc}
               type="monotone"
               dataKey={tc}
-              stroke={TIME_CLASS_COLORS[tc] ?? "#64748b"}
+              stroke={TIME_CLASS_COLORS[tc] ?? "#989795"}
               dot={false}
               strokeWidth={2}
               name={tc.charAt(0).toUpperCase() + tc.slice(1)}

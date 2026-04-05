@@ -40,19 +40,19 @@ interface DashboardData {
 
 function StatCardSkeleton() {
   return (
-    <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-5 animate-pulse">
-      <div className="h-3 bg-slate-700/40 rounded w-1/2 mb-3" />
-      <div className="h-7 bg-slate-700/40 rounded w-3/4 mb-2" />
-      <div className="h-2 bg-slate-700/40 rounded w-1/3" />
+    <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 animate-pulse">
+      <div className="h-3 bg-[#3a3835] rounded w-1/2 mb-3" />
+      <div className="h-7 bg-[#3a3835] rounded w-3/4 mb-2" />
+      <div className="h-2 bg-[#3a3835] rounded w-1/3" />
     </div>
   );
 }
 
 function ChartSkeleton({ height = "h-[350px]" }: { height?: string }) {
   return (
-    <div className={`${height} bg-slate-800/20 border border-slate-700/30 rounded-xl p-6 animate-pulse`}>
-      <div className="h-4 bg-slate-700/40 rounded w-40 mb-6" />
-      <div className="h-full bg-slate-700/20 rounded-lg" />
+    <div className={`${height} bg-[#262522] border border-[#3a3835] rounded-xl p-6 animate-pulse`}>
+      <div className="h-4 bg-[#3a3835] rounded w-40 mb-6" />
+      <div className="h-full bg-[#3a3835]/50 rounded-lg" />
     </div>
   );
 }
@@ -122,16 +122,16 @@ export default function PlayerPage() {
   const rangeLabel = months === 0 ? "All time" : months === 1 ? "Last month" : `Last ${months} months`;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className="min-h-screen bg-[#302e2b] text-[#e8e6e1]">
       <Header username={username} />
 
       {/* Error state */}
       {error && !data && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8 max-w-md mx-auto text-center">
+          <div className="bg-[#e62929]/10 border border-[#e62929]/30 rounded-xl p-8 max-w-md mx-auto text-center">
             <div className="text-4xl mb-4">&#9812;</div>
-            <h2 className="text-red-400 font-semibold text-lg mb-2">Player Not Found</h2>
-            <p className="text-slate-400">{error}</p>
+            <h2 className="text-[#e62929] font-semibold text-lg mb-2">Player Not Found</h2>
+            <p className="text-[#989795]">{error}</p>
           </div>
         </div>
       )}
@@ -153,16 +153,16 @@ export default function PlayerPage() {
                     <img
                       src={data.profile.avatar}
                       alt={data.profile.username}
-                      className="w-20 h-20 rounded-full border-2 border-slate-700/50 shadow-lg shadow-black/20"
+                      className="w-20 h-20 rounded-full border-2 border-[#3a3835] shadow-lg shadow-black/30"
                     />
                   )}
                   <div>
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
                       {data.profile.name || data.profile.username}
                     </h1>
-                    <p className="text-slate-400">@{data.profile.username}</p>
+                    <p className="text-[#989795]">@{data.profile.username}</p>
                     {data.profile.league && (
-                      <span className="inline-block mt-1.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                      <span className="inline-block mt-1.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-[#e6a117]/15 text-[#e6a117] border border-[#e6a117]/20">
                         {data.profile.league}
                       </span>
                     )}
@@ -188,13 +188,13 @@ export default function PlayerPage() {
 
             {/* Rating Chart + WLD */}
             <div id="ratings" className="scroll-mt-28 grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              <div className="lg:col-span-2 bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6">
+              <div className="lg:col-span-2 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h2 className="text-lg font-semibold">Rating Progression</h2>
                   <select
                     value={ratingFilter}
                     onChange={(e) => setRatingFilter(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-800 border border-slate-700/50 text-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 w-full sm:w-auto"
+                    className="px-3 py-1.5 bg-[#3a3835] border border-[#3a3835] text-[#989795] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#81b64c]/40 w-full sm:w-auto"
                   >
                     <option value="all">All Time Classes</option>
                     <option value="bullet">Bullet</option>
@@ -206,23 +206,23 @@ export default function PlayerPage() {
                 <RatingChart data={data.ratingHistory} filter={ratingFilter} />
               </div>
 
-              <div id="results" className="scroll-mt-28 bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6">
+              <div id="results" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
                 <h2 className="text-lg font-semibold mb-4">Results</h2>
                 <WinLossDrawChart wins={wins} losses={losses} draws={draws} />
                 <div className="mt-4 space-y-2.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Total Games</span>
+                    <span className="text-[#989795]">Total Games</span>
                     <span className="font-semibold">{totalGames}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Win Rate</span>
-                    <span className={`font-semibold ${winRate >= 50 ? "text-emerald-400" : "text-red-400"}`}>
+                    <span className="text-[#989795]">Win Rate</span>
+                    <span className={`font-semibold ${winRate >= 50 ? "text-[#81b64c]" : "text-[#e62929]"}`}>
                       {winRate.toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Period</span>
-                    <span className="text-slate-300 text-xs">{rangeLabel}</span>
+                    <span className="text-[#989795]">Period</span>
+                    <span className="text-[#989795] text-xs">{rangeLabel}</span>
                   </div>
                 </div>
               </div>
@@ -230,37 +230,37 @@ export default function PlayerPage() {
 
             {/* How Games End + Accuracy Trend */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6">
+              <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
                 <h2 className="text-lg font-semibold mb-4">How Games End</h2>
                 <ResultBreakdownChart data={data.resultBreakdown} />
               </div>
 
-              <div id="accuracy" className="scroll-mt-28 bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6">
+              <div id="accuracy" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
                 <h2 className="text-lg font-semibold mb-4">Accuracy Trend</h2>
                 <AccuracyOverTime games={data.games} />
               </div>
             </div>
 
             {/* Accuracy vs Rating */}
-            <div className="bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-8">
+            <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-8">
               <h2 className="text-lg font-semibold mb-4">Accuracy vs Opponent Rating</h2>
               <AccuracyVsRating games={data.games} />
             </div>
 
             {/* Accuracy by Game Phase */}
-            <div className="bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-8">
+            <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-8">
               <h2 className="text-lg font-semibold mb-4">Accuracy by Game Phase</h2>
               <AccuracyByPhase games={data.games} />
             </div>
 
             {/* Openings */}
-            <div id="openings" className="scroll-mt-28 bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-8">
+            <div id="openings" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-8">
               <h2 className="text-lg font-semibold mb-4">Opening Statistics</h2>
               <OpeningTable openings={data.openings} games={data.games} />
             </div>
 
             {/* Recent Games */}
-            <div id="games" className="scroll-mt-28 bg-slate-800/20 border border-slate-700/30 rounded-xl p-5 sm:p-6 mb-16">
+            <div id="games" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-16">
               <h2 className="text-lg font-semibold mb-4">Game History</h2>
               <GamesList games={data.games} username={username} />
             </div>

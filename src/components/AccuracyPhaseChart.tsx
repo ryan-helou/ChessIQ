@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { ParsedGame } from "@/lib/game-analysis";
 
 interface AccuracyByPhaseProps {
@@ -18,39 +18,31 @@ interface PhaseAccuracy {
 
 // Determine game phase based on move number
 function getPhase(moveNumber: number, totalMoves: number): GamePhase {
-  // Opening: first 12 moves
   if (moveNumber <= 12) return "opening";
-  // Endgame: when we get to the last 1/4 of the game or after move 30
   if (moveNumber > totalMoves * 0.75 || moveNumber > 30) return "endgame";
-  // Middlegame: in between
   return "middlegame";
 }
 
 // Estimate phase accuracy from overall game accuracy and phase distribution
 function analyzeGamePhases(game: ParsedGame): Record<GamePhase, { moveCount: number; accuracy: number }[]> {
   const totalMoves = game.moveCount;
-  const overallAccuracy = game.accuracy ?? 50; // Default to 50 if no accuracy data
+  const overallAccuracy = game.accuracy ?? 50;
 
-  // Estimate accuracy variance by phase
-  // Games tend to have similar accuracy throughout, but we can estimate slight variations
   const phaseAccuracies: Record<GamePhase, { moveCount: number; accuracy: number }[]> = {
     opening: [],
     middlegame: [],
     endgame: [],
   };
 
-  // Segment moves by phase
   for (let i = 1; i <= totalMoves; i++) {
     const phase = getPhase(i, totalMoves);
-    // Add a slight variance to simulate realistic phase accuracy
-    // Opening typically more accurate, endgame slightly lower
     let phaseAccuracy = overallAccuracy;
-    if (phase === "opening") phaseAccuracy += 2; // Opening is often more accurate
-    if (phase === "endgame") phaseAccuracy -= 1; // Endgame might be slightly less
+    if (phase === "opening") phaseAccuracy += 2;
+    if (phase === "endgame") phaseAccuracy -= 1;
 
     phaseAccuracies[phase].push({
       moveCount: 1,
-      accuracy: Math.max(0, Math.min(100, phaseAccuracy)), // Clamp between 0-100
+      accuracy: Math.max(0, Math.min(100, phaseAccuracy)),
     });
   }
 
@@ -65,14 +57,12 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
       endgame: { totalAccuracy: 0, count: 0, gameCount: 0 },
     };
 
-    // Analyze each game
     games.forEach((game) => {
       if (game.accuracy === null) return;
 
       const phases = analyzeGamePhases(game);
       const gamePhases: Set<GamePhase> = new Set();
 
-      // Aggregate phase accuracies
       (Object.keys(phases) as GamePhase[]).forEach((phase) => {
         const moves = phases[phase];
         if (moves.length > 0) {
@@ -83,13 +73,11 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
         }
       });
 
-      // Count how many games had this phase
       gamePhases.forEach((phase) => {
         phaseStats[phase].gameCount += 1;
       });
     });
 
-    // Calculate averages
     const result: PhaseAccuracy[] = [
       {
         phase: "Opening",
@@ -113,7 +101,7 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
 
   if (phaseData.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-slate-400">
+      <div className="h-[300px] flex items-center justify-center text-[#989795]">
         No games with accuracy data
       </div>
     );
@@ -122,23 +110,23 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={phaseData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-        <XAxis dataKey="phase" stroke="#94a3b8" style={{ fontSize: "14px" }} />
-        <YAxis domain={[0, 100]} stroke="#94a3b8" style={{ fontSize: "14px" }} label={{ value: "Accuracy %", angle: -90, position: "insideLeft" }} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
+        <XAxis dataKey="phase" stroke="#989795" style={{ fontSize: "14px" }} />
+        <YAxis domain={[0, 100]} stroke="#989795" style={{ fontSize: "14px" }} label={{ value: "Accuracy %", angle: -90, position: "insideLeft" }} />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#1e293b",
-            border: "1px solid #475569",
+            backgroundColor: "#1a1916",
+            border: "1px solid #3a3835",
             borderRadius: "8px",
             padding: "8px",
           }}
-          labelStyle={{ color: "#e2e8f0" }}
+          labelStyle={{ color: "#e8e6e1" }}
           formatter={(value: any) => `${Number(value).toFixed(1)}%`}
-          cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
+          cursor={{ fill: "rgba(129, 182, 76, 0.1)" }}
         />
         <Bar dataKey="accuracy" radius={[8, 8, 0, 0]}>
           {phaseData.map((entry, index) => {
-            const colors = ["#3b82f6", "#8b5cf6", "#ec4899"]; // Blue, Purple, Pink
+            const colors = ["#81b64c", "#e6a117", "#6366f1"];
             return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
           })}
         </Bar>

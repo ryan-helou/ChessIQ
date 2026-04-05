@@ -20,15 +20,15 @@ function ColorStatCard({
   currentRating,
   bestRating,
 }: StatCardProps) {
-  const iconColor = color === "white" ? "bg-white/10 text-white" : "bg-slate-700/30 text-slate-300";
+  const iconColor = color === "white" ? "bg-white/10 text-white" : "bg-[#3a3835] text-[#989795]";
   const borderColor =
-    color === "white" ? "border-slate-400/30" : "border-slate-600/30";
+    color === "white" ? "border-[#3a3835]" : "border-[#3a3835]";
   const winRateColor =
-    winRate >= 50 ? "text-emerald-400" : winRate >= 40 ? "text-yellow-400" : "text-red-400";
+    winRate >= 50 ? "text-[#81b64c]" : winRate >= 40 ? "text-[#e6a117]" : "text-[#e62929]";
 
   return (
     <div
-      className={`bg-slate-800/50 border ${borderColor} rounded-xl p-5 backdrop-blur-sm`}
+      className={`bg-[#262522] border ${borderColor} rounded-xl p-5`}
     >
       <div className="flex items-center gap-3 mb-4">
         <div
@@ -36,35 +36,35 @@ function ColorStatCard({
         >
           {color === "white" ? "⚪" : "⚫"}
         </div>
-        <div className="text-sm font-semibold text-slate-50 capitalize">{color}</div>
+        <div className="text-sm font-semibold text-white capitalize">{color}</div>
       </div>
 
       <div className="space-y-2.5">
         <div className="flex justify-between items-center">
-          <span className="text-xs text-slate-400">Games</span>
-          <span className="text-sm font-semibold text-slate-50">{games}</span>
+          <span className="text-xs text-[#989795]">Games</span>
+          <span className="text-sm font-semibold text-white">{games}</span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-xs text-slate-400">Win Rate</span>
+          <span className="text-xs text-[#989795]">Win Rate</span>
           <span className={`text-sm font-semibold ${winRateColor}`}>{winRate.toFixed(1)}%</span>
         </div>
 
         <div className="flex justify-between items-center">
-          <span className="text-xs text-slate-400">Accuracy</span>
-          <span className="text-sm font-semibold text-blue-400">
+          <span className="text-xs text-[#989795]">Accuracy</span>
+          <span className="text-sm font-semibold text-[#81b64c]">
             {avgAccuracy ? `${avgAccuracy.toFixed(1)}%` : "—"}
           </span>
         </div>
 
-        <div className="pt-1 border-t border-slate-700/30">
+        <div className="pt-1 border-t border-[#3a3835]">
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs text-slate-400">Current</span>
+            <span className="text-xs text-[#989795]">Current</span>
             <span className="text-sm font-semibold text-white">{currentRating}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-xs text-slate-400">Best</span>
-            <span className="text-sm font-semibold text-emerald-400">{bestRating}</span>
+            <span className="text-xs text-[#989795]">Best</span>
+            <span className="text-sm font-semibold text-[#81b64c]">{bestRating}</span>
           </div>
         </div>
       </div>
@@ -81,8 +81,8 @@ export default function ColorStats({ colorStats }: Props) {
   const blackStats = colorStats.find((c) => c.color === "black");
 
   const pieData = [
-    { name: "White", value: whiteStats?.games ?? 0, fill: "#f1f5f9" },
-    { name: "Black", value: blackStats?.games ?? 0, fill: "#1e293b" },
+    { name: "White", value: whiteStats?.games ?? 0, fill: "#e8e6e1" },
+    { name: "Black", value: blackStats?.games ?? 0, fill: "#3a3835" },
   ].filter((d) => d.value > 0);
 
   return (
@@ -111,8 +111,8 @@ export default function ColorStats({ colorStats }: Props) {
       </div>
 
       {pieData.length > 0 && (
-        <div className="bg-slate-800/20 border border-slate-700/30 rounded-xl p-6 backdrop-blur-sm">
-          <h3 className="text-sm font-semibold text-slate-50 mb-4">Game Distribution by Color</h3>
+        <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-4">Game Distribution by Color</h3>
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -134,10 +134,10 @@ export default function ColorStats({ colorStats }: Props) {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #1e293b",
+                    backgroundColor: "#1a1916",
+                    border: "1px solid #3a3835",
                     borderRadius: "8px",
-                    color: "#e2e8f0",
+                    color: "#e8e6e1",
                   }}
                 />
               </PieChart>

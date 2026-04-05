@@ -43,10 +43,10 @@ export function AccuracyOverTime({ games }: Props) {
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={rollingData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis
             dataKey="date"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "#989795", fontSize: 11 }}
             interval="preserveStartEnd"
             minTickGap={60}
             tickFormatter={(v) => {
@@ -55,15 +55,15 @@ export function AccuracyOverTime({ games }: Props) {
             }}
           />
           <YAxis
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "#989795", fontSize: 11 }}
             domain={[40, 100]}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0f172a",
-              border: "1px solid #1e293b",
+              backgroundColor: "#1a1916",
+              border: "1px solid #3a3835",
               borderRadius: "8px",
-              color: "#e2e8f0",
+              color: "#e8e6e1",
             }}
             formatter={(value, name) => [
               `${Number(value).toFixed(1)}%`,
@@ -74,7 +74,7 @@ export function AccuracyOverTime({ games }: Props) {
           <Line
             type="monotone"
             dataKey="accuracy"
-            stroke="#3b82f680"
+            stroke="rgba(129, 182, 76, 0.4)"
             dot={false}
             strokeWidth={1}
             name="Game Accuracy"
@@ -82,7 +82,7 @@ export function AccuracyOverTime({ games }: Props) {
           <Line
             type="monotone"
             dataKey="rollingAvg"
-            stroke="#10b981"
+            stroke="#81b64c"
             dot={false}
             strokeWidth={2.5}
             name="20-Game Rolling Avg"
@@ -116,33 +116,33 @@ export function AccuracyVsRating({ games }: Props) {
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <ScatterChart margin={{ bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis
             dataKey="opponentRating"
             type="number"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "#989795", fontSize: 11 }}
             name="Opponent Rating"
             domain={["auto", "auto"]}
           />
           <YAxis
             dataKey="accuracy"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "#989795", fontSize: 11 }}
             name="Accuracy"
             domain={[40, 100]}
             label={{
               value: "Accuracy %",
               angle: -90,
               position: "insideLeft",
-              fill: "#64748b",
+              fill: "#706e6b",
               fontSize: 11,
             }}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0f172a",
-              border: "1px solid #1e293b",
+              backgroundColor: "#1a1916",
+              border: "1px solid #3a3835",
               borderRadius: "8px",
-              color: "#e2e8f0",
+              color: "#e8e6e1",
             }}
             formatter={(value, name) => [
               name === "accuracy" ? `${Number(value).toFixed(1)}%` : value,
@@ -150,9 +150,9 @@ export function AccuracyVsRating({ games }: Props) {
             ]}
           />
           <Legend />
-          <Scatter name="Wins" data={wins} fill="#10b981" opacity={0.6} />
-          <Scatter name="Losses" data={losses} fill="#ef4444" opacity={0.6} />
-          <Scatter name="Draws" data={draws} fill="#64748b" opacity={0.6} />
+          <Scatter name="Wins" data={wins} fill="#81b64c" opacity={0.6} />
+          <Scatter name="Losses" data={losses} fill="#e62929" opacity={0.6} />
+          <Scatter name="Draws" data={draws} fill="#989795" opacity={0.6} />
         </ScatterChart>
       </ResponsiveContainer>
     </div>

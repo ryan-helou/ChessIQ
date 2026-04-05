@@ -16,17 +16,17 @@ import {
 import type { ResultBreakdown } from "@/lib/game-analysis";
 
 const RESULT_COLORS: Record<string, string> = {
-  Checkmate: "#10b981",
-  Resigned: "#ef4444",
-  Timeout: "#f59e0b",
-  Checkmated: "#dc2626",
-  Stalemate: "#64748b",
-  "Draw Agreed": "#6b7280",
+  Checkmate: "#81b64c",
+  Resigned: "#e62929",
+  Timeout: "#e6a117",
+  Checkmated: "#c92a2a",
+  Stalemate: "#989795",
+  "Draw Agreed": "#706e6b",
   Repetition: "#8b5cf6",
-  Abandoned: "#f97316",
+  Abandoned: "#e67e22",
   "Insufficient Material": "#6366f1",
   "Timeout vs Insufficient": "#a78bfa",
-  "50-Move Rule": "#94a3b8",
+  "50-Move Rule": "#989795",
 };
 
 interface WinLossDrawProps {
@@ -41,7 +41,7 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
     { name: "Losses", value: losses },
     { name: "Draws", value: draws },
   ];
-  const colors = ["#10b981", "#ef4444", "#64748b"];
+  const colors = ["#81b64c", "#e62929", "#989795"];
 
   return (
     <div className="w-full h-[250px]">
@@ -58,7 +58,7 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
             label={({ name, percent }) =>
               `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
             }
-            labelLine={{ stroke: "#475569" }}
+            labelLine={{ stroke: "#706e6b" }}
           >
             {data.map((_, index) => (
               <Cell key={index} fill={colors[index]} />
@@ -66,10 +66,10 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
           </Pie>
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0f172a",
-              border: "1px solid #1e293b",
+              backgroundColor: "#1a1916",
+              border: "1px solid #3a3835",
               borderRadius: "8px",
-              color: "#e2e8f0",
+              color: "#e8e6e1",
             }}
           />
         </PieChart>
@@ -87,27 +87,27 @@ export function ResultBreakdownChart({ data }: Props) {
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-          <XAxis type="number" tick={{ fill: "#94a3b8", fontSize: 11 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
+          <XAxis type="number" tick={{ fill: "#989795", fontSize: 11 }} />
           <YAxis
             dataKey="type"
             type="category"
-            tick={{ fill: "#94a3b8", fontSize: 11 }}
+            tick={{ fill: "#989795", fontSize: 11 }}
             width={150}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0f172a",
-              border: "1px solid #1e293b",
+              backgroundColor: "#1a1916",
+              border: "1px solid #3a3835",
               borderRadius: "8px",
-              color: "#e2e8f0",
+              color: "#e8e6e1",
             }}
           />
           <Bar dataKey="count" radius={[0, 4, 4, 0]}>
             {data.map((entry, index) => (
               <Cell
                 key={index}
-                fill={RESULT_COLORS[entry.type] ?? "#64748b"}
+                fill={RESULT_COLORS[entry.type] ?? "#989795"}
               />
             ))}
           </Bar>

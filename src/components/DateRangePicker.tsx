@@ -16,7 +16,7 @@ interface Props {
 
 export default function DateRangePicker({ value, onChange, loading }: Props) {
   return (
-    <div className="flex items-center gap-1 bg-slate-800/50 border border-slate-700/40 rounded-lg p-1">
+    <div className="flex items-center gap-1 bg-[#262522] border border-[#3a3835] rounded-lg p-1">
       {RANGES.map((r) => (
         <button
           key={r.value}
@@ -24,8 +24,8 @@ export default function DateRangePicker({ value, onChange, loading }: Props) {
           disabled={loading}
           className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
             value === r.value
-              ? "bg-blue-600 text-white shadow-sm shadow-blue-500/20"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+              ? "bg-[#81b64c] text-white shadow-sm shadow-[#81b64c]/20"
+              : "text-[#989795] hover:text-white hover:bg-[#3a3835]"
           } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           {r.label}

@@ -129,26 +129,26 @@ function WinRateBar({ wins, losses, draws, games }: { wins: number; losses: numb
   return (
     <div className="flex items-center gap-2.5">
       <div className="flex gap-1 items-center">
-        <span className="text-emerald-400 font-semibold">{wins}</span>
-        <span className="text-slate-600">/</span>
-        <span className="text-red-400 font-semibold">{losses}</span>
-        <span className="text-slate-600">/</span>
-        <span className="text-slate-400">{draws}</span>
+        <span className="text-[#81b64c] font-semibold">{wins}</span>
+        <span className="text-[#706e6b]">/</span>
+        <span className="text-[#e62929] font-semibold">{losses}</span>
+        <span className="text-[#706e6b]">/</span>
+        <span className="text-[#989795]">{draws}</span>
       </div>
-      <div className="flex-1 flex h-2 rounded-full overflow-hidden bg-slate-700/50 min-w-[60px]">
-        <div className="bg-emerald-500" style={{ width: `${(wins / games) * 100}%` }} />
-        <div className="bg-slate-500" style={{ width: `${(draws / games) * 100}%` }} />
-        <div className="bg-red-500" style={{ width: `${(losses / games) * 100}%` }} />
+      <div className="flex-1 flex h-2 rounded-full overflow-hidden bg-[#3a3835] min-w-[60px]">
+        <div className="bg-[#81b64c]" style={{ width: `${(wins / games) * 100}%` }} />
+        <div className="bg-[#989795]" style={{ width: `${(draws / games) * 100}%` }} />
+        <div className="bg-[#e62929]" style={{ width: `${(losses / games) * 100}%` }} />
       </div>
     </div>
   );
 }
 
 function winRateColor(rate: number) {
-  if (rate >= 60) return "text-emerald-400";
-  if (rate >= 50) return "text-blue-400";
-  if (rate >= 40) return "text-yellow-400";
-  return "text-red-400";
+  if (rate >= 60) return "text-[#81b64c]";
+  if (rate >= 50) return "text-[#e8e6e1]";
+  if (rate >= 40) return "text-[#e6a117]";
+  return "text-[#e62929]";
 }
 
 function OpeningFamilyTable({
@@ -179,24 +179,24 @@ function OpeningFamilyTable({
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortBy !== col) return <span className="text-slate-600 ml-1">↕</span>;
+    if (sortBy !== col) return <span className="text-[#706e6b] ml-1">↕</span>;
     return <span className="ml-1">{sortDir === "desc" ? "↓" : "↑"}</span>;
   };
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <label className="text-sm text-slate-400">Min games:</label>
+        <label className="text-sm text-[#989795]">Min games:</label>
         <input
           type="range"
           min={1}
           max={20}
           value={minGames}
           onChange={(e) => setMinGames(parseInt(e.target.value))}
-          className="w-24 accent-blue-500"
+          className="w-24 accent-[#81b64c]"
         />
-        <span className="text-sm text-slate-300 w-6">{minGames}</span>
-        <span className="text-sm text-slate-500 ml-auto">
+        <span className="text-sm text-[#989795] w-6">{minGames}</span>
+        <span className="text-sm text-[#706e6b] ml-auto">
           {filtered.length} openings
         </span>
       </div>
@@ -204,7 +204,7 @@ function OpeningFamilyTable({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="text-slate-400 text-sm border-b border-slate-700/50">
+            <tr className="text-[#989795] text-sm border-b border-[#3a3835]">
               <th className="w-8 py-3 px-2" />
               {(
                 [
@@ -216,7 +216,7 @@ function OpeningFamilyTable({
               ).map(([key, label]) => (
                 <th
                   key={key}
-                  className="text-left py-3 px-3 cursor-pointer hover:text-slate-200 transition-colors whitespace-nowrap"
+                  className="text-left py-3 px-3 cursor-pointer hover:text-[#e8e6e1] transition-colors whitespace-nowrap"
                   onClick={() => toggleSort(key)}
                 >
                   {label}
@@ -236,15 +236,15 @@ function OpeningFamilyTable({
                   <tr
                     className={`border-b transition-colors ${
                       isExpanded
-                        ? "bg-slate-800/40 border-slate-700/50"
-                        : "border-slate-800/50 hover:bg-slate-800/20"
+                        ? "bg-[#3a3835]/40 border-[#3a3835]"
+                        : "border-[#3a3835]/50 hover:bg-[#262522]/60"
                     } ${hasLines ? "cursor-pointer" : ""}`}
                     onClick={() => hasLines && setExpanded(isExpanded ? null : family.name)}
                   >
                     <td className="py-3.5 px-2 text-center">
                       {hasLines && (
                         <span
-                          className={`inline-block text-slate-500 text-xs transition-transform duration-200 ${
+                          className={`inline-block text-[#706e6b] text-xs transition-transform duration-200 ${
                             isExpanded ? "rotate-90" : ""
                           }`}
                         >
@@ -253,16 +253,16 @@ function OpeningFamilyTable({
                       )}
                     </td>
                     <td className="py-3.5 px-3">
-                      <div className="font-semibold text-slate-100 text-base">{family.name}</div>
-                      <div className="text-sm text-slate-500 mt-0.5">
+                      <div className="font-semibold text-white text-base">{family.name}</div>
+                      <div className="text-sm text-[#706e6b] mt-0.5">
                         {family.lines.length} variation{family.lines.length !== 1 ? "s" : ""}
                       </div>
                     </td>
-                    <td className="py-3.5 px-3 text-slate-200 font-semibold text-base">{family.games}</td>
+                    <td className="py-3.5 px-3 text-[#e8e6e1] font-semibold text-base">{family.games}</td>
                     <td className={`py-3.5 px-3 font-bold text-base ${winRateColor(family.winRate)}`}>
                       {family.winRate.toFixed(1)}%
                     </td>
-                    <td className="py-3.5 px-3 text-slate-300 text-base">
+                    <td className="py-3.5 px-3 text-[#989795] text-base">
                       {family.avgAccuracy ? `${family.avgAccuracy.toFixed(1)}%` : "—"}
                     </td>
                     <td className="py-3.5 px-3 min-w-[180px]">
@@ -279,21 +279,21 @@ function OpeningFamilyTable({
                     family.lines.map((line) => (
                       <tr
                         key={line.name}
-                        className="border-b border-slate-800/30 bg-slate-800/20"
+                        className="border-b border-[#3a3835]/30 bg-[#262522]/60"
                       >
                         <td className="py-2.5 px-2" />
                         <td className="py-2.5 px-3 pl-8">
-                          <div className="text-slate-300 text-sm">
-                            <span className="text-slate-600 mr-1.5">└</span>
+                          <div className="text-[#989795] text-sm">
+                            <span className="text-[#706e6b] mr-1.5">└</span>
                             {line.name}
                           </div>
-                          <div className="text-xs text-slate-600 pl-4 mt-0.5">{line.eco}</div>
+                          <div className="text-xs text-[#706e6b] pl-4 mt-0.5">{line.eco}</div>
                         </td>
-                        <td className="py-2.5 px-3 text-slate-400 text-sm">{line.games}</td>
+                        <td className="py-2.5 px-3 text-[#989795] text-sm">{line.games}</td>
                         <td className={`py-2.5 px-3 text-sm font-semibold ${winRateColor(line.winRate)}`}>
                           {line.winRate.toFixed(1)}%
                         </td>
-                        <td className="py-2.5 px-3 text-slate-400 text-sm">
+                        <td className="py-2.5 px-3 text-[#989795] text-sm">
                           {line.avgAccuracy ? `${line.avgAccuracy.toFixed(1)}%` : "—"}
                         </td>
                         <td className="py-2.5 px-3 min-w-[180px]">
@@ -358,15 +358,15 @@ export default function OpeningTable({ openings, games }: Props) {
               onClick={() => setColorTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
                 colorTab === tab.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-800/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                  ? "bg-[#81b64c] text-white"
+                  : "bg-[#3a3835] text-[#989795] hover:text-[#e8e6e1] hover:bg-[#3a3835]"
               }`}
             >
               {tab.key === "white" && (
-                <span className="w-3 h-3 rounded-sm bg-white border border-slate-400 inline-block" />
+                <span className="w-3 h-3 rounded-sm bg-white border border-[#989795] inline-block" />
               )}
               {tab.key === "black" && (
-                <span className="w-3 h-3 rounded-sm bg-slate-900 border border-slate-500 inline-block" />
+                <span className="w-3 h-3 rounded-sm bg-[#1a1916] border border-[#706e6b] inline-block" />
               )}
               {tab.label}
               <span className="text-xs opacity-70">{tab.count}</span>
