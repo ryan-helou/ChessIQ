@@ -762,7 +762,7 @@ export default function GameReviewPage() {
           </div>
         )}
 
-        <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
           {/* Left: Board + Eval */}
           <div className="flex gap-2 shrink-0 items-stretch">
             {/* Eval bar */}
