@@ -267,7 +267,9 @@ export async function analyzeGame(
   const blunders: Blunder[] = [];
   const evalGraph: { move: number; eval: number; mate: number | null }[] = [];
 
-  // ── Phase 1: Evaluate every position with engine (MultiPV=2) ──
+  // ── Phase 1: Evaluate every position with engine ──
+  // First pass uses MultiPV=1 (fast). We'll selectively re-evaluate
+  // positions with MultiPV=2 only where needed for brilliant/great detection.
 
   interface PositionEval {
     fen: string;
@@ -280,20 +282,26 @@ export async function analyzeGame(
 
   const positionEvals: PositionEval[] = [];
   const game = new Chess();
+  const bookMoveCount = Math.min(8, Math.floor(history.length * 0.1));
 
-  // Evaluate starting position
-  const startEval = await engine.evaluate(game.fen(), depth, 2, 15000);
+  // Send ucinewgame once at the start to clear hash tables
+  engine["send"]("ucinewgame");
+  engine["send"]("isready");
+  await engine["waitFor"]("readyok", 5000);
+
+  // Evaluate starting position (shallow for start pos, doesn't need MultiPV)
+  const startEval = await engine.evaluate(game.fen(), depth, 1, 15000);
   const startBoard = new Chess(game.fen());
   positionEvals.push({
     fen: game.fen(),
     topLine: startEval.lines[0] || { bestMove: "", eval: 0, mate: null, depth: 0, pv: [] },
-    secondLine: startEval.lines[1] || null,
+    secondLine: null,
     isCheckmate: false,
     isStalemate: false,
     legalMoveCount: startBoard.moves().length,
   });
 
-  // Evaluate each position after each move
+  // Evaluate each position after each move (MultiPV=1 for speed)
   for (let i = 0; i < history.length; i++) {
     game.move(history[i].san);
     const fen = game.fen();
@@ -320,12 +328,18 @@ export async function analyzeGame(
         legalMoveCount,
       });
     } else {
+      // Skip deep analysis for book moves — use lower depth
+      const evalDepth = i < bookMoveCount ? Math.min(depth, 10) : depth;
+
+      // Skip deep analysis for forced moves (only 1 legal move)
+      const useDepth = legalMoveCount <= 1 ? Math.min(evalDepth, 8) : evalDepth;
+
       try {
-        const result = await engine.evaluate(fen, depth, 2, 15000);
+        const result = await engine.evaluate(fen, useDepth, 1, 15000);
         positionEvals.push({
           fen,
           topLine: result.lines[0] || { bestMove: "", eval: 0, mate: null, depth: 0, pv: [] },
-          secondLine: result.lines[1] || null,
+          secondLine: null,
           isCheckmate: false,
           isStalemate: false,
           legalMoveCount,
@@ -344,9 +358,34 @@ export async function analyzeGame(
     }
   }
 
+  // ── Phase 1b: Selective MultiPV=2 re-evaluation ──
+  // Only re-evaluate positions where the player played the engine's top move
+  // (candidates for brilliant/great). This is much faster than doing MultiPV=2
+  // on every position since only ~30-50% of moves match the top move.
+  for (let i = 0; i < history.length; i++) {
+    const posBefore = positionEvals[i];
+    if (posBefore.isCheckmate || posBefore.isStalemate) continue;
+    if (posBefore.legalMoveCount <= 1) continue; // forced, no need
+    if (i < bookMoveCount) continue; // book moves, no need
+
+    const move = history[i];
+    const playerMoveUCI = `${move.from}${move.to}${move.promotion ?? ""}`;
+    const isTopMove = posBefore.topLine.bestMove === playerMoveUCI;
+
+    if (isTopMove) {
+      try {
+        const result = await engine.evaluate(posBefore.fen, depth, 2, 15000);
+        posBefore.topLine = result.lines[0] || posBefore.topLine;
+        posBefore.secondLine = result.lines[1] || null;
+      } catch {
+        // Keep existing eval
+      }
+    }
+  }
+
   // ── Phase 2: Classify every move ──
 
-  const bookMoves = Math.min(8, Math.floor(history.length * 0.1));
+  const bookMoves = bookMoveCount;
 
   for (let i = 0; i < history.length; i++) {
     const move = history[i];

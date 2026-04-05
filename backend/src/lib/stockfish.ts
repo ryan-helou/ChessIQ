@@ -56,8 +56,8 @@ export class StockfishEngine {
         this.send("uci");
         this.waitFor("uciok", 5000).then(() => {
           // Configure engine for game analysis
-          this.send("setoption name Threads value 2");
-          this.send("setoption name Hash value 128");
+          this.send("setoption name Threads value 4");
+          this.send("setoption name Hash value 256");
           this.send("isready");
           return this.waitFor("readyok", 5000);
         }).then(() => {
@@ -77,10 +77,6 @@ export class StockfishEngine {
     timeoutMs: number = 30000
   ): Promise<MultiLineEval> {
     if (!this.process) throw new Error("Engine not started");
-
-    this.send("ucinewgame");
-    this.send("isready");
-    await this.waitFor("readyok", 5000);
 
     if (multiPv > 1) {
       this.send(`setoption name MultiPV value ${multiPv}`);
@@ -182,11 +178,11 @@ export class StockfishEngine {
       .map(([, e]) => e);
   }
 
-  private send(command: string): void {
+  send(command: string): void {
     this.process?.stdin?.write(command + "\n");
   }
 
-  private waitFor(token: string, timeoutMs: number = 30000): Promise<string> {
+  waitFor(token: string, timeoutMs: number = 30000): Promise<string> {
     return new Promise((resolve, reject) => {
       const startTime = Date.now();
       const check = () => {
