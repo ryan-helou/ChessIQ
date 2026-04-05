@@ -711,25 +711,25 @@ export default function GameReviewPage() {
     }
   }
 
-  // Classification badge on the destination square
+  // Classification badge on the destination square (matches Chess.com icons)
   const BADGE_CLASSIFICATIONS: Record<string, { bg: string; icon: string }> = {
     brilliant: { bg: "#26c9c3", icon: "!!" },
     great: { bg: "#5c8bb0", icon: "!" },
     best: { bg: "#96bc4b", icon: "★" },
-    excellent: { bg: "#96bc4b", icon: "" },
-    good: { bg: "#a0a0a0", icon: "" },
+    excellent: { bg: "#549e39", icon: "👍" },
+    good: { bg: "#7fba3c", icon: "✓" },
     inaccuracy: { bg: "#e6b028", icon: "?!" },
     mistake: { bg: "#e08a20", icon: "?" },
     blunder: { bg: "#ca3431", icon: "??" },
-    miss: { bg: "#d4a82a", icon: "⊘" },
+    miss: { bg: "#e06050", icon: "✕" },
     forced: { bg: "#888888", icon: "→" },
-    book: { bg: "#c9a967", icon: "📖" },
+    book: { bg: "#b08b48", icon: "📖" },
   };
 
   const squareRenderer = useMemo(() => {
     if (!moveToSquare || !moveClassification) return undefined;
     const badge = BADGE_CLASSIFICATIONS[moveClassification];
-    if (!badge || !badge.icon) return undefined;
+    if (!badge) return undefined;
 
     return ({ square, children }: { piece: any; square: string; children?: React.ReactNode }) => (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
