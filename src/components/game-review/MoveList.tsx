@@ -12,6 +12,7 @@ type MoveClassification =
   | "mistake"
   | "blunder"
   | "miss"
+  | "forced"
   | "book";
 
 interface AnalyzedMove {
@@ -44,6 +45,7 @@ const CLASSIFICATION_COLORS: Record<MoveClassification, string> = {
   mistake: "text-orange-400 bg-orange-500/10",
   blunder: "text-red-400 bg-red-500/15",
   miss: "text-amber-400 bg-amber-500/10",
+  forced: "text-slate-400 bg-slate-500/10",
   book: "text-violet-400 bg-violet-500/10",
 };
 
@@ -57,6 +59,7 @@ const CLASSIFICATION_ICONS: Record<MoveClassification, string> = {
   mistake: "?",
   blunder: "??",
   miss: "⊘",
+  forced: "→",
   book: "📖",
 };
 

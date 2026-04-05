@@ -44,6 +44,7 @@ const CLASSIFICATIONS: { key: MoveClassification; info: ClassInfo }[] = [
   { key: "mistake", info: { label: "Mistake", color: "text-orange-400", bg: "#e08a20", icon: "?" } },
   { key: "miss", info: { label: "Miss", color: "text-amber-400", bg: "#d4a82a", icon: "⊘" } },
   { key: "blunder", info: { label: "Blunder", color: "text-red-400", bg: "#ca3431", icon: "??" } },
+  { key: "forced", info: { label: "Forced", color: "text-slate-400", bg: "#888888", icon: "→" } },
 ];
 
 const CLASSIFICATION_LABELS: Record<MoveClassification, ClassInfo> = Object.fromEntries(

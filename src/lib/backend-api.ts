@@ -37,6 +37,7 @@ export type MoveClassification =
   | "mistake"
   | "blunder"
   | "miss"
+  | "forced"
   | "book";
 
 export interface Blunder {
