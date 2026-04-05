@@ -65,25 +65,8 @@ export interface GameAnalysis {
   analysisDepth: number;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Classification accuracy weights (Chess.com style)
-// Each classification maps to a 0-1 score; game accuracy is
-// the weighted average * 100.
-// ─────────────────────────────────────────────────────────────
-
-const CLASSIFICATION_WEIGHTS: Record<MoveClassification, number> = {
-  brilliant: 1,
-  great: 1,
-  best: 1,
-  excellent: 0.9,
-  good: 0.65,
-  book: 1,
-  forced: 1,
-  inaccuracy: 0.4,
-  mistake: 0.2,
-  miss: 0.2,
-  blunder: 0,
-};
+// (Classification weights removed — game accuracy now uses per-move
+// win% based formula for better robustness)
 
 // ─────────────────────────────────────────────────────────────
 // Position-dependent centipawn classification thresholds
@@ -101,21 +84,28 @@ function getEvalLossThreshold(
   const e = prevEvalAbs;
   let threshold = 0;
 
+  // Base quadratic thresholds (reverse-engineered from Chess.com).
+  // Scaled by 0.75 to compensate for depth 18 analysis vs Chess.com's
+  // deeper analysis — at lower depth, eval differences between moves
+  // are smaller, so we need tighter thresholds to avoid over-promoting
+  // moves to higher classifications.
+  const DEPTH_SCALE = 0.75;
+
   switch (classification) {
     case "best":
       threshold = 0.0001 * e * e + 0.0236 * e - 3.7143;
       break;
     case "excellent":
-      threshold = 0.0002 * e * e + 0.1231 * e + 27.5455;
+      threshold = (0.0002 * e * e + 0.1231 * e + 27.5455) * DEPTH_SCALE;
       break;
     case "good":
-      threshold = 0.0002 * e * e + 0.2643 * e + 60.5455;
+      threshold = (0.0002 * e * e + 0.2643 * e + 60.5455) * DEPTH_SCALE;
       break;
     case "inaccuracy":
-      threshold = 0.0002 * e * e + 0.3624 * e + 108.0909;
+      threshold = (0.0002 * e * e + 0.3624 * e + 108.0909) * DEPTH_SCALE;
       break;
     case "mistake":
-      threshold = 0.0003 * e * e + 0.4027 * e + 225.8182;
+      threshold = (0.0003 * e * e + 0.4027 * e + 225.8182) * DEPTH_SCALE;
       break;
   }
 
@@ -555,20 +545,32 @@ export async function analyzeGame(
     }
 
     // ── Brilliant move detection ──
-    // Must be the best move, position must not already be trivially winning,
-    // must have a hanging piece (sacrifice), and the sacrifice must be real
-    // (can't just be recaptured for free leading to mate in 1 or pin).
+    // Chess.com awards brilliant very rarely. Requirements:
+    // 1. Must be the engine's top move
+    // 2. Not a promotion, not in check (forced moves aren't brilliant)
+    // 3. Position is NOT already clearly winning (prevEval < 300cp)
+    // 4. 2nd best move is significantly worse (gap >= 300cp between 1st and 2nd)
+    // 5. Must involve a genuine sacrifice (hanging piece worth >= 3, i.e. minor piece+)
+    // 6. The sacrifice must not be recapturable for equal/greater material
     if (classification === "best" && !move.san.includes("=")) {
       const lastBoard = new Chess(posBefore.fen);
 
-      // Don't award brilliant if in check (forced responses aren't brilliant)
       if (!lastBoard.isCheck()) {
-        const winningAnyways =
-          (secondAbsEval !== null && secondAbsEval >= 700 && prevEvalType === "cp") ||
-          (prevEvalType === "mate" && secondLine?.mate !== null);
+        // Not already winning significantly
+        const prevMoverEval = prevEval.mate !== null
+          ? (prevEval.mate > 0 ? 10000 : -10000)
+          : prevEval.eval;
+        const notAlreadyWinning = prevMoverEval < 300;
 
-        if (afterAbsEval >= 0 && !winningAnyways) {
-          // Look for hanging pieces of our color after the move
+        // Must have a 2nd line and the gap must be large
+        const topEvalForGap = prevEval.mate !== null
+          ? (prevEval.mate > 0 ? 10000 : -10000)
+          : prevEval.eval;
+        const hasLargeGap = secondAbsEval !== null &&
+          Math.abs(topEvalForGap - secondAbsEval) >= 300;
+
+        if (notAlreadyWinning && hasLargeGap && afterAbsEval >= 0) {
+          // Look for hanging pieces of our color after the move (sacrifice)
           const currentBoard = new Chess(posAfter.fen);
           let foundSacrifice = false;
 
@@ -576,9 +578,10 @@ export async function analyzeGame(
             for (const piece of row) {
               if (!piece) continue;
               if (piece.color !== moveColor) continue;
+              // Must be a significant piece (minor piece or higher, not pawn/king)
               if (piece.type === "k" || piece.type === "p") continue;
 
-              // The piece we just captured (if any) shouldn't count
+              // The piece we captured shouldn't count as our sacrifice
               const lastPieceOnTarget = lastBoard.get(move.to as Square);
               if (lastPieceOnTarget && PIECE_VALUES[lastPieceOnTarget.type] >= PIECE_VALUES[piece.type]) {
                 continue;
@@ -718,18 +721,17 @@ export async function analyzeGame(
   }
 
   // ── Phase 3: Calculate game accuracy ──
-  // Chess.com style: each classification gets a weight, accuracy = average * 100
+  // Uses per-move win% accuracy averaged across all moves.
+  // This is more robust than classification-weighted accuracy because
+  // it doesn't amplify classification boundary errors into the score.
 
   const whiteMoves = moves.filter((m) => m.color === "white");
   const blackMoves = moves.filter((m) => m.color === "black");
 
   function gameAccuracy(playerMoves: AnalyzedMove[]): number {
     if (playerMoves.length === 0) return 0;
-    let total = 0;
-    for (const m of playerMoves) {
-      total += CLASSIFICATION_WEIGHTS[m.classification] ?? 0.5;
-    }
-    return (total / playerMoves.length) * 100;
+    const total = playerMoves.reduce((sum, m) => sum + m.accuracy, 0);
+    return total / playerMoves.length;
   }
 
   return {
