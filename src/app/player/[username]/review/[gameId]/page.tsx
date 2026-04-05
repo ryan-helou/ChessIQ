@@ -671,6 +671,9 @@ export default function GameReviewPage() {
 
   // Highlight squares
   const customSquareStyles: Record<string, React.CSSProperties> = {};
+  const moveToSquare = currentMove ? currentMove.move.slice(2, 4) : null;
+  const moveClassification = currentMove?.classification ?? null;
+
   if (currentMove) {
     const from = currentMove.move.slice(0, 2);
     const to = currentMove.move.slice(2, 4);
@@ -707,6 +710,58 @@ export default function GameReviewPage() {
       };
     }
   }
+
+  // Classification badge on the destination square
+  const BADGE_CLASSIFICATIONS: Record<string, { bg: string; icon: string }> = {
+    brilliant: { bg: "#26c9c3", icon: "!!" },
+    great: { bg: "#5c8bb0", icon: "!" },
+    best: { bg: "#96bc4b", icon: "★" },
+    excellent: { bg: "#96bc4b", icon: "" },
+    good: { bg: "#a0a0a0", icon: "" },
+    inaccuracy: { bg: "#e6b028", icon: "?!" },
+    mistake: { bg: "#e08a20", icon: "?" },
+    blunder: { bg: "#ca3431", icon: "??" },
+    miss: { bg: "#d4a82a", icon: "⊘" },
+    forced: { bg: "#888888", icon: "→" },
+    book: { bg: "#c9a967", icon: "📖" },
+  };
+
+  const squareRenderer = useMemo(() => {
+    if (!moveToSquare || !moveClassification) return undefined;
+    const badge = BADGE_CLASSIFICATIONS[moveClassification];
+    if (!badge || !badge.icon) return undefined;
+
+    return ({ square, children }: { piece: any; square: string; children?: React.ReactNode }) => (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        {children}
+        {square === moveToSquare && (
+          <div
+            style={{
+              position: "absolute",
+              top: "-20%",
+              right: "-20%",
+              width: "45%",
+              height: "45%",
+              borderRadius: "50%",
+              backgroundColor: badge.bg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontWeight: 800,
+              fontSize: "60%",
+              zIndex: 10,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
+              border: "2px solid rgba(255,255,255,0.3)",
+              lineHeight: 1,
+            }}
+          >
+            {badge.icon}
+          </div>
+        )}
+      </div>
+    );
+  }, [moveToSquare, moveClassification]);
 
   // Loading game data
   if (loading) {
@@ -781,6 +836,7 @@ export default function GameReviewPage() {
                   boardOrientation: gameInfo?.playerColor ?? "white",
                   allowDragging: false,
                   animationDurationInMs: 200,
+                  squareRenderer,
                 }}
               />
             </div>
