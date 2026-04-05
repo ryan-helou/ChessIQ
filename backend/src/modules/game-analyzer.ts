@@ -85,11 +85,11 @@ function getEvalLossThreshold(
   let threshold = 0;
 
   // Base quadratic thresholds (reverse-engineered from Chess.com).
-  // Scaled by 0.65 to compensate for depth 14 analysis vs Chess.com's
+  // Scaled by 0.75 to compensate for depth 18 analysis vs Chess.com's
   // deeper analysis — at lower depth, eval differences between moves
   // are smaller, so we need tighter thresholds to avoid over-promoting
   // moves to higher classifications.
-  const DEPTH_SCALE = 0.65;
+  const DEPTH_SCALE = 0.75;
 
   switch (classification) {
     case "best":
@@ -251,7 +251,7 @@ function moveAccuracyFromWinDiff(winDiff: number): number {
 
 export async function analyzeGame(
   pgn: string,
-  depth: number = 14,
+  depth: number = 18,
 ): Promise<GameAnalysis> {
   const gameId = randomUUID();
   const chess = new Chess();
