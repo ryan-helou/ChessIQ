@@ -764,14 +764,14 @@ export default function GameReviewPage() {
 
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Left: Board + Eval */}
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 items-stretch">
             {/* Eval bar */}
-            <div className="w-8 self-stretch">
+            <div className="w-8">
               <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
             </div>
 
-            {/* Board */}
-            <div style={{ width: "min(520px, calc(80vw - 44px))" }}>
+            {/* Board — aspect-square ensures it doesn't get stretched by flex */}
+            <div className="aspect-square" style={{ width: "min(520px, calc(80vw - 44px))" }}>
               <Chessboard
                 options={{
                   position: getCurrentFen(),
