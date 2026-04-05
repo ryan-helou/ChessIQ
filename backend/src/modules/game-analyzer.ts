@@ -436,21 +436,25 @@ export async function analyzeGame(
     if (posBefore.legalMoveCount <= 1) {
       classification = "forced";
     }
-    // Player played the engine's top move
-    else if (isTopMove) {
-      classification = "best";
-    }
-    // Standard case: no mates involved
+    // Standard case: no mates involved — use position-dependent thresholds
     else if (noMate) {
       const prevEvalAbs = Math.abs(prevEval.eval);
-      const thresholds: Array<"best" | "excellent" | "good" | "inaccuracy" | "mistake"> =
-        ["best", "excellent", "good", "inaccuracy", "mistake"];
 
-      classification = "blunder"; // default if no threshold matches
-      for (const classif of thresholds) {
-        if (cpEvalLoss <= getEvalLossThreshold(classif, prevEvalAbs)) {
-          classification = classif;
-          break;
+      // If the player played the engine's top move, classify based on
+      // eval loss (should be ~0 but engine depth differences can cause
+      // small discrepancies). Don't auto-assign "best" — validate it.
+      if (isTopMove && cpEvalLoss <= getEvalLossThreshold("best", prevEvalAbs)) {
+        classification = "best";
+      } else {
+        const thresholds: Array<"best" | "excellent" | "good" | "inaccuracy" | "mistake"> =
+          ["best", "excellent", "good", "inaccuracy", "mistake"];
+
+        classification = "blunder"; // default if no threshold matches
+        for (const classif of thresholds) {
+          if (cpEvalLoss <= getEvalLossThreshold(classif, prevEvalAbs)) {
+            classification = classif;
+            break;
+          }
         }
       }
     }
@@ -518,20 +522,36 @@ export async function analyzeGame(
     }
 
     // ── Safeguards ──
+    // Chess.com is conservative with blunders — most errors are mistakes.
 
     // Don't call it a blunder if the position is still completely winning
-    if (classification === "blunder" && afterAbsEval >= 600) {
-      classification = "good";
+    if (classification === "blunder" && afterAbsEval >= 400) {
+      classification = "mistake";
     }
 
     // Don't call it a blunder if you were already in a completely lost position
     if (
       classification === "blunder" &&
+      prevAbsEval <= -400 &&
+      prevEvalType === "cp" &&
+      afterEvalType === "cp"
+    ) {
+      classification = "mistake";
+    }
+
+    // Downgrade mistake to inaccuracy if still clearly winning
+    if (classification === "mistake" && afterAbsEval >= 600) {
+      classification = "inaccuracy";
+    }
+
+    // Downgrade mistake to inaccuracy if already clearly lost
+    if (
+      classification === "mistake" &&
       prevAbsEval <= -600 &&
       prevEvalType === "cp" &&
       afterEvalType === "cp"
     ) {
-      classification = "good";
+      classification = "inaccuracy";
     }
 
     // ── Brilliant move detection ──
@@ -580,20 +600,33 @@ export async function analyzeGame(
     }
 
     // ── Great move detection ──
-    // Opponent's previous move was a blunder, this is the best response,
-    // and there's a significant gap between the 1st and 2nd best moves.
+    // Chess.com: "Critical to the outcome of the game — turning a losing
+    // position into equal, or equal into winning, or finding the only
+    // good move in a critical position."
+    //
+    // Conditions:
+    // 1. Must be the best move (or near-best)
+    // 2. Opponent's previous move was a mistake or blunder (created opportunity)
+    // 3. Significant gap between 1st and 2nd best moves (only move that works)
+    // 4. The moved piece isn't just a free capture
     if (
       classification === "best" &&
       i > 0 &&
-      moves[i - 1]?.classification === "blunder" &&
-      noMate &&
+      moves[i - 1] &&
+      ["blunder", "mistake", "miss"].includes(moves[i - 1].classification) &&
       secondAbsEval !== null
     ) {
-      const gap = Math.abs(prevEval.eval - secondAbsEval);
+      const topEval = prevEval.mate !== null
+        ? (prevEval.mate > 0 ? 10000 : -10000)
+        : prevEval.eval;
+      const gap = Math.abs(topEval - secondAbsEval);
       if (gap >= 150) {
-        // Verify the moved piece isn't hanging (a free capture isn't "great")
-        if (!isPieceHanging(posBefore.fen, posAfter.fen, move.to as Square)) {
-          classification = "great";
+        try {
+          if (!isPieceHanging(posBefore.fen, posAfter.fen, move.to as Square)) {
+            classification = "great";
+          }
+        } catch {
+          // isPieceHanging can fail on edge cases, skip
         }
       }
     }
