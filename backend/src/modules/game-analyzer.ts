@@ -253,9 +253,10 @@ function detectMiss(
  * points lost. This produces scores mostly between 50-95 for normal play,
  * giving a "school test grade" feel (per Chess.com's Accuracy article).
  *
- * The old CAPS (v1) used simple EP retention (epAfter/epBefore * 100),
- * which skewed too high (most moves scored 98-100). CAPS2 spreads the
- * distribution more naturally.
+ * Key CAPS2 features (from Chess.com articles & interviews):
+ * - Exponential decay based on win% lost
+ * - Mate-distance scoring: adjusts accuracy near forced mate sequences
+ * - Book moves always score 100 (handled externally)
  *
  * Formula: accuracy = 103.1668 * exp(-0.04354 * wpLost) - 3.1668
  * where wpLost = (winPercentBefore - winPercentAfter) on a 0-100 scale.
@@ -265,7 +266,48 @@ function moveAccuracy(
   evalAfter: number,
   color: "white" | "black",
   rating: number = 1500,
+  mateBefore: number | null = null,
+  mateAfter: number | null = null,
 ): number {
+  // ── Mate-distance scoring ──
+  // When positions involve forced mate, centipawn-based EP breaks down.
+  // Use mate distance directly to determine accuracy.
+
+  // If position was already a forced mate against the player, any move scores 100
+  if (mateBefore !== null) {
+    const mateForPlayer = color === "white" ? mateBefore : -mateBefore;
+    // Mate against us (negative) — nothing to lose
+    if (mateForPlayer < 0) return 100;
+
+    // Player had mate and still has mate — check if mate distance got worse
+    if (mateAfter !== null) {
+      const mateAfterForPlayer = color === "white" ? -mateAfter : mateAfter;
+      if (mateAfterForPlayer > 0) {
+        // Still winning with mate — slightly penalize if mate got longer
+        // but generally very good
+        const distDiff = Math.max(0, mateAfterForPlayer - mateForPlayer);
+        return Math.max(85, 100 - distDiff * 2);
+      }
+      // Had mate, now opponent has mate — catastrophic, let normal formula handle
+    }
+
+    // Player had mate but now it's just a centipawn advantage — penalize
+    // but not as harshly if the position is still very winning
+    if (mateAfter === null) {
+      const cpAfterPlayer = color === "white" ? evalAfter : -evalAfter;
+      if (cpAfterPlayer > 500) return 75; // Still very winning
+      if (cpAfterPlayer > 200) return 55; // Lost the mate but decent position
+      // Lost the mate badly — let normal formula handle it
+    }
+  }
+
+  // If this move delivers checkmate, it's always 100
+  if (mateAfter !== null) {
+    const mateAfterForOpponent = color === "white" ? -mateAfter : mateAfter;
+    if (mateAfterForOpponent === 0) return 100; // Checkmate delivered
+  }
+
+  // ── Standard CAPS2 calculation ──
   // Convert evals (white perspective) to player perspective
   const cpBefore = color === "white" ? evalBefore : -evalBefore;
   const cpAfter = color === "white" ? evalAfter : -evalAfter;
@@ -284,6 +326,44 @@ function moveAccuracy(
   // wpLost=20 → ~40, wpLost=50 → ~8.5
   const accuracy = 103.1668 * Math.exp(-0.04354 * wpLost) - 3.1668;
   return Math.max(0, Math.min(100, accuracy));
+}
+
+/**
+ * Calculate game accuracy with CAPS2 dampening for consecutive blunders.
+ *
+ * From Chess.com: "reducing the penalty for multiple blunders" so that
+ * "a few poor moves in a row doesn't skew your overall score too heavily."
+ *
+ * When a player makes consecutive blunders, each subsequent one has a
+ * reduced impact on the overall average. This prevents a single bad
+ * sequence from destroying the entire game score.
+ */
+function calculateGameAccuracy(moves: AnalyzedMove[]): number {
+  if (moves.length === 0) return 0;
+
+  const dampened: number[] = [];
+  let consecutiveErrors = 0;
+
+  for (const move of moves) {
+    const isError = move.classification === "blunder" ||
+                    move.classification === "mistake";
+
+    if (isError) {
+      consecutiveErrors++;
+      // Dampen consecutive errors: 1st full weight, 2nd 70%, 3rd+ 50%
+      // This prevents a blunder-streak from tanking the entire score
+      const dampFactor = consecutiveErrors === 1 ? 1.0 :
+                         consecutiveErrors === 2 ? 0.7 : 0.5;
+      // Blend the low accuracy toward a floor (don't let it go below ~30)
+      const dampedAccuracy = move.accuracy + (50 - move.accuracy) * (1 - dampFactor);
+      dampened.push(Math.max(move.accuracy, dampedAccuracy));
+    } else {
+      consecutiveErrors = 0;
+      dampened.push(move.accuracy);
+    }
+  }
+
+  return dampened.reduce((a, b) => a + b, 0) / dampened.length;
 }
 
 // Convert UCI move to SAN
@@ -419,7 +499,17 @@ export async function analyzeGame(
       detectMiss(epLost, epBefore, epAfter, previousEpLost, playerRating);
 
     const classification = classifyMove(epLost, isBook, isBrilliant, isGreat, isMissedOpportunity);
-    const accuracy = isBook ? 100 : moveAccuracy(bestEvalWhite, afterEvalWhite, color, playerRating);
+
+    // Mate values from white's perspective for accuracy calculation
+    const mateBeforeWhite = bestEval.mate !== null
+      ? (color === "white" ? bestEval.mate : -bestEval.mate) : null;
+    const mateAfterWhite = afterEval.mate !== null
+      ? (color === "white" ? -afterEval.mate : afterEval.mate) : null;
+
+    const accuracy = isBook ? 100 : moveAccuracy(
+      bestEvalWhite, afterEvalWhite, color, playerRating,
+      mateBeforeWhite, mateAfterWhite,
+    );
 
     // Store this move's EP loss for next move's Miss detection
     previousEpLost = epLost;
@@ -483,16 +573,14 @@ export async function analyzeGame(
   const whiteMoves = moves.filter((m) => m.color === "white");
   const blackMoves = moves.filter((m) => m.color === "black");
 
-  const avg = (arr: number[]) =>
-    arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-
   return {
     gameId,
     pgn,
     moves,
     blunders,
-    whiteAccuracy: avg(whiteMoves.map((m) => m.accuracy)),
-    blackAccuracy: avg(blackMoves.map((m) => m.accuracy)),
+    // CAPS2: use dampened averaging that reduces impact of consecutive blunders
+    whiteAccuracy: calculateGameAccuracy(whiteMoves),
+    blackAccuracy: calculateGameAccuracy(blackMoves),
     evalGraph,
     blunderCounts: {
       white: whiteMoves.filter((m) => m.classification === "blunder").length,
