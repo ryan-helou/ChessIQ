@@ -142,7 +142,7 @@ export default function PlayerPage() {
       {/* Dashboard */}
       {data && (
         <>
-          <SectionNav />
+          <SectionNav username={username} />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Profile Header + Date Range */}

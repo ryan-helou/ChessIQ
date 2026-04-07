@@ -1,6 +1,7 @@
 import { Chess, Square } from "chess.js";
 import { randomUUID } from "crypto";
 import { getEngine, EngineEval } from "../lib/stockfish.js";
+import { detectTactics } from "./tactic-detector.js";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -733,7 +734,9 @@ export async function analyzeGame(
       isBlunder,
       isMistake,
       isInaccuracy,
-      tacticalThemes: [],
+      tacticalThemes: (isBlunder || isMistake || isInaccuracy)
+        ? detectTactics(posBefore.fen, posBefore.topLine.bestMove, posBefore.topLine.pv, Math.abs(evalDrop))
+        : [],
     };
 
     moves.push(analyzedMove);
@@ -747,7 +750,7 @@ export async function analyzeGame(
         evalBeforeCp: bestEvalWhite,
         evalAfterCp: afterEvalWhite,
         severity: isBlunder ? "blunder" : isMistake ? "mistake" : "inaccuracy",
-        missedTactic: null,
+        missedTactic: analyzedMove.tacticalThemes[0] ?? null,
         consequence: null,
       });
     }

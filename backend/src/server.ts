@@ -3,6 +3,7 @@ import { initRedis } from "./cache/redis.js";
 import { healthCheck as dbHealthCheck, closePool } from "./db/index.js";
 import { getEngine, shutdownEngine } from "./lib/stockfish.js";
 import analyzeRouter from "./routes/analyze.js";
+import puzzlesRouter from "./routes/puzzles.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);
@@ -54,6 +55,7 @@ app.get("/health", async (_req: Request, res: Response) => {
 
 // Routes
 app.use("/api/analyze", analyzeRouter);
+app.use("/api/puzzles", puzzlesRouter);
 
 // 404
 app.use((_req: Request, res: Response) => {

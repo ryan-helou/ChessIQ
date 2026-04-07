@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
@@ -11,7 +12,11 @@ const SECTIONS = [
   { id: "games", label: "Games" },
 ];
 
-export default function SectionNav() {
+interface Props {
+  username?: string;
+}
+
+export default function SectionNav({ username }: Props) {
   const [active, setActive] = useState("overview");
 
   useEffect(() => {
@@ -58,6 +63,14 @@ export default function SectionNav() {
               {s.label}
             </button>
           ))}
+          {username && (
+            <Link
+              href={`/player/${encodeURIComponent(username)}/puzzles`}
+              className="px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-all text-[#989795] hover:text-white hover:bg-[#3a3835]/60"
+            >
+              Puzzles
+            </Link>
+          )}
         </div>
       </div>
     </nav>

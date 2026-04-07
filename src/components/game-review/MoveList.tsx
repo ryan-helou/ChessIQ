@@ -36,17 +36,17 @@ interface Props {
 }
 
 const CLASSIFICATION_COLORS: Record<MoveClassification, string> = {
-  brilliant: "text-cyan-400 bg-cyan-500/10",
-  great: "text-blue-400 bg-blue-500/10",
-  best: "text-emerald-400 bg-emerald-500/10",
-  excellent: "text-emerald-300 bg-emerald-500/5",
-  good: "text-[#989795] bg-transparent",
-  inaccuracy: "text-yellow-400 bg-yellow-500/10",
-  mistake: "text-orange-400 bg-orange-500/10",
-  blunder: "text-red-400 bg-red-500/15",
-  miss: "text-amber-400 bg-amber-500/10",
+  brilliant: "text-[#26c9c3] bg-[#26c9c3]/10",
+  great: "text-[#5b8bb4] bg-[#5b8bb4]/10",
+  best: "text-[#96bc4b] bg-[#96bc4b]/10",
+  excellent: "text-[#5eba3a] bg-[#5eba3a]/10",
+  good: "text-[#88bf40] bg-[#88bf40]/10",
+  inaccuracy: "text-[#dbac18] bg-[#dbac18]/10",
+  mistake: "text-[#e28c28] bg-[#e28c28]/10",
+  blunder: "text-[#ca3431] bg-[#ca3431]/15",
+  miss: "text-[#e26b50] bg-[#e26b50]/10",
   forced: "text-[#989795] bg-[#706e6b]/10",
-  book: "text-violet-400 bg-violet-500/10",
+  book: "text-[#b09860] bg-[#b09860]/10",
 };
 
 const CLASSIFICATION_ICONS: Record<MoveClassification, string> = {
@@ -61,6 +61,20 @@ const CLASSIFICATION_ICONS: Record<MoveClassification, string> = {
   miss: "✕",
   forced: "→",
   book: "📖",
+};
+
+const CLASSIFICATION_CIRCLE_BG: Record<MoveClassification, string> = {
+  brilliant: "#26c9c3",
+  great: "#5b8bb4",
+  best: "#96bc4b",
+  excellent: "#5eba3a",
+  good: "#88bf40",
+  inaccuracy: "#dbac18",
+  mistake: "#e28c28",
+  blunder: "#ca3431",
+  miss: "#e26b50",
+  forced: "#888888",
+  book: "#b09860",
 };
 
 export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props) {
@@ -93,19 +107,32 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
     const isActive = index === currentMoveIndex;
     const colors = CLASSIFICATION_COLORS[move.classification];
     const icon = CLASSIFICATION_ICONS[move.classification];
+    const circleBg = CLASSIFICATION_CIRCLE_BG[move.classification];
 
     return (
       <button
         ref={isActive ? activeRef : undefined}
         onClick={() => onMoveClick(index)}
-        className={`px-1.5 py-1 rounded text-sm font-mono transition-all ${colors} ${
+        className={`flex items-center gap-1 px-1.5 py-1 rounded text-sm font-mono transition-all ${colors} ${
           isActive
             ? "ring-2 ring-[#81b64c] ring-offset-1 ring-offset-[#262522] font-bold"
             : "hover:brightness-125"
         }`}
       >
         {move.san}
-        {icon && <span className="text-[10px] ml-0.5">{icon}</span>}
+        {icon && (
+          <span
+            className="inline-flex items-center justify-center rounded-full text-white font-bold leading-none shrink-0"
+            style={{
+              backgroundColor: circleBg,
+              width: "16px",
+              height: "16px",
+              fontSize: "9px",
+            }}
+          >
+            {icon}
+          </span>
+        )}
       </button>
     );
   };

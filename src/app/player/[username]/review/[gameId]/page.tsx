@@ -34,16 +34,16 @@ interface ClassInfo {
 }
 
 const CLASSIFICATIONS: { key: MoveClassification; info: ClassInfo }[] = [
-  { key: "brilliant", info: { label: "Brilliant", color: "text-cyan-400", bg: "#26c9c3", icon: "!!" } },
-  { key: "great", info: { label: "Great", color: "text-blue-400", bg: "#5c8bb0", icon: "!" } },
-  { key: "book", info: { label: "Book", color: "text-[#c9a967]", bg: "#c9a967", icon: "📖" } },
-  { key: "best", info: { label: "Best", color: "text-emerald-400", bg: "#96bc4b", icon: "★" } },
-  { key: "excellent", info: { label: "Excellent", color: "text-emerald-300", bg: "#96bc4b", icon: "" } },
-  { key: "good", info: { label: "Good", color: "text-[#a0a0a0]", bg: "#a0a0a0", icon: "" } },
-  { key: "inaccuracy", info: { label: "Inaccuracy", color: "text-yellow-400", bg: "#e6b028", icon: "?!" } },
-  { key: "mistake", info: { label: "Mistake", color: "text-orange-400", bg: "#e08a20", icon: "?" } },
-  { key: "miss", info: { label: "Miss", color: "text-amber-400", bg: "#d4a82a", icon: "⊘" } },
-  { key: "blunder", info: { label: "Blunder", color: "text-red-400", bg: "#ca3431", icon: "??" } },
+  { key: "brilliant", info: { label: "Brilliant", color: "text-[#26c9c3]", bg: "#26c9c3", icon: "!!" } },
+  { key: "great", info: { label: "Great", color: "text-[#5b8bb4]", bg: "#5b8bb4", icon: "!" } },
+  { key: "best", info: { label: "Best", color: "text-[#96bc4b]", bg: "#96bc4b", icon: "★" } },
+  { key: "excellent", info: { label: "Excellent", color: "text-[#5eba3a]", bg: "#5eba3a", icon: "👍" } },
+  { key: "good", info: { label: "Good", color: "text-[#88bf40]", bg: "#88bf40", icon: "✓" } },
+  { key: "book", info: { label: "Book", color: "text-[#b09860]", bg: "#b09860", icon: "📖" } },
+  { key: "inaccuracy", info: { label: "Inaccuracy", color: "text-[#dbac18]", bg: "#dbac18", icon: "?!" } },
+  { key: "mistake", info: { label: "Mistake", color: "text-[#e28c28]", bg: "#e28c28", icon: "?" } },
+  { key: "miss", info: { label: "Miss", color: "text-[#e26b50]", bg: "#e26b50", icon: "✕" } },
+  { key: "blunder", info: { label: "Blunder", color: "text-[#ca3431]", bg: "#ca3431", icon: "??" } },
   { key: "forced", info: { label: "Forced", color: "text-[#989795]", bg: "#888888", icon: "→" } },
 ];
 
@@ -91,14 +91,12 @@ function phaseIcon(acc: number | null): { icon: string; color: string } {
 // ─── Classification Circle Icon ───
 
 function ClassCircle({ bg, icon, small }: { bg: string; icon: string; small?: boolean }) {
-  const size = small ? "w-4 h-4 text-[8px]" : "w-5 h-5 text-[10px]";
-  if (icon === "📖") {
-    return <span className={`${small ? "text-xs" : "text-sm"}`}>📖</span>;
-  }
+  const size = small ? "w-4 h-4" : "w-5 h-5";
+  const fontSize = small ? "8px" : "10px";
   return (
     <span
-      className={`${size} rounded-full inline-flex items-center justify-center font-bold text-white shrink-0`}
-      style={{ backgroundColor: bg }}
+      className={`${size} rounded-full inline-flex items-center justify-center font-bold text-white shrink-0 leading-none`}
+      style={{ backgroundColor: bg, fontSize }}
     >
       {icon}
     </span>
@@ -711,19 +709,19 @@ export default function GameReviewPage() {
     }
   }
 
-  // Classification badge on the destination square (matches Chess.com icons)
+  // Classification badge on the destination square (matches Chess.com icons exactly)
   const BADGE_CLASSIFICATIONS: Record<string, { bg: string; icon: string }> = {
     brilliant: { bg: "#26c9c3", icon: "!!" },
-    great: { bg: "#5c8bb0", icon: "!" },
+    great: { bg: "#5b8bb4", icon: "!" },
     best: { bg: "#96bc4b", icon: "★" },
-    excellent: { bg: "#549e39", icon: "👍" },
-    good: { bg: "#7fba3c", icon: "✓" },
-    inaccuracy: { bg: "#e6b028", icon: "?!" },
-    mistake: { bg: "#e08a20", icon: "?" },
+    excellent: { bg: "#5eba3a", icon: "👍" },
+    good: { bg: "#88bf40", icon: "✓" },
+    inaccuracy: { bg: "#dbac18", icon: "?!" },
+    mistake: { bg: "#e28c28", icon: "?" },
     blunder: { bg: "#ca3431", icon: "??" },
-    miss: { bg: "#e06050", icon: "✕" },
+    miss: { bg: "#e26b50", icon: "✕" },
     forced: { bg: "#888888", icon: "→" },
-    book: { bg: "#b08b48", icon: "📖" },
+    book: { bg: "#b09860", icon: "📖" },
   };
 
   const squareRenderer = useMemo(() => {
