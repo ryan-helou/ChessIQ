@@ -3,9 +3,6 @@
  * Frontend client for puzzle recommendations and attempt tracking
  */
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
@@ -117,7 +114,7 @@ export async function getPuzzleRecommendations(
   limit: number = 20
 ): Promise<PuzzleRecommendation> {
   const res = await fetch(
-    `${BACKEND_URL}/api/puzzles/recommendations/${encodeURIComponent(username)}?rating=${playerRating}&limit=${limit}`
+    `/api/puzzles/recommendations/${encodeURIComponent(username)}?rating=${playerRating}&limit=${limit}`
   );
 
   if (!res.ok) {
@@ -135,7 +132,7 @@ export async function recordPuzzleAttempt(
   timeSeconds: number | null
 ): Promise<void> {
   const res = await fetch(
-    `${BACKEND_URL}/api/puzzles/${encodeURIComponent(puzzleId)}/attempt`,
+    `/api/puzzles/${encodeURIComponent(puzzleId)}/attempt`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
