@@ -41,16 +41,32 @@ export interface GameAnalysis {
   inaccuracies: { white: number; black: number };
 }
 
-// Classify moves based on centipawn loss
-function classifyMove(evalDrop: number, isBook: boolean): MoveClassification {
+// Classify moves based on centipawn loss/gain (Chess.com standards)
+function classifyMove(
+  evalDrop: number,
+  evalBefore: number,
+  isBook: boolean,
+  isWinningPosition: boolean,
+  missedWinningMove: boolean
+): MoveClassification {
   if (isBook) return "book";
-  const loss = Math.abs(evalDrop);
-  if (loss <= 10) return "best";
-  if (loss <= 25) return "excellent";
-  if (loss <= 50) return "good";
-  if (loss <= 100) return "inaccuracy";
-  if (loss <= 250) return "mistake";
-  return "blunder";
+  if (missedWinningMove) return "miss"; // Didn't find winning continuation
+  if (isWinningPosition && Math.abs(evalDrop) > 500) return "forced"; // Limited options in critical position
+
+  // evalDrop is: (player eval - best eval)
+  // Negative = worse than best (blunder/mistake/inaccuracy/good/excellent/best)
+  // Positive = better than best (great/brilliant)
+
+  const loss = -evalDrop; // Convert to positive (loss = how much worse the move is)
+
+  if (evalDrop > 100) return "brilliant"; // +100cp better than "best" - exceptional!
+  if (evalDrop > 50) return "great"; // +50 to +100cp better
+  if (loss <= 10) return "best"; // Within 10cp of best move
+  if (loss <= 25) return "excellent"; // Loss up to 25cp
+  if (loss <= 50) return "good"; // Loss up to 50cp
+  if (loss <= 100) return "inaccuracy"; // Loss up to 100cp (mild error)
+  if (loss <= 250) return "mistake"; // Loss up to 250cp (clear error)
+  return "blunder"; // Loss > 250cp (terrible)
 }
 
 // Convert centipawn loss to accuracy (Chess.com-like formula)
@@ -140,16 +156,35 @@ export async function analyzeGame(
     }
 
     // Calculate eval drop from mover's perspective
+    // evalDrop = (player's actual move eval) - (best move eval from engine)
+    // Negative = worse than best, Positive = better than best
     const evalAfterMove = afterEval.eval;
     let evalDrop: number;
     if (color === "white") {
       evalDrop = evalAfterMove - bestEval.eval;
     } else {
+      // For Black, invert both evals to get drop from Black's perspective
       evalDrop = -evalAfterMove - (-bestEval.eval);
     }
 
+    // Detect if this is a winning or losing position (for "forced" classification)
+    const isWinningPosition = Math.abs(bestEval.eval) > 300; // 3+ pawns advantage
+    const isLosingPosition = Math.abs(bestEval.eval) > 400; // 4+ pawns behind
+
+    // Detect if player missed a winning move (for "miss" classification)
+    // This happens when the best move is winning but the player's move loses it
+    const bestMoveWins = bestEval.eval > 300; // Best move is winning
+    const playerMoveLoses = evalAfterMove < -100; // Player's move is losing
+    const missedWinningMove = bestMoveWins && playerMoveLoses;
+
     const isBook = i < bookMoves;
-    const classification = classifyMove(evalDrop, isBook);
+    const classification = classifyMove(
+      evalDrop,
+      bestEval.eval,
+      isBook,
+      isWinningPosition,
+      missedWinningMove
+    );
     const accuracy = isBook ? 100 : moveAccuracy(bestEval.eval, evalAfterMove, color);
 
     const bestMoveSan = uciToSan(fenBefore, bestEval.bestMove);

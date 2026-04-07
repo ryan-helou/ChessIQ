@@ -86,26 +86,26 @@ export async function analyzeGame(
 
     // Adapt the response from GameAnalysis to GameAnalysisResult format
     const blunderMoves = analysis.moves.filter(
-      (m) => m.classification === "blunder"
+      (m: any) => m.classification === "blunder"
     );
     const mistakeMoves = analysis.moves.filter(
-      (m) => m.classification === "mistake"
+      (m: any) => m.classification === "mistake"
     );
     const inaccuracyMoves = analysis.moves.filter(
-      (m) => m.classification === "inaccuracy"
+      (m: any) => m.classification === "inaccuracy"
     );
 
     return {
       gameId: "", // Will be filled by caller if needed
       pgn,
-      moves: analysis.moves.map((m) => ({
+      moves: analysis.moves.map((m: any) => ({
         ...m,
         isBlunder: m.classification === "blunder",
         isMistake: m.classification === "mistake",
         isInaccuracy: m.classification === "inaccuracy",
         tacticalThemes: [], // TODO: Add tactical theme detection
       })),
-      blunders: blunderMoves.map((m) => ({
+      blunders: blunderMoves.map((m: any) => ({
         moveNumber: m.moveNumber,
         playerMove: m.move,
         bestMove: m.bestMove,
