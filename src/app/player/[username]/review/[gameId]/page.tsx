@@ -363,6 +363,7 @@ function ReviewPanel({
   currentMoveIndex,
   setCurrentMoveIndex,
   gameInfo,
+  onBackToSummary,
 }: {
   analysis: GameAnalysisResult;
   currentMoveIndex: number;
@@ -374,14 +375,26 @@ function ReviewPanel({
     blackElo: string;
     playerColor: "white" | "black";
   };
+  onBackToSummary: () => void;
 }) {
   const displayMoves = analysis.moves;
   const currentMove = currentMoveIndex >= 0 ? displayMoves[currentMoveIndex] : null;
 
   return (
     <div className="bg-[#262522] rounded-xl overflow-hidden flex flex-col h-full">
+      {/* Header with back button */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+        <button
+          onClick={onBackToSummary}
+          className="text-[#989795] hover:text-white transition-colors text-sm font-bold"
+          title="Back to summary"
+        >
+          ← Summary
+        </button>
+      </div>
+
       {/* Current move info */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="px-4 pb-3">
         {currentMove ? (
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -861,6 +874,10 @@ export default function GameReviewPage() {
                 currentMoveIndex={currentMoveIndex}
                 setCurrentMoveIndex={setCurrentMoveIndex}
                 gameInfo={gameInfo}
+                onBackToSummary={() => {
+                  setReviewStarted(false);
+                  setCurrentMoveIndex(-1);
+                }}
               />
             )}
           </div>
