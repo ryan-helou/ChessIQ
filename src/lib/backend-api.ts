@@ -103,7 +103,7 @@ export async function analyzeGame(
         isBlunder: m.classification === "blunder",
         isMistake: m.classification === "mistake",
         isInaccuracy: m.classification === "inaccuracy",
-        tacticalThemes: [], // TODO: Add tactical theme detection
+        tacticalThemes: m.tacticalThemes || [], // Railway backend may include this
       })),
       blunders: blunderMoves.map((m: any) => ({
         moveNumber: m.moveNumber,
@@ -118,9 +118,10 @@ export async function analyzeGame(
       whiteAccuracy: analysis.whiteAccuracy,
       blackAccuracy: analysis.blackAccuracy,
       evalGraph: analysis.evalGraph,
-      blunderCounts: analysis.blunders,
-      mistakeCounts: analysis.mistakes,
-      inaccuracyCounts: analysis.inaccuracies,
+      // Handle both old format (blunders/mistakes/inaccuracies) and new format (blunderCounts/etc)
+      blunderCounts: analysis.blunders || analysis.blunderCounts || { white: 0, black: 0 },
+      mistakeCounts: analysis.mistakes || analysis.mistakeCounts || { white: 0, black: 0 },
+      inaccuracyCounts: analysis.inaccuracies || analysis.inaccuracyCounts || { white: 0, black: 0 },
       analysisDepth: depth,
     };
   } catch (error) {
