@@ -241,8 +241,8 @@ function winPercent(cp: number): number {
  */
 function moveAccuracyFromWinDiff(winDiff: number): number {
   if (winDiff <= 0) return 100;
-  // Lichess formula with +1 uncertainty bonus
-  const raw = 103.1668 * Math.exp(-0.04354 * winDiff) - 3.1669 + 1;
+  // Lichess formula with +1 uncertainty bonus, but slightly stricter decay (0.048 vs 0.04354)
+  const raw = 103.1668 * Math.exp(-0.048 * winDiff) - 3.1669 + 1;
   return Math.max(0, Math.min(100, raw));
 }
 
