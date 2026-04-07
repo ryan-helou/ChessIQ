@@ -8,6 +8,7 @@ import SectionNav from "@/components/SectionNav";
 import StatsCards from "@/components/StatsCards";
 import RatingChart from "@/components/RatingChart";
 import DateRangePicker from "@/components/DateRangePicker";
+import AnalysisDialog from "@/components/AnalysisDialog";
 import { WinLossDrawChart, ResultBreakdownChart } from "@/components/ResultsChart";
 import { AccuracyOverTime, AccuracyVsRating } from "@/components/AccuracyChart";
 import { AccuracyByPhase } from "@/components/AccuracyPhaseChart";
@@ -66,6 +67,8 @@ export default function PlayerPage() {
   const [error, setError] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [months, setMonths] = useState(6);
+  const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
 
   const fetchData = useCallback(async (m: number) => {
     setLoading(true);
@@ -99,6 +102,41 @@ export default function PlayerPage() {
   const handleMonthsChange = (m: number) => {
     setMonths(m);
   };
+
+  const handleAnalyzeGames = useCallback(
+    async (gameCount: 10 | 20 | 50 | "all") => {
+      setAnalysisLoading(true);
+      try {
+        const res = await fetch(`/api/games/${username}/analyze-queue`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            months,
+            gameCount,
+            depth: 18,
+          }),
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "Failed to queue analysis");
+        }
+
+        const result = await res.json();
+        alert(
+          `✅ ${result.message}\nJob ID: ${result.jobId}\n\nYou can navigate away - analysis runs in the background.`
+        );
+      } catch (err) {
+        alert(
+          `❌ ${err instanceof Error ? err.message : "Failed to queue analysis"}`
+        );
+        throw err;
+      } finally {
+        setAnalysisLoading(false);
+      }
+    },
+    [username, months]
+  );
 
   // Compute stats
   const totalGames = data?.games.length ?? 0;
@@ -168,7 +206,16 @@ export default function PlayerPage() {
                     )}
                   </div>
                 </div>
-                <DateRangePicker value={months} onChange={handleMonthsChange} loading={loading} />
+                <div className="flex flex-col gap-3 sm:items-end">
+                  <DateRangePicker value={months} onChange={handleMonthsChange} loading={loading} />
+                  <button
+                    onClick={() => setShowAnalysisDialog(true)}
+                    disabled={loading || analysisLoading}
+                    className="px-4 py-2 bg-[#81b64c] hover:bg-[#96bc4b] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors text-sm whitespace-nowrap"
+                  >
+                    {analysisLoading ? "⏳ Queuing..." : "⚙️ Analyze Games"}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -265,6 +312,14 @@ export default function PlayerPage() {
               <GamesList games={data.games} username={username} />
             </div>
           </div>
+
+          {/* Analysis Dialog */}
+          <AnalysisDialog
+            months={months}
+            onAnalyze={handleAnalyzeGames}
+            onClose={() => setShowAnalysisDialog(false)}
+            isOpen={showAnalysisDialog}
+          />
         </>
       )}
     </div>
