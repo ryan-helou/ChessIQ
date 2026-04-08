@@ -672,7 +672,7 @@ export default function GameReviewPage() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left: board area — board centered, fills remaining space */}
-        <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>
+        <div className="flex-1 flex items-center justify-end overflow-hidden" style={{ padding: "4px" }}>
           {/* Eval bar */}
           <div style={{ width: 20, height: boardSizeCSS, marginRight: 4 }}>
             <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
