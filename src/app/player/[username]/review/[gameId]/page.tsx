@@ -116,6 +116,7 @@ function GameReviewPanel({
   analysis,
   gameInfo,
   onStartReview,
+  onMoveClick,
 }: {
   analysis: GameAnalysisResult;
   gameInfo: {
@@ -126,6 +127,7 @@ function GameReviewPanel({
     playerColor: "white" | "black";
   };
   onStartReview: () => void;
+  onMoveClick: (moveIndex: number) => void;
 }) {
   // Count classifications for each side
   const whiteMoves = analysis.moves.filter((m) => m.color === "white");
@@ -156,7 +158,7 @@ function GameReviewPanel({
 
       {/* Mini eval graph */}
       <div className="px-5 pb-2">
-        <div className="h-[60px] bg-[#1a1916] rounded-lg overflow-hidden">
+        <div className="h-[60px] bg-[#1a1916] rounded-lg overflow-hidden cursor-pointer">
           <EvalGraph
             data={analysis.moves.map((m, i) => ({
               move: i + 1,
@@ -164,7 +166,7 @@ function GameReviewPanel({
               mate: m.mate ?? null,
             }))}
             currentMove={0}
-            onMoveClick={() => {}}
+            onMoveClick={(move) => onMoveClick(move - 1)}
             mini
           />
         </div>
@@ -874,6 +876,10 @@ export default function GameReviewPage() {
                 onStartReview={() => {
                   setReviewStarted(true);
                   setCurrentMoveIndex(0);
+                }}
+                onMoveClick={(moveIndex) => {
+                  setReviewStarted(true);
+                  setCurrentMoveIndex(moveIndex);
                 }}
               />
             )}

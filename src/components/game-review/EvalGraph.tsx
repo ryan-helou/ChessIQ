@@ -49,7 +49,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
               onMoveClick(e.activePayload[0].payload.move);
             }
           }}
-          style={{ cursor: mini ? "default" : "pointer" }}
+          style={{ cursor: "pointer" }}
           margin={mini ? { top: 2, right: 2, bottom: 2, left: 2 } : undefined}
         >
           <defs>
