@@ -155,29 +155,23 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
   };
 
   return (
-    <div className="overflow-y-auto max-h-[500px] scrollbar-hide">
-      <div className="space-y-0.5">
-        {pairs.map((pair) => (
-          <div
-            key={pair.number}
-            className="flex items-center gap-1 text-sm"
-          >
-            <span className="w-8 text-right text-[#706e6b] text-xs font-mono shrink-0">
-              {pair.number}.
-            </span>
-            <div className="flex-1 min-w-0">
-              {pair.white && (
-                <MoveButton move={pair.white} index={pair.whiteIdx} />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              {pair.black && (
-                <MoveButton move={pair.black} index={pair.blackIdx} />
-              )}
-            </div>
+    <div className="overflow-y-auto h-full scrollbar-hide">
+      {pairs.map((pair) => (
+        <div
+          key={pair.number}
+          className="flex items-center gap-0.5"
+        >
+          <span className="w-7 text-right text-[#4a4845] text-xs font-mono shrink-0 pr-1">
+            {pair.number}.
+          </span>
+          <div className="flex-1 min-w-0">
+            {pair.white && <MoveButton move={pair.white} index={pair.whiteIdx} />}
           </div>
-        ))}
-      </div>
+          <div className="flex-1 min-w-0">
+            {pair.black && <MoveButton move={pair.black} index={pair.blackIdx} />}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

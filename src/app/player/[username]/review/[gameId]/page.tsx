@@ -110,6 +110,20 @@ function ClassCircle({ bg, icon, img, small }: { bg: string; icon: string; img?:
   );
 }
 
+// ─── Phase icon helper ───
+function PhaseIcon({ acc }: { acc: number | null }) {
+  const { icon, color } = phaseIcon(acc);
+  if (icon === "-") return <span className="text-[#706e6b] text-sm">—</span>;
+  return (
+    <span
+      className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold"
+      style={{ backgroundColor: color === "text-green-400" ? "#56a333" : color === "text-green-500" ? "#81b64c" : "#c9a967" }}
+    >
+      {icon === "👍" ? "✓" : icon}
+    </span>
+  );
+}
+
 // ─── Game Review Summary Panel (Chess.com style) ───
 
 function GameReviewPanel({
@@ -129,234 +143,113 @@ function GameReviewPanel({
   onStartReview: () => void;
   onMoveClick: (moveIndex: number) => void;
 }) {
-  // Count classifications for each side
   const whiteMoves = analysis.moves.filter((m) => m.color === "white");
   const blackMoves = analysis.moves.filter((m) => m.color === "black");
-
   const whiteCounts: Record<MoveClassification, number> = {} as any;
   const blackCounts: Record<MoveClassification, number> = {} as any;
-
   for (const c of CLASSIFICATIONS) {
     whiteCounts[c.key] = whiteMoves.filter((m) => m.classification === c.key).length;
     blackCounts[c.key] = blackMoves.filter((m) => m.classification === c.key).length;
   }
-
-  // Game phases
   const whiteOpening = getGamePhaseRating(analysis.moves, "white", "opening");
   const blackOpening = getGamePhaseRating(analysis.moves, "black", "opening");
-  const whiteMiddle = getGamePhaseRating(analysis.moves, "white", "middlegame");
-  const blackMiddle = getGamePhaseRating(analysis.moves, "black", "middlegame");
-  const whiteEnd = getGamePhaseRating(analysis.moves, "white", "endgame");
-  const blackEnd = getGamePhaseRating(analysis.moves, "black", "endgame");
+  const whiteMiddle  = getGamePhaseRating(analysis.moves, "white", "middlegame");
+  const blackMiddle  = getGamePhaseRating(analysis.moves, "black", "middlegame");
+  const whiteEnd     = getGamePhaseRating(analysis.moves, "white", "endgame");
+  const blackEnd     = getGamePhaseRating(analysis.moves, "black", "endgame");
 
   return (
-    <div className="bg-[#262522] rounded-xl overflow-hidden flex flex-col h-full">
+    <div className="flex flex-col h-full bg-[#1e1c1a]">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3">
-        <h2 className="text-lg font-bold text-white">Game Review</h2>
+      <div className="px-4 py-3 border-b border-[#3a3835]">
+        <h2 className="text-sm font-bold text-white tracking-wide">⭐ Game Review</h2>
       </div>
 
-      {/* Mini eval graph */}
-      <div className="px-5 pb-2">
-        <div className="h-[60px] bg-[#1a1916] rounded-lg overflow-hidden cursor-pointer">
-          <EvalGraph
-            data={analysis.moves.map((m, i) => ({
-              move: i + 1,
-              eval: m.engineEval,
-              mate: m.mate ?? null,
-            }))}
-            currentMove={0}
-            onMoveClick={(move) => onMoveClick(move - 1)}
-            mini
-          />
+      {/* Eval graph */}
+      <div className="h-[52px] bg-[#141312] border-b border-[#3a3835]">
+        <EvalGraph
+          data={analysis.moves.map((m, i) => ({ move: i + 1, eval: m.engineEval, mate: m.mate ?? null }))}
+          currentMove={0}
+          onMoveClick={(move) => onMoveClick(move - 1)}
+          mini
+        />
+      </div>
+
+      {/* Players + Accuracy — Chess.com row style */}
+      <div className="px-4 py-3 border-b border-[#3a3835]">
+        {/* Player names */}
+        <div className="grid grid-cols-[1fr_80px_1fr] text-xs text-[#989795] mb-2">
+          <span className="truncate font-medium text-white">{gameInfo.white}</span>
+          <span className="text-center">Players</span>
+          <span className="truncate font-medium text-white text-right">{gameInfo.black}</span>
+        </div>
+        {/* Accuracy */}
+        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
+          <span
+            className="text-base font-bold"
+            style={{ color: getAccuracyColor(analysis.whiteAccuracy) }}
+          >
+            {analysis.whiteAccuracy.toFixed(1)}
+          </span>
+          <span className="text-xs text-[#706e6b] text-center">Accuracy</span>
+          <span
+            className="text-base font-bold text-right"
+            style={{ color: getAccuracyColor(analysis.blackAccuracy) }}
+          >
+            {analysis.blackAccuracy.toFixed(1)}
+          </span>
         </div>
       </div>
 
-      {/* Players + Accuracy */}
-      <div className="px-5 py-3">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-          {/* White player */}
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-1.5 rounded bg-[#3a3835] flex items-center justify-center text-lg">
-              ♔
-            </div>
-            <div className="text-sm font-semibold text-white truncate">{gameInfo.white}</div>
-          </div>
-
-          {/* Label column */}
-          <div className="text-center">
-            <div className="h-12 mb-1.5" />
-            <div className="text-xs text-[#e8e6e1]0">Players</div>
-          </div>
-
-          {/* Black player */}
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-1.5 rounded bg-[#3a3835] flex items-center justify-center text-lg">
-              ♚
-            </div>
-            <div className="text-sm font-semibold text-white truncate">{gameInfo.black}</div>
-          </div>
-        </div>
-
-        {/* Accuracy row */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 mt-3">
-          <div className="text-center">
-            <span
-              className="inline-block px-3 py-1 rounded-md font-bold text-lg"
-              style={{
-                backgroundColor: getAccuracyColor(analysis.whiteAccuracy),
-                color: "#fff",
-              }}
-            >
-              {analysis.whiteAccuracy.toFixed(1)}
+      {/* Classification table — Chess.com format: label | white | icon | black */}
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        {CLASSIFICATIONS.map(({ key, info }) => (
+          <div key={key} className="grid grid-cols-[80px_28px_20px_28px] items-center py-[3px] gap-1">
+            <span className="text-xs text-[#989795]">{info.label}</span>
+            <span className={`text-sm font-semibold text-right ${whiteCounts[key] > 0 ? "text-white" : "text-[#4a4845]"}`}>
+              {whiteCounts[key]}
+            </span>
+            <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
+            <span className={`text-sm font-semibold text-left pl-1 ${blackCounts[key] > 0 ? "text-white" : "text-[#4a4845]"}`}>
+              {blackCounts[key]}
             </span>
           </div>
-          <div className="text-xs text-[#e8e6e1]0 text-center">Accuracy</div>
-          <div className="text-center">
-            <span
-              className="inline-block px-3 py-1 rounded-md font-bold text-lg"
-              style={{
-                backgroundColor: getAccuracyColor(analysis.blackAccuracy),
-                color: "#fff",
-              }}
-            >
-              {analysis.blackAccuracy.toFixed(1)}
-            </span>
-          </div>
+        ))}
+      </div>
+
+      {/* Phase + Ratings section */}
+      <div className="px-4 py-3 border-t border-[#3a3835] space-y-1.5">
+        {/* Ratings */}
+        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
+          <span className="text-sm font-bold text-white">{gameInfo.whiteElo}</span>
+          <span className="text-xs text-[#706e6b] text-center">Ratings</span>
+          <span className="text-sm font-bold text-white text-right">{gameInfo.blackElo}</span>
+        </div>
+        {/* Opening */}
+        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
+          <PhaseIcon acc={whiteOpening?.accuracy ?? null} />
+          <span className="text-xs text-[#706e6b] text-center">Opening</span>
+          <div className="flex justify-end"><PhaseIcon acc={blackOpening?.accuracy ?? null} /></div>
+        </div>
+        {/* Middlegame */}
+        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
+          <PhaseIcon acc={whiteMiddle?.accuracy ?? null} />
+          <span className="text-xs text-[#706e6b] text-center">Middlegame</span>
+          <div className="flex justify-end"><PhaseIcon acc={blackMiddle?.accuracy ?? null} /></div>
+        </div>
+        {/* Endgame */}
+        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
+          <PhaseIcon acc={whiteEnd?.accuracy ?? null} />
+          <span className="text-xs text-[#706e6b] text-center">Endgame</span>
+          <div className="flex justify-end"><PhaseIcon acc={blackEnd?.accuracy ?? null} /></div>
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-[#3a3835] mx-5" />
-
-      {/* Classification breakdown table */}
-      <div className="px-5 py-3 flex-1 overflow-y-auto">
-        <div className="space-y-1.5">
-          {CLASSIFICATIONS.map(({ key, info }) => (
-            <div
-              key={key}
-              className="grid grid-cols-[1fr_auto_1fr] items-center gap-4"
-            >
-              {/* White count */}
-              <div className="flex items-center justify-center gap-1.5">
-                <span className="text-sm text-white font-medium w-6 text-right">
-                  {whiteCounts[key]}
-                </span>
-                <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
-              </div>
-
-              {/* Label */}
-              <div className="text-xs text-[#989795] w-20 text-center">{info.label}</div>
-
-              {/* Black count */}
-              <div className="flex items-center justify-center gap-1.5">
-                <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
-                <span className="text-sm text-white font-medium w-6 text-left">
-                  {blackCounts[key]}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t border-[#3a3835] mx-5" />
-
-      {/* Game Phase section */}
-      <div className="px-5 py-3">
-        <div className="space-y-2">
-          {/* Game Rating row */}
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div className="text-center">
-              <span className="inline-block px-2.5 py-0.5 rounded bg-white text-black font-bold text-sm">
-                {gameInfo.whiteElo}
-              </span>
-            </div>
-            <div className="text-xs text-[#989795] w-20 text-center">Ratings</div>
-            <div className="text-center">
-              <span className="inline-block px-2.5 py-0.5 rounded bg-[#3a3835] text-white font-bold text-sm">
-                {gameInfo.blackElo}
-              </span>
-            </div>
-          </div>
-
-          {/* Opening */}
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div className="text-center text-lg">
-              {phaseIcon(whiteOpening?.accuracy ?? null).icon === "👍" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
-              ) : phaseIcon(whiteOpening?.accuracy ?? null).icon === "✓" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
-              ) : (
-                <span className="text-[#706e6b]">{phaseIcon(whiteOpening?.accuracy ?? null).icon}</span>
-              )}
-            </div>
-            <div className="text-xs text-[#989795] w-20 text-center">Opening</div>
-            <div className="text-center text-lg">
-              {phaseIcon(blackOpening?.accuracy ?? null).icon === "👍" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
-              ) : phaseIcon(blackOpening?.accuracy ?? null).icon === "✓" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
-              ) : (
-                <span className="text-[#706e6b]">{phaseIcon(blackOpening?.accuracy ?? null).icon}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Middlegame */}
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div className="text-center text-lg">
-              {phaseIcon(whiteMiddle?.accuracy ?? null).icon === "👍" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
-              ) : phaseIcon(whiteMiddle?.accuracy ?? null).icon === "✓" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
-              ) : (
-                <span className="text-[#706e6b]">{phaseIcon(whiteMiddle?.accuracy ?? null).icon}</span>
-              )}
-            </div>
-            <div className="text-xs text-[#989795] w-20 text-center">Middlegame</div>
-            <div className="text-center text-lg">
-              {phaseIcon(blackMiddle?.accuracy ?? null).icon === "👍" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
-              ) : phaseIcon(blackMiddle?.accuracy ?? null).icon === "✓" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
-              ) : (
-                <span className="text-[#706e6b]">{phaseIcon(blackMiddle?.accuracy ?? null).icon}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Endgame */}
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div className="text-center text-lg">
-              {phaseIcon(whiteEnd?.accuracy ?? null).icon === "👍" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
-              ) : phaseIcon(whiteEnd?.accuracy ?? null).icon === "✓" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
-              ) : (
-                <span className="text-[#706e6b]">{phaseIcon(whiteEnd?.accuracy ?? null).icon}</span>
-              )}
-            </div>
-            <div className="text-xs text-[#989795] w-20 text-center">Endgame</div>
-            <div className="text-center text-lg">
-              {phaseIcon(blackEnd?.accuracy ?? null).icon === "👍" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm">👍</span>
-              ) : phaseIcon(blackEnd?.accuracy ?? null).icon === "✓" ? (
-                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#769656] text-white text-sm font-bold">✓</span>
-              ) : (
-                <span className="text-[#706e6b]">{phaseIcon(blackEnd?.accuracy ?? null).icon}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Start Review button */}
-      <div className="px-5 pb-5 pt-2">
+      {/* Start Review */}
+      <div className="px-4 pb-4 pt-2">
         <button
           onClick={onStartReview}
-          className="w-full py-3 rounded-lg bg-[#81b64c] hover:bg-[#6fa33e] text-white font-bold text-lg transition-colors"
+          className="w-full py-2.5 rounded-lg bg-[#81b64c] hover:bg-[#6fa33e] text-white font-bold text-sm transition-colors"
         >
           Start Review
         </button>
@@ -388,110 +281,55 @@ function ReviewPanel({
 }) {
   const displayMoves = analysis.moves;
   const currentMove = currentMoveIndex >= 0 ? displayMoves[currentMoveIndex] : null;
+  const info = currentMove ? CLASSIFICATION_LABELS[currentMove.classification] : null;
+  const isBad = currentMove
+    ? ["blunder", "mistake", "inaccuracy", "miss"].includes(currentMove.classification)
+    : false;
 
   return (
-    <div className="bg-[#262522] rounded-xl overflow-hidden flex flex-col h-full">
-      {/* Header with back button */}
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+    <div className="flex flex-col h-full bg-[#1e1c1a]">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-[#3a3835] flex items-center gap-2">
         <button
           onClick={onBackToSummary}
-          className="text-[#989795] hover:text-white transition-colors text-sm font-bold"
+          className="text-[#706e6b] hover:text-white transition-colors text-base leading-none"
           title="Back to summary"
         >
-          ← Summary
+          ←
         </button>
+        <span className="text-sm font-bold text-white tracking-wide">Game Review</span>
       </div>
 
-      {/* Current move info */}
-      <div className="px-4 pb-3">
-        {currentMove ? (
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <ClassCircle
-                bg={CLASSIFICATION_LABELS[currentMove.classification].bg}
-                icon={CLASSIFICATION_LABELS[currentMove.classification].icon}
-                img={CLASSIFICATION_LABELS[currentMove.classification].img}
-              />
-              <span className="text-lg font-bold text-white font-mono">
-                {currentMove.san}
-              </span>
-              <span
-                className={`text-sm font-semibold ${CLASSIFICATION_LABELS[currentMove.classification].color}`}
-              >
-                {CLASSIFICATION_LABELS[currentMove.classification].label}
-              </span>
-            </div>
-            {["blunder", "mistake", "inaccuracy", "miss"].includes(currentMove.classification) &&
-              currentMove.bestMoveSan && (
-                <div className="text-sm text-[#989795] mt-1 pl-7">
-                  Best was{" "}
-                  <span className="text-emerald-400 font-semibold font-mono">
-                    {currentMove.bestMoveSan}
-                  </span>
-                  <span className="text-[#706e6b] ml-2">
-                    ({currentMove.evalDrop > 0 ? "+" : ""}
-                    {(currentMove.evalDrop / 100).toFixed(1)})
-                  </span>
-                </div>
+      {/* Move annotation card */}
+      <div className="px-4 py-3 border-b border-[#3a3835] min-h-[72px] flex flex-col justify-center">
+        {currentMove && info ? (
+          <>
+            <div className="flex items-center gap-2">
+              <ClassCircle bg={info.bg} icon={info.icon} img={info.img} />
+              <span className="font-bold text-white font-mono text-base">{currentMove.san}</span>
+              <span className={`text-sm font-semibold ${info.color}`}>{info.label}</span>
+              {currentMove.engineEval !== 0 && (
+                <span className="ml-auto text-xs text-[#706e6b] font-mono">
+                  {currentMove.engineEval > 0 ? "+" : ""}{(currentMove.engineEval / 100).toFixed(2)}
+                </span>
               )}
-            <div className="text-xs text-[#e8e6e1]0 mt-1 pl-7">
-              Accuracy: {currentMove.accuracy.toFixed(0)}%
             </div>
-          </div>
+            {isBad && currentMove.bestMoveSan && (
+              <div className="text-xs text-[#989795] mt-1.5 pl-7">
+                Best: <span className="text-[#81b64c] font-semibold font-mono">{currentMove.bestMoveSan}</span>
+                <span className="text-[#706e6b] ml-1.5">
+                  ({currentMove.evalDrop > 0 ? "+" : ""}{(currentMove.evalDrop / 100).toFixed(1)})
+                </span>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="text-sm text-[#e8e6e1]0">
-            Starting position — press → or click a move
-          </div>
+          <p className="text-xs text-[#706e6b]">Use ← → to navigate moves</p>
         )}
       </div>
 
-      {/* Eval graph */}
-      <div className="px-4 pb-2">
-        <div className="h-[80px] bg-[#1a1916] rounded-lg overflow-hidden">
-          <EvalGraph
-            data={displayMoves.map((m, i) => ({
-              move: i + 1,
-              eval: m.engineEval,
-              mate: m.mate ?? null,
-            }))}
-            currentMove={currentMoveIndex + 1}
-            onMoveClick={(move) => setCurrentMoveIndex(move - 1)}
-          />
-        </div>
-      </div>
-
-      {/* Move navigation buttons */}
-      <div className="px-4 pb-2 flex gap-1">
-        <button
-          onClick={() => setCurrentMoveIndex(-1)}
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
-        >
-          ⟨⟨
-        </button>
-        <button
-          onClick={() => setCurrentMoveIndex((prev: number) => Math.max(-1, prev - 1))}
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
-        >
-          ⟨
-        </button>
-        <button
-          onClick={() =>
-            setCurrentMoveIndex((prev: number) => Math.min(displayMoves.length - 1, prev + 1))
-          }
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
-        >
-          ⟩
-        </button>
-        <button
-          onClick={() => setCurrentMoveIndex(displayMoves.length - 1)}
-          className="flex-1 py-1.5 text-sm bg-[#3a3835] text-[#989795] rounded hover:bg-[#4a4845] transition-colors font-bold"
-        >
-          ⟩⟩
-        </button>
-      </div>
-
-      {/* Move list */}
-      <div className="px-4 pb-4 flex-1 overflow-hidden">
+      {/* Move list — dominant element */}
+      <div className="flex-1 overflow-hidden px-3 py-2">
         <MoveList
           moves={displayMoves}
           currentMoveIndex={currentMoveIndex}
@@ -499,30 +337,33 @@ function ReviewPanel({
         />
       </div>
 
-      {/* Accuracy footer */}
-      <div className="border-t border-[#3a3835] px-4 py-3">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[#e8e6e1]0">♔</span>
-            <span className="text-sm text-white font-semibold">{gameInfo.white}</span>
-            <span
-              className="text-xs px-1.5 py-0.5 rounded font-bold"
-              style={{ backgroundColor: getAccuracyColor(analysis.whiteAccuracy), color: "#fff" }}
-            >
-              {analysis.whiteAccuracy.toFixed(1)}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs px-1.5 py-0.5 rounded font-bold"
-              style={{ backgroundColor: getAccuracyColor(analysis.blackAccuracy), color: "#fff" }}
-            >
-              {analysis.blackAccuracy.toFixed(1)}
-            </span>
-            <span className="text-sm text-white font-semibold">{gameInfo.black}</span>
-            <span className="text-xs text-[#e8e6e1]0">♚</span>
-          </div>
-        </div>
+      {/* Eval graph — at bottom like Chess.com */}
+      <div className="h-[52px] bg-[#141312] border-t border-[#3a3835]">
+        <EvalGraph
+          data={displayMoves.map((m, i) => ({ move: i + 1, eval: m.engineEval, mate: m.mate ?? null }))}
+          currentMove={currentMoveIndex + 1}
+          onMoveClick={(move) => setCurrentMoveIndex(move - 1)}
+          mini
+        />
+      </div>
+
+      {/* Navigation buttons — very bottom like Chess.com */}
+      <div className="grid grid-cols-4 border-t border-[#3a3835]">
+        {[
+          { label: "⟨⟨", action: () => setCurrentMoveIndex(-1), title: "Start" },
+          { label: "⟨",  action: () => setCurrentMoveIndex((p: number) => Math.max(-1, p - 1)), title: "Previous" },
+          { label: "⟩",  action: () => setCurrentMoveIndex((p: number) => Math.min(displayMoves.length - 1, p + 1)), title: "Next" },
+          { label: "⟩⟩", action: () => setCurrentMoveIndex(displayMoves.length - 1), title: "End" },
+        ].map(({ label, action, title }) => (
+          <button
+            key={title}
+            onClick={action}
+            title={title}
+            className="py-3 text-[#989795] hover:text-white hover:bg-[#2a2825] transition-colors text-sm font-bold border-r border-[#3a3835] last:border-r-0"
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -821,35 +662,22 @@ export default function GameReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+    <div className="h-screen bg-[#312e2b] text-[#e8e6e1] flex flex-col overflow-hidden">
       <Header username={username} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        {/* Game info header */}
-        {gameInfo && (
-          <div className="mb-4">
-            <div className="flex items-center gap-3 mb-0.5">
-              <h1 className="text-lg font-bold text-white">
-                {gameInfo.white} ({gameInfo.whiteElo}) vs {gameInfo.black} ({gameInfo.blackElo})
-              </h1>
-              <span className="text-[#e8e6e1]0">{gameInfo.result}</span>
-            </div>
-            <p className="text-sm text-[#e8e6e1]0">
-              {gameInfo.opening} &middot; {gameInfo.date}
-            </p>
-          </div>
-        )}
-
-        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-          {/* Left: Board + Eval */}
-          <div className="flex gap-2 shrink-0 items-stretch">
-            {/* Eval bar */}
-            <div className="w-8">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left: board area — fills remaining space */}
+        <div className="flex-1 flex items-center justify-center overflow-hidden p-3">
+          <div className="flex gap-2 items-center h-full max-h-full">
+            {/* Eval bar — full board height */}
+            <div className="shrink-0 h-full" style={{ aspectRatio: "1/16", maxWidth: 24 }}>
               <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
             </div>
-
-            {/* Board — aspect-square ensures it doesn't get stretched by flex */}
-            <div className="aspect-square" style={{ width: "min(520px, calc(80vw - 44px))" }}>
+            {/* Board — square, fills available height */}
+            <div
+              className="aspect-square"
+              style={{ height: "min(100%, calc(100vw - 360px))", maxHeight: "calc(100vh - 56px - 24px)" }}
+            >
               <Chessboard
                 options={{
                   position: getCurrentFen(),
@@ -864,39 +692,39 @@ export default function GameReviewPage() {
               />
             </div>
           </div>
+        </div>
 
-          {/* Right: Analysis panel */}
-          <div className="flex-1 min-w-0 lg:max-w-[340px]">
-            {analyzing && !analysis && <AnalysisProgress />}
+        {/* Right: fixed-width panel — Chess.com sidebar style */}
+        <div className="w-[300px] shrink-0 border-l border-[#3a3835] flex flex-col overflow-hidden">
+          {analyzing && !analysis && <AnalysisProgress />}
 
-            {analysis && gameInfo && !reviewStarted && (
-              <GameReviewPanel
-                analysis={analysis}
-                gameInfo={gameInfo}
-                onStartReview={() => {
-                  setReviewStarted(true);
-                  setCurrentMoveIndex(0);
-                }}
-                onMoveClick={(moveIndex) => {
-                  setReviewStarted(true);
-                  setCurrentMoveIndex(moveIndex);
-                }}
-              />
-            )}
+          {analysis && gameInfo && !reviewStarted && (
+            <GameReviewPanel
+              analysis={analysis}
+              gameInfo={gameInfo}
+              onStartReview={() => {
+                setReviewStarted(true);
+                setCurrentMoveIndex(0);
+              }}
+              onMoveClick={(moveIndex) => {
+                setReviewStarted(true);
+                setCurrentMoveIndex(moveIndex);
+              }}
+            />
+          )}
 
-            {analysis && gameInfo && reviewStarted && (
-              <ReviewPanel
-                analysis={analysis}
-                currentMoveIndex={currentMoveIndex}
-                setCurrentMoveIndex={setCurrentMoveIndex}
-                gameInfo={gameInfo}
-                onBackToSummary={() => {
-                  setReviewStarted(false);
-                  setCurrentMoveIndex(-1);
-                }}
-              />
-            )}
-          </div>
+          {analysis && gameInfo && reviewStarted && (
+            <ReviewPanel
+              analysis={analysis}
+              currentMoveIndex={currentMoveIndex}
+              setCurrentMoveIndex={setCurrentMoveIndex}
+              gameInfo={gameInfo}
+              onBackToSummary={() => {
+                setReviewStarted(false);
+                setCurrentMoveIndex(-1);
+              }}
+            />
+          )}
         </div>
       </div>
     </div>
