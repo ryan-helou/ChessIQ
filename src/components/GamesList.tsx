@@ -76,6 +76,28 @@ export default function GamesList({ games, username }: Props) {
             href={username ? `/player/${username}/review/${g.id}` : g.url}
             target={username ? undefined : "_blank"}
             rel={username ? undefined : "noopener noreferrer"}
+            onClick={() => {
+              if (username) {
+                // Cache game data so the review page loads instantly
+                try {
+                  sessionStorage.setItem(`game_${g.id}`, JSON.stringify({
+                    white: g.playerColor === "white" ? username : g.opponentName,
+                    black: g.playerColor === "black" ? username : g.opponentName,
+                    whiteElo: String(g.playerColor === "white" ? g.playerRating : g.opponentRating),
+                    blackElo: String(g.playerColor === "black" ? g.playerRating : g.opponentRating),
+                    result: g.result === "win"
+                      ? g.playerColor === "white" ? "1-0" : "0-1"
+                      : g.result === "loss"
+                      ? g.playerColor === "white" ? "0-1" : "1-0"
+                      : "½-½",
+                    date: g.date instanceof Date ? g.date.toLocaleDateString() : new Date(g.date).toLocaleDateString(),
+                    opening: g.opening,
+                    playerColor: g.playerColor,
+                    pgn: g.pgn,
+                  }));
+                } catch {}
+              }
+            }}
             className="flex items-center gap-3 p-3 rounded-lg bg-[#262522] border border-[#3a3835] hover:bg-[#3a3835] transition-colors group"
           >
             {/* Result badge */}

@@ -581,9 +581,20 @@ export default function GameReviewPage() {
     pgn: string;
   } | null>(null);
 
-  // Step 1: Fetch game data from Chess.com API
+  // Step 1: Fetch game data — check sessionStorage first for instant loads
   useEffect(() => {
     async function fetchGame() {
+      // Fast path: game data was cached when user clicked Review from the games list
+      try {
+        const cached = sessionStorage.getItem(`game_${gameId}`);
+        if (cached) {
+          setGameInfo(JSON.parse(cached));
+          setLoading(false);
+          return;
+        }
+      } catch {}
+
+      // Slow path: fetch from API (direct URL access, bookmark, etc.)
       try {
         const res = await fetch(`/api/games/${username}?months=12`);
         if (!res.ok) throw new Error("Failed to fetch games");
