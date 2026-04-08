@@ -667,7 +667,7 @@ export default function GameReviewPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left: board area — fills remaining space */}
-        <div className="flex-1 flex items-center justify-end overflow-hidden p-3 pr-0">
+        <div className="flex-1 flex items-center justify-center overflow-hidden p-3">
           <div className="flex gap-2 items-center">
             {/* Eval bar — full board height */}
             <div
