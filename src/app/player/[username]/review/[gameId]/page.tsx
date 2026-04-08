@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
@@ -406,6 +406,9 @@ export default function GameReviewPage() {
   const username = params.username as string;
   const gameId = params.gameId as string;
 
+  const boardAreaRef = useRef<HTMLDivElement>(null);
+  const [boardSize, setBoardSize] = useState(480);
+
   const [analysis, setAnalysis] = useState<GameAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -538,6 +541,20 @@ export default function GameReviewPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [analysis, reviewStarted]);
 
+  // Measure board container and set board size
+  useEffect(() => {
+    const el = boardAreaRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const { width, height } = el.getBoundingClientRect();
+      // subtract padding (16px each side) and eval bar + gap (18 + 8 = 26px from width)
+      const size = Math.floor(Math.min(width - 32 - 26, height - 32));
+      if (size > 0) setBoardSize(size);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const displayMoves = analysis?.moves ?? [];
   const currentMove = currentMoveIndex >= 0 ? displayMoves[currentMoveIndex] : null;
   const currentEval = currentMove?.engineEval ?? 0;
@@ -667,26 +684,15 @@ export default function GameReviewPage() {
 
       {/* CSS grid: left fills remaining, right is fixed 300px */}
       <div className="flex-1 overflow-hidden" style={{ display: "grid", gridTemplateColumns: "1fr 300px" }}>
-        {/* Left: board area */}
-        <div className="overflow-hidden flex items-center justify-center p-4">
+        {/* Left: board area — ref used by ResizeObserver to size board */}
+        <div ref={boardAreaRef} className="overflow-hidden flex items-center justify-center p-4">
           <div className="flex gap-2 items-center">
             {/* Eval bar */}
-            <div
-              className="shrink-0"
-              style={{
-                width: 18,
-                height: "min(calc(100vw - 358px), calc(100vh - 88px))",
-              }}
-            >
+            <div className="shrink-0" style={{ width: 18, height: boardSize }}>
               <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
             </div>
-            {/* Board — explicit square matching available space */}
-            <div
-              style={{
-                width: "min(calc(100vw - 358px), calc(100vh - 88px))",
-                height: "min(calc(100vw - 358px), calc(100vh - 88px))",
-              }}
-            >
+            {/* Board */}
+            <div style={{ width: boardSize, height: boardSize }}>
               <Chessboard
                 options={{
                   position: getCurrentFen(),
