@@ -63,6 +63,19 @@ const CLASSIFICATION_ICONS: Record<MoveClassification, string> = {
   book: "📖",
 };
 
+const CLASSIFICATION_IMGS: Partial<Record<MoveClassification, string>> = {
+  brilliant: "/Chess Symbols/brilliant.gif",
+  great:     "/Chess Symbols/great.png",
+  best:      "/Chess Symbols/best.gif",
+  excellent: "/Chess Symbols/excellent.gif",
+  good:      "/Chess Symbols/good.gif",
+  book:      "/Chess Symbols/book.jpeg",
+  inaccuracy:"/Chess Symbols/inacuracy.png",
+  mistake:   "/Chess Symbols/mistake.png",
+  miss:      "/Chess Symbols/miss.png",
+  blunder:   "/Chess Symbols/blunder.png",
+};
+
 const CLASSIFICATION_CIRCLE_BG: Record<MoveClassification, string> = {
   brilliant: "#26c9c3",
   great: "#5b8bb4",
@@ -107,6 +120,7 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
     const isActive = index === currentMoveIndex;
     const colors = CLASSIFICATION_COLORS[move.classification];
     const icon = CLASSIFICATION_ICONS[move.classification];
+    const img = CLASSIFICATION_IMGS[move.classification];
     const circleBg = CLASSIFICATION_CIRCLE_BG[move.classification];
 
     return (
@@ -120,7 +134,10 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
         }`}
       >
         {move.san}
-        {icon && (
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img} alt={icon} style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+        ) : icon ? (
           <span
             className="inline-flex items-center justify-center rounded-full text-white font-bold leading-none shrink-0"
             style={{
@@ -132,7 +149,7 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
           >
             {icon}
           </span>
-        )}
+        ) : null}
       </button>
     );
   };

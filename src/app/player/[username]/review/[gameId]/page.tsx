@@ -30,21 +30,22 @@ interface ClassInfo {
   label: string;
   color: string; // text color class
   bg: string; // circle bg color (hex)
-  icon: string;
+  icon: string; // fallback text
+  img?: string; // path to image asset
 }
 
 const CLASSIFICATIONS: { key: MoveClassification; info: ClassInfo }[] = [
-  { key: "brilliant", info: { label: "Brilliant", color: "text-[#26c9c3]", bg: "#26c9c3", icon: "!!" } },
-  { key: "great", info: { label: "Great", color: "text-[#5b8bb4]", bg: "#5b8bb4", icon: "!" } },
-  { key: "best", info: { label: "Best", color: "text-[#96bc4b]", bg: "#96bc4b", icon: "★" } },
-  { key: "excellent", info: { label: "Excellent", color: "text-[#5eba3a]", bg: "#5eba3a", icon: "👍" } },
-  { key: "good", info: { label: "Good", color: "text-[#88bf40]", bg: "#88bf40", icon: "✓" } },
-  { key: "book", info: { label: "Book", color: "text-[#b09860]", bg: "#b09860", icon: "📖" } },
-  { key: "inaccuracy", info: { label: "Inaccuracy", color: "text-[#dbac18]", bg: "#dbac18", icon: "?!" } },
-  { key: "mistake", info: { label: "Mistake", color: "text-[#e28c28]", bg: "#e28c28", icon: "?" } },
-  { key: "miss", info: { label: "Miss", color: "text-[#e26b50]", bg: "#e26b50", icon: "✕" } },
-  { key: "blunder", info: { label: "Blunder", color: "text-[#ca3431]", bg: "#ca3431", icon: "??" } },
-  { key: "forced", info: { label: "Forced", color: "text-[#989795]", bg: "#888888", icon: "→" } },
+  { key: "brilliant",  info: { label: "Brilliant",  color: "text-[#26c9c3]", bg: "#26c9c3", icon: "!!", img: "/Chess Symbols/brilliant.gif" } },
+  { key: "great",      info: { label: "Great",      color: "text-[#5b8bb4]", bg: "#5b8bb4", icon: "!",  img: "/Chess Symbols/great.png" } },
+  { key: "best",       info: { label: "Best",       color: "text-[#96bc4b]", bg: "#96bc4b", icon: "★",  img: "/Chess Symbols/best.gif" } },
+  { key: "excellent",  info: { label: "Excellent",  color: "text-[#5eba3a]", bg: "#5eba3a", icon: "👍", img: "/Chess Symbols/excellent.gif" } },
+  { key: "good",       info: { label: "Good",       color: "text-[#88bf40]", bg: "#88bf40", icon: "✓",  img: "/Chess Symbols/good.gif" } },
+  { key: "book",       info: { label: "Book",       color: "text-[#b09860]", bg: "#b09860", icon: "📖", img: "/Chess Symbols/book.jpeg" } },
+  { key: "inaccuracy", info: { label: "Inaccuracy", color: "text-[#dbac18]", bg: "#dbac18", icon: "?!", img: "/Chess Symbols/inacuracy.png" } },
+  { key: "mistake",    info: { label: "Mistake",    color: "text-[#e28c28]", bg: "#e28c28", icon: "?",  img: "/Chess Symbols/mistake.png" } },
+  { key: "miss",       info: { label: "Miss",       color: "text-[#e26b50]", bg: "#e26b50", icon: "✕",  img: "/Chess Symbols/miss.png" } },
+  { key: "blunder",    info: { label: "Blunder",    color: "text-[#ca3431]", bg: "#ca3431", icon: "??", img: "/Chess Symbols/blunder.png" } },
+  { key: "forced",     info: { label: "Forced",     color: "text-[#989795]", bg: "#888888", icon: "→" } },
 ];
 
 const CLASSIFICATION_LABELS: Record<MoveClassification, ClassInfo> = Object.fromEntries(
@@ -90,9 +91,15 @@ function phaseIcon(acc: number | null): { icon: string; color: string } {
 
 // ─── Classification Circle Icon ───
 
-function ClassCircle({ bg, icon, small }: { bg: string; icon: string; small?: boolean }) {
+function ClassCircle({ bg, icon, img, small }: { bg: string; icon: string; img?: string; small?: boolean }) {
   const size = small ? "w-4 h-4" : "w-5 h-5";
   const fontSize = small ? "8px" : "10px";
+  if (img) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={img} alt={icon} className={`${size} rounded-full object-cover shrink-0`} />
+    );
+  }
   return (
     <span
       className={`${size} rounded-full inline-flex items-center justify-center font-bold text-white shrink-0 leading-none`}
@@ -233,7 +240,7 @@ function GameReviewPanel({
                 <span className="text-sm text-white font-medium w-6 text-right">
                   {whiteCounts[key]}
                 </span>
-                <ClassCircle bg={info.bg} icon={info.icon} small />
+                <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
               </div>
 
               {/* Label */}
@@ -241,7 +248,7 @@ function GameReviewPanel({
 
               {/* Black count */}
               <div className="flex items-center justify-center gap-1.5">
-                <ClassCircle bg={info.bg} icon={info.icon} small />
+                <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
                 <span className="text-sm text-white font-medium w-6 text-left">
                   {blackCounts[key]}
                 </span>
@@ -401,6 +408,7 @@ function ReviewPanel({
               <ClassCircle
                 bg={CLASSIFICATION_LABELS[currentMove.classification].bg}
                 icon={CLASSIFICATION_LABELS[currentMove.classification].icon}
+                img={CLASSIFICATION_LABELS[currentMove.classification].img}
               />
               <span className="text-lg font-bold text-white font-mono">
                 {currentMove.san}
@@ -722,25 +730,10 @@ export default function GameReviewPage() {
     }
   }
 
-  // Classification badge on the destination square (matches Chess.com icons exactly)
-  const BADGE_CLASSIFICATIONS: Record<string, { bg: string; icon: string }> = {
-    brilliant: { bg: "#26c9c3", icon: "!!" },
-    great: { bg: "#5b8bb4", icon: "!" },
-    best: { bg: "#96bc4b", icon: "★" },
-    excellent: { bg: "#5eba3a", icon: "👍" },
-    good: { bg: "#88bf40", icon: "✓" },
-    inaccuracy: { bg: "#dbac18", icon: "?!" },
-    mistake: { bg: "#e28c28", icon: "?" },
-    blunder: { bg: "#ca3431", icon: "??" },
-    miss: { bg: "#e26b50", icon: "✕" },
-    forced: { bg: "#888888", icon: "→" },
-    book: { bg: "#b09860", icon: "📖" },
-  };
-
   const squareRenderer = useMemo(() => {
     if (!moveToSquare || !moveClassification) return undefined;
-    const badge = BADGE_CLASSIFICATIONS[moveClassification];
-    if (!badge) return undefined;
+    const info = CLASSIFICATION_LABELS[moveClassification];
+    if (!info) return undefined;
 
     return ({ square, children }: { piece: any; square: string; children?: React.ReactNode }) => (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -754,20 +747,26 @@ export default function GameReviewPage() {
               width: "45%",
               height: "45%",
               borderRadius: "50%",
-              backgroundColor: badge.bg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              fontWeight: 800,
-              fontSize: "60%",
               zIndex: 10,
+              overflow: "hidden",
               boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
               border: "2px solid rgba(255,255,255,0.3)",
-              lineHeight: 1,
+              ...(!info.img ? {
+                backgroundColor: info.bg,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              } : {}),
             }}
           >
-            {badge.icon}
+            {info.img ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={info.img} alt={info.icon} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: "60%", lineHeight: 1 }}>
+                {info.icon}
+              </span>
+            )}
           </div>
         )}
       </div>
