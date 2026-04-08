@@ -55,23 +55,19 @@ export async function analyzeGame(
 
   // Call Railway backend for game analysis
   const RAILWAY_BACKEND_URL = "https://chessiq-production.up.railway.app";
-  try {
-    const response = await fetch(`${RAILWAY_BACKEND_URL}/api/analyze/game`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pgn, depth }),
-    });
+  const response = await fetch(`${RAILWAY_BACKEND_URL}/api/analyze/game`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pgn, depth }),
+    signal: AbortSignal.timeout(55_000), // 55s — leaves headroom under the 60s route limit
+  });
 
-    if (!response.ok) {
-      throw new Error(`Railway backend error: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    // If Railway backend fails, fall back to stub analysis
-    console.warn("Railway backend analysis failed, returning stub analysis:", error);
-    return generateStubAnalysis(pgn);
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`Analysis engine returned ${response.status}${body ? `: ${body}` : ""}`);
   }
+
+  return await response.json();
 }
 
 /**
