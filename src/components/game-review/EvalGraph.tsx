@@ -55,7 +55,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
   return (
     <div
       ref={containerRef}
-      className={`w-full ${mini ? "h-full" : "h-[120px]"} relative`}
+      className={`w-full ${mini ? "h-full" : "h-[120px]"} relative outline-none`}
       style={{ cursor: "pointer" }}
       onClick={handlePositionClick}
     >
