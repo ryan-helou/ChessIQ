@@ -63,6 +63,29 @@ export interface GameAnalysisResult {
 }
 
 /**
+ * Strict centipawn-based accuracy for a single move.
+ * Excludes book/forced moves (always 100).
+ * At 30cp drop → ~81%, 60cp → ~66%, 100cp → ~50%, 200cp → ~24%.
+ */
+function calcMoveAccuracy(evalDrop: number, classification: string): number {
+  if (classification === "book" || classification === "forced") return 100;
+  if (evalDrop >= 0) return 100; // position improved or neutral
+  const drop = -evalDrop; // positive centipawns lost
+  return Math.max(0, Math.min(100, 103.1668 * Math.exp(-drop / 150) - 3.1669));
+}
+
+/**
+ * Overall accuracy for one side: mean accuracy of non-book, non-forced moves.
+ */
+function calcGameAccuracy(moves: AnalyzedMove[], color: "white" | "black"): number {
+  const scoredMoves = moves.filter(
+    (m) => m.color === color && m.classification !== "book" && m.classification !== "forced"
+  );
+  if (scoredMoves.length === 0) return 100;
+  return scoredMoves.reduce((sum, m) => sum + m.accuracy, 0) / scoredMoves.length;
+}
+
+/**
  * Submit a game PGN for Stockfish analysis using local analyzer.
  * Returns the full analysis synchronously (may take 1-5 minutes for deep analysis).
  */
@@ -96,16 +119,24 @@ export async function analyzeGame(
       (m: any) => m.classification === "inaccuracy"
     );
 
+    // Recalculate per-move accuracy using stricter centipawn formula
+    const recalcedMoves: AnalyzedMove[] = analysis.moves.map((m: any) => ({
+      ...m,
+      accuracy: calcMoveAccuracy(m.evalDrop, m.classification),
+      isBlunder: m.classification === "blunder",
+      isMistake: m.classification === "mistake",
+      isInaccuracy: m.classification === "inaccuracy",
+      tacticalThemes: m.tacticalThemes || [],
+    }));
+
+    // Recalculate overall accuracy excluding book/forced moves
+    const whiteAccuracy = calcGameAccuracy(recalcedMoves, "white");
+    const blackAccuracy = calcGameAccuracy(recalcedMoves, "black");
+
     return {
       gameId: "", // Will be filled by caller if needed
       pgn,
-      moves: analysis.moves.map((m: any) => ({
-        ...m,
-        isBlunder: m.classification === "blunder",
-        isMistake: m.classification === "mistake",
-        isInaccuracy: m.classification === "inaccuracy",
-        tacticalThemes: m.tacticalThemes || [], // Railway backend may include this
-      })),
+      moves: recalcedMoves,
       blunders: blunderMoves.map((m: any) => ({
         moveNumber: m.moveNumber,
         playerMove: m.move,
@@ -113,11 +144,11 @@ export async function analyzeGame(
         evalBeforeCp: m.evalBefore,
         evalAfterCp: m.engineEval,
         severity: m.classification as "blunder" | "mistake" | "inaccuracy",
-        missedTactic: null, // TODO: Detect missed tactics
-        consequence: null, // TODO: Describe consequence of blunder
+        missedTactic: null,
+        consequence: null,
       })),
-      whiteAccuracy: analysis.whiteAccuracy,
-      blackAccuracy: analysis.blackAccuracy,
+      whiteAccuracy,
+      blackAccuracy,
       evalGraph: analysis.evalGraph,
       // Handle both old format (blunders/mistakes/inaccuracies) and new format (blunderCounts/etc)
       blunderCounts: analysis.blunders || analysis.blunderCounts || { white: 0, black: 0 },

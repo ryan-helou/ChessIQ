@@ -271,7 +271,7 @@ function GameReviewPanel({
                 {gameInfo.whiteElo}
               </span>
             </div>
-            <div className="text-xs text-[#989795] w-20 text-center">Game Rating</div>
+            <div className="text-xs text-[#989795] w-20 text-center">Ratings</div>
             <div className="text-center">
               <span className="inline-block px-2.5 py-0.5 rounded bg-[#3a3835] text-white font-bold text-sm">
                 {gameInfo.blackElo}
