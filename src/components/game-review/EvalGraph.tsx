@@ -55,14 +55,16 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
   return (
     <div
       ref={containerRef}
-      className={`w-full ${mini ? "h-full" : "h-[120px]"} relative outline-none`}
-      style={{ cursor: "pointer" }}
+      className={`w-full ${mini ? "h-full" : "h-[120px]"} relative`}
+      style={{ cursor: "pointer", outline: "none" }}
+      tabIndex={-1}
       onClick={handlePositionClick}
     >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}
           margin={mini ? { top: 2, right: 2, bottom: 2, left: 2 } : undefined}
+          style={{ outline: "none" }}
         >
           <defs>
             {/* Two-tone gradient: white advantage above 0 (top half), black advantage below 0 (bottom half).
