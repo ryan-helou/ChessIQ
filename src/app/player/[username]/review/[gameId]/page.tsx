@@ -667,20 +667,23 @@ export default function GameReviewPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left: board area — fills remaining space */}
-        <div className="flex-1 flex items-center justify-center overflow-hidden p-3">
+        <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
           <div className="flex gap-2 items-center">
             {/* Eval bar — full board height */}
             <div
-              className="shrink-0 self-stretch"
-              style={{ width: 18 }}
+              className="shrink-0"
+              style={{
+                width: 18,
+                height: "min(calc(100vw - 360px), calc(100vh - 88px))",
+              }}
             >
               <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
             </div>
-            {/* Board — square, sized to fit both axes */}
+            {/* Board — square, fits within available width and height */}
             <div
               style={{
-                width: "min(calc(100vw - 348px), calc(100vh - 64px))",
-                height: "min(calc(100vw - 348px), calc(100vh - 64px))",
+                width: "min(calc(100vw - 360px), calc(100vh - 88px))",
+                height: "min(calc(100vw - 360px), calc(100vh - 88px))",
               }}
             >
               <Chessboard
