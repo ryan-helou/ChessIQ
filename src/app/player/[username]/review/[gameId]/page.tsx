@@ -683,7 +683,14 @@ export default function GameReviewPage() {
       <Header username={username} />
 
       {/* CSS grid: left fills remaining, right is fixed 300px */}
-      <div className="flex-1 overflow-hidden" style={{ display: "grid", gridTemplateColumns: "1fr 300px" }}>
+      <div
+        className="overflow-hidden"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 300px",
+          height: "calc(100vh - 56px)",  // explicit height so grid items stretch correctly
+        }}
+      >
         {/* Left: board area — ref used by ResizeObserver to size board */}
         <div ref={boardAreaRef} className="overflow-hidden flex items-center justify-center p-4">
           <div className="flex gap-2 items-center">
