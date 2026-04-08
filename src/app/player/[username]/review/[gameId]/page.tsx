@@ -665,25 +665,26 @@ export default function GameReviewPage() {
     <div className="h-screen bg-[#312e2b] text-[#e8e6e1] flex flex-col overflow-hidden">
       <Header username={username} />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: board area — fills remaining space */}
-        <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
+      {/* CSS grid: left fills remaining, right is fixed 300px */}
+      <div className="flex-1 overflow-hidden" style={{ display: "grid", gridTemplateColumns: "1fr 300px" }}>
+        {/* Left: board area */}
+        <div className="overflow-hidden flex items-center justify-center p-4">
           <div className="flex gap-2 items-center">
-            {/* Eval bar — full board height */}
+            {/* Eval bar */}
             <div
               className="shrink-0"
               style={{
                 width: 18,
-                height: "min(calc(100vw - 360px), calc(100vh - 88px))",
+                height: "min(calc(100vw - 358px), calc(100vh - 88px))",
               }}
             >
               <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
             </div>
-            {/* Board — square, fits within available width and height */}
+            {/* Board — explicit square matching available space */}
             <div
               style={{
-                width: "min(calc(100vw - 360px), calc(100vh - 88px))",
-                height: "min(calc(100vw - 360px), calc(100vh - 88px))",
+                width: "min(calc(100vw - 358px), calc(100vh - 88px))",
+                height: "min(calc(100vw - 358px), calc(100vh - 88px))",
               }}
             >
               <Chessboard
@@ -703,7 +704,7 @@ export default function GameReviewPage() {
         </div>
 
         {/* Right: fixed-width panel — Chess.com sidebar style */}
-        <div className="w-[300px] shrink-0 border-l border-[#3a3835] flex flex-col overflow-hidden">
+        <div className="border-l border-[#3a3835] flex flex-col overflow-hidden">
           {analyzing && !analysis && <AnalysisProgress />}
 
           {analysis && gameInfo && !reviewStarted && (
