@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
@@ -406,9 +406,6 @@ export default function GameReviewPage() {
   const username = params.username as string;
   const gameId = params.gameId as string;
 
-  const boardAreaRef = useRef<HTMLDivElement>(null);
-  const [boardSize, setBoardSize] = useState(480);
-
   const [analysis, setAnalysis] = useState<GameAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -541,19 +538,6 @@ export default function GameReviewPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [analysis, reviewStarted]);
 
-  // Measure board container and set board size
-  useEffect(() => {
-    const el = boardAreaRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const { width, height } = el.getBoundingClientRect();
-      // subtract padding (16px each side) and eval bar + gap (18 + 8 = 26px from width)
-      const size = Math.floor(Math.min(width - 32 - 26, height - 32));
-      if (size > 0) setBoardSize(size);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const displayMoves = analysis?.moves ?? [];
   const currentMove = currentMoveIndex >= 0 ? displayMoves[currentMoveIndex] : null;
@@ -678,46 +662,40 @@ export default function GameReviewPage() {
     );
   }
 
+  // Board size: fill available height, constrained by width on narrow viewports
+  // 64px = header(56) + padding(8), 320px = evalbar(20) + gap(4) + min-panel(280) + padding(16)
+  const boardSizeCSS = "min(calc(100vh - 64px), calc(100vw - 320px))";
+
   return (
     <div className="h-screen bg-[#312e2b] text-[#e8e6e1] flex flex-col overflow-hidden">
       <Header username={username} />
 
-      {/* CSS grid: left fills remaining, right is fixed 300px */}
-      <div
-        className="overflow-hidden"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 300px",
-          height: "calc(100vh - 56px)",  // explicit height so grid items stretch correctly
-        }}
-      >
-        {/* Left: board area — ref used by ResizeObserver to size board */}
-        <div ref={boardAreaRef} className="overflow-hidden flex items-center justify-center p-4">
-          <div className="flex gap-2 items-center">
-            {/* Eval bar */}
-            <div className="shrink-0" style={{ width: 18, height: boardSize }}>
-              <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
-            </div>
-            {/* Board */}
-            <div style={{ width: boardSize, height: boardSize }}>
-              <Chessboard
-                options={{
-                  position: getCurrentFen(),
-                  squareStyles: customSquareStyles,
-                  darkSquareStyle: { backgroundColor: "#779952" },
-                  lightSquareStyle: { backgroundColor: "#edeed1" },
-                  boardOrientation: gameInfo?.playerColor ?? "white",
-                  allowDragging: false,
-                  animationDurationInMs: 200,
-                  squareRenderer,
-                }}
-              />
-            </div>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: eval bar + board — auto-sized to content */}
+        <div className="flex items-center shrink-0" style={{ padding: "4px 4px 4px 8px" }}>
+          {/* Eval bar */}
+          <div style={{ width: 20, height: boardSizeCSS, marginRight: 4 }}>
+            <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
+          </div>
+          {/* Board — square, sized by viewport height */}
+          <div style={{ width: boardSizeCSS, height: boardSizeCSS }}>
+            <Chessboard
+              options={{
+                position: getCurrentFen(),
+                squareStyles: customSquareStyles,
+                darkSquareStyle: { backgroundColor: "#779952" },
+                lightSquareStyle: { backgroundColor: "#edeed1" },
+                boardOrientation: gameInfo?.playerColor ?? "white",
+                allowDragging: false,
+                animationDurationInMs: 200,
+                squareRenderer,
+              }}
+            />
           </div>
         </div>
 
-        {/* Right: fixed-width panel — Chess.com sidebar style */}
-        <div className="border-l border-[#3a3835] flex flex-col overflow-hidden">
+        {/* Right: panel fills remaining width */}
+        <div className="flex-1 min-w-0 border-l border-[#3a3835] flex flex-col overflow-hidden">
           {analyzing && !analysis && <AnalysisProgress />}
 
           {analysis && gameInfo && !reviewStarted && (
