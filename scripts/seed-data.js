@@ -91,7 +91,7 @@ async function seedData() {
         eval_before: 50,
         eval_after: -300,
         severity: "blunder",
-        missed_tactic: "back-rank",
+        missed_tactic: "backRankMate",
       },
     ];
 

@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "node scripts/seed-data.js",
+    "db:seed-puzzles": "node scripts/load-puzzles.js",
+    "db:import-puzzles": "node scripts/import-lichess-puzzles.js",
+    "db:migrate": "node scripts/migrate.js"
   },
   "dependencies": {
     "bull": "^4.16.5",

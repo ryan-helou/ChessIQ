@@ -54,19 +54,38 @@ export async function GET(
 
     const totalBlunders = blundersResult.rows.length;
 
-    // If no blunders, return empty recommendations
+    // If no blunders yet, return rating-appropriate Lichess puzzles as a fallback
     if (totalBlunders === 0) {
+      let fallbackPuzzles: Puzzle[] = [];
+      try {
+        const fallbackResult = await query(
+          `
+          SELECT id, fen, moves, rating, themes, opening_tags, move_count
+          FROM puzzles
+          ORDER BY ABS(rating - $1), popularity DESC NULLS LAST
+          LIMIT $2
+          `,
+          [rating, limit]
+        );
+        fallbackPuzzles = fallbackResult.rows.map((p: any) => ({
+          id: p.id,
+          fen: p.fen,
+          moves: p.moves,
+          rating: p.rating,
+          themes: p.themes || [],
+          openingTags: p.opening_tags || [],
+          moveCount: p.move_count,
+        }));
+      } catch (err) {
+        console.error("Error fetching fallback puzzles:", err);
+      }
+
       return NextResponse.json({
         weaknesses: [],
         totalBlunders: 0,
-        puzzles: [],
+        puzzles: fallbackPuzzles,
         ownBlunderPuzzles: [],
-        stats: {
-          totalAttempted: 0,
-          totalSolved: 0,
-          solveRate: 0,
-          byTheme: [],
-        },
+        stats: { totalAttempted: 0, totalSolved: 0, solveRate: 0, byTheme: [] },
       });
     }
 
@@ -132,10 +151,10 @@ export async function GET(
           SELECT id, fen, moves, rating, themes, opening_tags, move_count
           FROM puzzles
           WHERE themes && $1::TEXT[]
-          ORDER BY rating DESC, popularity DESC
+          ORDER BY ABS(rating - $3), popularity DESC NULLS LAST
           LIMIT $2
           `,
-          [topThemes, limit]
+          [topThemes, limit, rating]
         );
 
         puzzles = puzzlesResult.rows.map((p: any) => ({
@@ -147,6 +166,29 @@ export async function GET(
           openingTags: p.opening_tags || [],
           moveCount: p.move_count,
         }));
+
+        // Fallback: if no themed puzzles matched (e.g. all blunders have null missed_tactic),
+        // serve rating-appropriate puzzles regardless of theme
+        if (puzzles.length === 0) {
+          const fallback = await query(
+            `
+            SELECT id, fen, moves, rating, themes, opening_tags, move_count
+            FROM puzzles
+            ORDER BY ABS(rating - $1), popularity DESC NULLS LAST
+            LIMIT $2
+            `,
+            [rating, limit]
+          );
+          puzzles = fallback.rows.map((p: any) => ({
+            id: p.id,
+            fen: p.fen,
+            moves: p.moves,
+            rating: p.rating,
+            themes: p.themes || [],
+            openingTags: p.opening_tags || [],
+            moveCount: p.move_count,
+          }));
+        }
       } catch (err) {
         console.error("Error fetching puzzles:", err);
       }

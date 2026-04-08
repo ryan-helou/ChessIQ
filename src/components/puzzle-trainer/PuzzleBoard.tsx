@@ -35,7 +35,6 @@ export default function PuzzleBoard({ puzzle, onSolved, onFailed, onNext }: Prop
   const [game, setGame] = useState<Chess>(new Chess());
   const [state, setState] = useState<PuzzleState>("loading");
   const [solutionIndex, setSolutionIndex] = useState(0); // which player move we're on
-  const [opponentIndex, setOpponentIndex] = useState(0); // which opponent move we're on
   const [attempts, setAttempts] = useState(0);
   const [hintSquare, setHintSquare] = useState<string | null>(null);
   const [lastMoveSquares, setLastMoveSquares] = useState<{ from: string; to: string } | null>(null);
@@ -60,7 +59,6 @@ export default function PuzzleBoard({ puzzle, onSolved, onFailed, onNext }: Prop
     const chess = new Chess(puzzle.fen);
     setGame(chess);
     setSolutionIndex(0);
-    setOpponentIndex(0);
     setAttempts(0);
     setHintSquare(null);
     setLastMoveSquares(null);
@@ -96,7 +94,6 @@ export default function PuzzleBoard({ puzzle, onSolved, onFailed, onNext }: Prop
         const newGame = new Chess(chess.fen());
         setGame(newGame);
         setLastMoveSquares({ from, to });
-        setOpponentIndex(oppIdx + 1);
         setState("playerTurn");
       } catch {
         setState("playerTurn");
@@ -154,11 +151,10 @@ export default function PuzzleBoard({ puzzle, onSolved, onFailed, onNext }: Prop
         } else {
           // Play opponent's response, then player goes again
           setState("correct");
-          const nextOppIdx = opponentIndex;
           setTimeout(() => {
-            const nextOppMove = puzzle.opponentMoves[nextOppIdx];
+            const nextOppMove = puzzle.opponentMoves[nextSolIdx];
             if (nextOppMove) {
-              playOpponentMove(gameCopy, nextOppIdx);
+              playOpponentMove(gameCopy, nextSolIdx);
             } else {
               setState("playerTurn");
             }
@@ -193,14 +189,14 @@ export default function PuzzleBoard({ puzzle, onSolved, onFailed, onNext }: Prop
         return false;
       }
     },
-    [state, game, puzzle, solutionIndex, opponentIndex, attempts, onSolved, onFailed, playOpponentMove]
+    [state, game, puzzle, solutionIndex, attempts, onSolved, onFailed, playOpponentMove]
   );
 
   const autoPlaySolution = useCallback(
     (currentGame: Chess) => {
       const chess = new Chess(currentGame.fen());
       let moveIdx = solutionIndex;
-      let oppIdx = opponentIndex;
+      let oppIdx = solutionIndex + 1; // opponent moves are always one ahead (setup move is index 0)
       let delay = 0;
 
       const playNext = () => {
@@ -244,7 +240,7 @@ export default function PuzzleBoard({ puzzle, onSolved, onFailed, onNext }: Prop
 
       playNext();
     },
-    [puzzle, solutionIndex, opponentIndex]
+    [puzzle, solutionIndex]
   );
 
   // Build square styles

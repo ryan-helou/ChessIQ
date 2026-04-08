@@ -21,16 +21,13 @@ export async function POST(
       );
     }
 
-    // Clean up the puzzle ID (remove lichess- or blunder- prefix if present)
-    const cleanId = puzzleId.replace(/^(lichess-|blunder-)/, "");
-
-    // Record the attempt
+    // Record the attempt (prefix already stripped by the client)
     await query(
       `
       INSERT INTO puzzle_attempts (username, puzzle_id, solved, attempts, time_seconds)
       VALUES ($1, $2, $3, $4, $5)
       `,
-      [username, cleanId, solved, attempts || 1, timeSeconds || null]
+      [username, puzzleId, solved, attempts || 1, timeSeconds || null]
     );
 
     return NextResponse.json({

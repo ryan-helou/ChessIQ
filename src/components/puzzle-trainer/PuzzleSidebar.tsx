@@ -128,7 +128,7 @@ export default function PuzzleSidebar({
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#989795]">Solve Rate</span>
               <span className="text-sm font-bold text-[#96bc4b]">
-                {Math.round(stats.solveRate * 100)}%
+                {stats.solveRate}%
               </span>
             </div>
           </div>

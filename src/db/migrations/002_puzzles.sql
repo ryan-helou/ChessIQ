@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_puzzles_popularity ON puzzles(popularity DESC);
 CREATE TABLE IF NOT EXISTS puzzle_attempts (
   id BIGSERIAL PRIMARY KEY,
   username VARCHAR(255) NOT NULL,
-  puzzle_id VARCHAR(10) NOT NULL REFERENCES puzzles(id),
+  puzzle_id VARCHAR(50) NOT NULL,
   solved BOOLEAN NOT NULL,
   attempts SMALLINT NOT NULL DEFAULT 1,
   time_seconds SMALLINT,

@@ -68,7 +68,6 @@ export default function PlayerPage() {
   const [ratingFilter, setRatingFilter] = useState("all");
   const [months, setMonths] = useState(6);
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
 
   const fetchData = useCallback(async (m: number) => {
     setLoading(true);
@@ -105,35 +104,18 @@ export default function PlayerPage() {
 
   const handleAnalyzeGames = useCallback(
     async (gameCount: 10 | 20 | 50 | "all") => {
-      setAnalysisLoading(true);
-      try {
-        const res = await fetch(`/api/games/${username}/analyze-queue`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            months,
-            gameCount,
-            depth: 18,
-          }),
-        });
+      const res = await fetch(`/api/games/${username}/analyze-queue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months, gameCount, depth: 18 }),
+      });
 
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.error || "Failed to queue analysis");
-        }
-
-        const result = await res.json();
-        alert(
-          `✅ ${result.message}\nJob ID: ${result.jobId}\n\nYou can navigate away - analysis runs in the background.`
-        );
-      } catch (err) {
-        alert(
-          `❌ ${err instanceof Error ? err.message : "Failed to queue analysis"}`
-        );
-        throw err;
-      } finally {
-        setAnalysisLoading(false);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to analyse games");
       }
+
+      return res.json();
     },
     [username, months]
   );
@@ -210,10 +192,10 @@ export default function PlayerPage() {
                   <DateRangePicker value={months} onChange={handleMonthsChange} loading={loading} />
                   <button
                     onClick={() => setShowAnalysisDialog(true)}
-                    disabled={loading || analysisLoading}
+                    disabled={loading}
                     className="px-4 py-2 bg-[#81b64c] hover:bg-[#96bc4b] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors text-sm whitespace-nowrap"
                   >
-                    {analysisLoading ? "⏳ Queuing..." : "⚙️ Analyze Games"}
+                    ⚙️ Analyze Games
                   </button>
                 </div>
               </div>
@@ -315,6 +297,7 @@ export default function PlayerPage() {
 
           {/* Analysis Dialog */}
           <AnalysisDialog
+            username={username}
             months={months}
             onAnalyze={handleAnalyzeGames}
             onClose={() => setShowAnalysisDialog(false)}

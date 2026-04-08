@@ -7,42 +7,59 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// Sample puzzles from Lichess (manually curated for testing)
+// Sample puzzles using Lichess format:
+//   - FEN is the position before opponent's setup move (opponent = side to move in FEN)
+//   - moves[0]: opponent's setup move (UCI)
+//   - moves[1]: player's solution move (UCI)
+//   - moves[2]: opponent's response (UCI, optional)
+//   - moves[3]: player's next solution move (UCI, optional)
+//   - All moves in UCI format ("e2e4"), NOT SAN ("e4")
+//   - Themes use camelCase to match app's THEME_LABELS map
 const samplePuzzles = [
   {
+    // Italian game: Ng5 attacks f7 (fork on rook + pawn)
+    // Black plays d6, white finds Ng5
     id: "00001",
-    fen: "r1bqkb1r/pppp1ppp/2n2n2/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 1",
-    moves: "Bxc6 dxc6 dxe5 Qxd8+ Kxd8",
+    fen: "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+    moves: "d7d6 f3g5",
     rating: 1400,
-    themes: ["fork", "discovered-attack"],
+    themes: ["fork"],
   },
   {
+    // Skewer: Rook on d1 skewers king on d7, then wins rook on d8
+    // Black king moves to d7, white Rd1+ forces king off d-file, wins back-rank rook
     id: "00002",
-    fen: "r1bqkb1r/pppppppp/2n2n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1",
-    moves: "exf6 Bxf6 Nxe5 O-O Re1",
+    fen: "3rk3/8/8/8/8/8/8/R3K3 b - - 0 1",
+    moves: "e8d7 a1d1 d7c7 d1d8",
     rating: 1600,
-    themes: ["pin", "skewer"],
+    themes: ["skewer"],
   },
   {
+    // Pin: Bg5 pins Nf6 to the queen on d8
+    // Black plays Be7 (development), white responds Bg5 exploiting pin
     id: "00003",
-    fen: "6k1/5p2/p1qNN2p/4P3/1p2P3/1Bn5/r4KP1/7R w - - 0 1",
-    moves: "Nxf7+ Kg7 Nxh6+ Kh7 Nf7+ Kg7",
-    rating: 1800,
-    themes: ["fork", "check"],
-  },
-  {
-    id: "00004",
-    fen: "r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/3P1N2/PPP2PPP/RNBQKB1R w KQkq - 0 1",
-    moves: "exf6 Bxf6 dxc6 O-O Qxd8",
+    fen: "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R b KQkq - 0 5",
+    moves: "f8e7 c1g5",
     rating: 1500,
-    themes: ["back-rank", "discovered-attack"],
+    themes: ["pin"],
   },
   {
-    id: "00005",
-    fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
-    moves: "c5 Nf3 d6 d4 cxd4 Nxd4",
+    // Hanging piece: black Nxe4 grabs pawn, white Qf3 attacks the undefended knight
+    // Black plays Nxe4, white Qf3 wins it back with tempo
+    id: "00004",
+    fen: "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+    moves: "f6e4 d1f3",
     rating: 1200,
-    themes: ["hanging-piece"],
+    themes: ["hangingPiece"],
+  },
+  {
+    // Discovered attack: after pawn trades on d4-d5, Nc6-d4 discovers attack on Nf3
+    // Black plays d5, white exd5, black Nc6-d4 (fork/discovered), white Nxd4, black exd4
+    id: "00005",
+    fen: "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+    moves: "d7d5 e4d5 c6d4 f3d4 e5d4",
+    rating: 1300,
+    themes: ["discoveredAttack"],
   },
 ];
 
@@ -63,7 +80,7 @@ async function insertPuzzles() {
           puzzle.moves,
           puzzle.rating,
           puzzle.themes,
-          (puzzle.moves.split(" ") || []).length,
+          puzzle.moves.split(" ").length,
         ]
       );
       inserted++;
