@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import {
   AreaChart,
   Area,
@@ -24,6 +25,8 @@ interface Props {
 }
 
 export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Clamp eval for display (-500 to 500 centipawns)
   const chartData = data.map((d) => ({
     ...d,
@@ -39,17 +42,26 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
     isCurrent: d.move === currentMove,
   }));
 
+  // Position-based click: calculate which move was clicked from X coordinate.
+  // Reliable on both quick clicks and touch — doesn't depend on Recharts activePayload.
+  function handlePositionClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!containerRef.current || data.length === 0) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const idx = Math.min(data.length - 1, Math.max(0, Math.round(x * (data.length - 1))));
+    onMoveClick(data[idx].move);
+  }
+
   return (
-    <div className={`w-full ${mini ? "h-full" : "h-[120px]"}`}>
+    <div
+      ref={containerRef}
+      className={`w-full ${mini ? "h-full" : "h-[120px]"} relative`}
+      style={{ cursor: "pointer" }}
+      onClick={handlePositionClick}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={chartData}
-          onClick={(e: any) => {
-            if (e?.activePayload?.[0]?.payload) {
-              onMoveClick(e.activePayload[0].payload.move);
-            }
-          }}
-          style={{ cursor: "pointer" }}
           margin={mini ? { top: 2, right: 2, bottom: 2, left: 2 } : undefined}
         >
           <defs>
@@ -67,7 +79,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           <XAxis dataKey="move" hide />
           <YAxis domain={[-500, 500]} hide />
           <ReferenceLine y={0} stroke="#706e6b" strokeWidth={1} />
-          {!mini && currentMove > 0 && (
+          {currentMove > 0 && (
             <ReferenceLine
               x={currentMove}
               stroke="#81b64c"
