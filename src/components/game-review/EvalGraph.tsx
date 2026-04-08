@@ -28,7 +28,13 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
   const chartData = data.map((d) => ({
     ...d,
     displayEval: d.mate !== null
-      ? d.mate > 0 ? 500 : -500
+      ? d.mate > 0
+        ? 500   // white can mate → white winning
+        : d.mate < 0
+          ? -500  // black can mate → black winning
+          // mate === 0: game over, side to move was just mated
+          // odd move number = white just moved = black is mated = white wins
+          : d.move % 2 === 1 ? 500 : -500
       : Math.max(-500, Math.min(500, d.eval)),
     isCurrent: d.move === currentMove,
   }));
@@ -47,13 +53,15 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           margin={mini ? { top: 2, right: 2, bottom: 2, left: 2 } : undefined}
         >
           <defs>
-            <linearGradient id="evalWhite" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#e8e6e1" stopOpacity={0.6} />
-              <stop offset="100%" stopColor="#e8e6e1" stopOpacity={0.05} />
-            </linearGradient>
-            <linearGradient id="evalBlack" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#262522" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#262522" stopOpacity={0.05} />
+            {/* Two-tone gradient: white advantage above 0 (top half), black advantage below 0 (bottom half).
+                YAxis domain is [-500, 500] so y=0 sits exactly at 50% of the chart height. */}
+            <linearGradient id="evalGradient" x1="0" y1="0" x2="0" y2="1">
+              {/* White advantage — top half */}
+              <stop offset="0%"   stopColor="#e8e6e1" stopOpacity={0.75} />
+              <stop offset="50%"  stopColor="#e8e6e1" stopOpacity={0.08} />
+              {/* Black advantage — bottom half */}
+              <stop offset="50%"  stopColor="#706e6b" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#706e6b" stopOpacity={0.65} />
             </linearGradient>
           </defs>
           <XAxis dataKey="move" hide />
@@ -93,7 +101,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
             dataKey="displayEval"
             stroke="#989795"
             strokeWidth={mini ? 1 : 1.5}
-            fill="url(#evalWhite)"
+            fill="url(#evalGradient)"
             fillOpacity={1}
             isAnimationActive={false}
           />
