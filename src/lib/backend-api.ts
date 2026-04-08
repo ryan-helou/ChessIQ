@@ -68,13 +68,14 @@ export interface GameAnalysisResult {
  */
 export async function analyzeGame(
   pgn: string,
-  depth: number = 18
+  depth: number = 14,
+  chessComId?: string
 ): Promise<GameAnalysisResult> {
   try {
     const response = await fetch(`/api/game-review`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pgn, depth }),
+      body: JSON.stringify({ pgn, depth, chessComId }),
     });
 
     if (!response.ok) {

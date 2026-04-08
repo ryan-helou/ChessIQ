@@ -629,7 +629,7 @@ export default function GameReviewPage() {
 
     setAnalyzing(true);
 
-    analyzeGame(gameInfo.pgn)
+    analyzeGame(gameInfo.pgn, 14, gameId)
       .then((result) => {
         setAnalysis(result);
         setAnalyzing(false);
