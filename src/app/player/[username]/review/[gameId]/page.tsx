@@ -663,16 +663,16 @@ export default function GameReviewPage() {
   }
 
   // Board size: fill available height, constrained by width on narrow viewports
-  // 64px = header(56) + padding(8), 320px = evalbar(20) + gap(4) + min-panel(280) + padding(16)
-  const boardSizeCSS = "min(calc(100vh - 64px), calc(100vw - 320px))";
+  // 64px = header(56) + padding(8), 340px = panel(300) + evalbar(20) + gaps(12) + padding(8)
+  const boardSizeCSS = "min(calc(100vh - 64px), calc(100vw - 340px))";
 
   return (
     <div className="h-screen bg-[#312e2b] text-[#e8e6e1] flex flex-col overflow-hidden">
       <Header username={username} />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: eval bar + board — auto-sized to content */}
-        <div className="flex items-center shrink-0" style={{ padding: "4px 4px 4px 8px" }}>
+        {/* Left: board area — board centered, fills remaining space */}
+        <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>
           {/* Eval bar */}
           <div style={{ width: 20, height: boardSizeCSS, marginRight: 4 }}>
             <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
@@ -694,8 +694,8 @@ export default function GameReviewPage() {
           </div>
         </div>
 
-        {/* Right: panel fills remaining width */}
-        <div className="flex-1 min-w-0 border-l border-[#3a3835] flex flex-col overflow-hidden">
+        {/* Right: fixed-width panel like Chess.com */}
+        <div className="w-[300px] shrink-0 border-l border-[#3a3835] flex flex-col overflow-hidden">
           {analyzing && !analysis && <AnalysisProgress />}
 
           {analysis && gameInfo && !reviewStarted && (
