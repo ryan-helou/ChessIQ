@@ -84,7 +84,7 @@ export default function PuzzleBoard({
   useEffect(() => {
     let cancelled = false;
     const chess = new Chess(puzzle.fen);
-    setGame(chess);
+    setGame(new Chess(puzzle.fen)); // immutable snapshot
     setSolutionIndex(0);
     solutionIndexRef.current = 0;
     setAttempts(0);
@@ -258,39 +258,46 @@ export default function PuzzleBoard({
     setPhase("showSolution");
     setSelectedSquare(null);
     setLegalMoveSquares([]);
+    setWrongSquare(null);
+    setCorrectSquare(null);
 
-    const chess = new Chess(gameRef.current.fen());
+    // Build a flat, ordered list of all remaining moves to play
+    // (player move, then opponent response, then player move, ...)
+    const movesToPlay: string[] = [];
     const startIdx = solutionIndexRef.current;
-    let delay = 0;
-
     for (let i = startIdx; i < puzzle.solutionMoves.length; i++) {
-      const solUci = puzzle.solutionMoves[i];
-      const oppUci = puzzle.opponentMoves[i + 1]; // opponent response after player move
-
-      delay += 700;
-      const solDelay = delay;
-      const solI = i;
-      setTimeout(() => {
-        try {
-          applyUci(chess, solUci);
-          setGame(new Chess(chess.fen()));
-          setLastMove({ from: solUci.slice(0, 2), to: solUci.slice(2, 4) });
-        } catch {}
-
-        if (oppUci && solI < puzzle.solutionMoves.length - 1) {
-          delay += 700;
-          setTimeout(() => {
-            try {
-              applyUci(chess, oppUci);
-              setGame(new Chess(chess.fen()));
-              setLastMove({ from: oppUci.slice(0, 2), to: oppUci.slice(2, 4) });
-            } catch {}
-          }, 700);
-        }
-      }, solDelay);
-
-      delay += 700;
+      movesToPlay.push(puzzle.solutionMoves[i]);
+      const oppMove = puzzle.opponentMoves[i + 1];
+      if (oppMove && i < puzzle.solutionMoves.length - 1) {
+        movesToPlay.push(oppMove);
+      }
     }
+
+    if (movesToPlay.length === 0) return;
+
+    // Snapshot current board position
+    const chess = new Chess(gameRef.current.fen());
+
+    const playNext = (idx: number) => {
+      if (idx >= movesToPlay.length) return;
+      setTimeout(() => {
+        const uci = movesToPlay[idx];
+        try {
+          chess.move({
+            from: uci.slice(0, 2),
+            to: uci.slice(2, 4),
+            promotion: (uci[4] as "q" | "r" | "b" | "n") ?? "q",
+          });
+          setGame(new Chess(chess.fen()));
+          setLastMove({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
+        } catch (e) {
+          console.error("[solution] failed to apply move", uci, chess.fen(), e);
+        }
+        playNext(idx + 1);
+      }, 700);
+    };
+
+    playNext(0);
   }, [puzzle]);
 
   // ─── Square styles ───────────────────────────────────────────
