@@ -124,7 +124,8 @@ export async function GET(
     const ownBlunderMap = new Map<string, BlunderPuzzle>();
 
     for (const blunder of blundersResult.rows) {
-      const theme = blunder.missed_tactic || "unknown";
+      const theme = blunder.missed_tactic;
+      if (!theme) continue;
       themeMap.set(theme, (themeMap.get(theme) ?? 0) + 1);
 
       // Create blunder puzzle entries (limit to top ones)
