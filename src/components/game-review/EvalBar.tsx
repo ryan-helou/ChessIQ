@@ -31,28 +31,24 @@ export default function EvalBar({ eval_, mate }: Props) {
     <div className="flex flex-col w-full h-full rounded-sm overflow-hidden select-none relative">
       {/* Black portion (top) */}
       <div
-        className="w-full bg-[#3a3835] transition-all duration-500 ease-out relative"
+        className="w-full bg-[#3a3835] transition-all duration-500 ease-out"
         style={{ height: `${100 - whitePercent}%` }}
-      >
-        {/* Eval text on black's side when black has advantage */}
-        {!isWhiteAdvantage && (
-          <span className="absolute bottom-0.5 left-0 right-0 text-center text-[9px] font-bold text-[#b0aea8] leading-none">
-            {evalText}
-          </span>
-        )}
-      </div>
+      />
       {/* White portion (bottom) */}
       <div
-        className="w-full bg-[#e8e6e1] transition-all duration-500 ease-out relative"
+        className="w-full bg-[#e8e6e1] transition-all duration-500 ease-out"
         style={{ height: `${whitePercent}%` }}
+      />
+      {/* Eval text: top of bar when black leads, bottom when white leads */}
+      <span
+        className={`absolute left-0 right-0 text-center text-[9px] font-bold leading-none ${
+          isWhiteAdvantage
+            ? "bottom-0.5 text-[#3a3835]"
+            : "top-0.5 text-[#b0aea8]"
+        }`}
       >
-        {/* Eval text on white's side when white has advantage */}
-        {isWhiteAdvantage && (
-          <span className="absolute top-0.5 left-0 right-0 text-center text-[9px] font-bold text-[#3a3835] leading-none">
-            {evalText}
-          </span>
-        )}
-      </div>
+        {evalText}
+      </span>
     </div>
   );
 }
