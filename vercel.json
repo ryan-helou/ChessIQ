@@ -1,10 +1,8 @@
 {
-  "functions": {
-    "src/app/api/games/[username]/analyze-next/route.ts": {
-      "maxDuration": 60
-    },
-    "src/app/api/games/[username]/analyze-queue/route.ts": {
-      "maxDuration": 30
+  "experimentalServices": {
+    "frontend": {
+      "routePrefix": "/",
+      "framework": "nextjs"
     }
   }
 }
