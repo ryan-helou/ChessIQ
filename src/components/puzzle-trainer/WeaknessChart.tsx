@@ -54,7 +54,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
       </div>
 
       <div className="h-48">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16 }}>
             <XAxis
               type="number"

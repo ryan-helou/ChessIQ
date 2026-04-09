@@ -59,7 +59,7 @@ export default function RatingChart({ data, filter }: Props) {
 
   return (
     <div className="w-full h-[350px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <LineChart data={displayData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis

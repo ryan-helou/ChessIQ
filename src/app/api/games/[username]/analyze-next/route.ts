@@ -145,12 +145,27 @@ export async function POST(
 
       return NextResponse.json({ done: remaining === 0, remaining, blundersFound, gameId: game.chess_com_id });
     } catch (err) {
-      // Mark failed game back to pending so it can be retried
+      console.error(`[analyze-next] Failed game ${game.chess_com_id}:`, err);
+      // Mark failed game as skipped so we don't retry it endlessly
       await query(
-        `UPDATE games SET analysis_status = 'pending' WHERE id = $1`,
+        `UPDATE games SET analysis_status = 'failed' WHERE id = $1`,
         [game.id]
       ).catch(() => {});
-      throw err;
+
+      // Count remaining and continue — don't crash the loop over one bad game
+      const remainingResult = await query(
+        `SELECT COUNT(*) as cnt FROM games WHERE user_id = $1 AND analysis_status IN ('pending', 'analyzing')`,
+        [userId]
+      ).catch(() => ({ rows: [{ cnt: "0" }] }));
+      const remaining = parseInt(remainingResult.rows[0]?.cnt ?? "0");
+
+      return NextResponse.json({
+        done: remaining === 0,
+        remaining,
+        blundersFound: 0,
+        gameId: game.chess_com_id,
+        skipped: true,
+      });
     }
   } catch (error) {
     console.error("[analyze-next] Error:", error);

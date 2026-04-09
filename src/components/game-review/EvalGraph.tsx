@@ -60,7 +60,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
       onMouseDown={(e) => e.preventDefault()}
       onClick={handlePositionClick}
     >
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <AreaChart
           data={chartData}
           margin={mini ? { top: 2, right: 2, bottom: 2, left: 2 } : undefined}

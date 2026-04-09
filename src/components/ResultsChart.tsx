@@ -45,7 +45,7 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
 
   return (
     <div className="w-full h-[250px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <PieChart>
           <Pie
             data={data}
@@ -85,7 +85,7 @@ interface Props {
 export function ResultBreakdownChart({ data }: Props) {
   return (
     <div className="w-full h-[300px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis type="number" tick={{ fill: "#989795", fontSize: 11 }} />

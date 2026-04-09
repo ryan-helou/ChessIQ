@@ -114,7 +114,7 @@ export default function ColorStats({ colorStats }: Props) {
         <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-6">
           <h3 className="text-sm font-semibold text-white mb-4">Game Distribution by Color</h3>
           <div className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={pieData}

@@ -41,7 +41,7 @@ export function AccuracyOverTime({ games }: Props) {
 
   return (
     <div className="w-full h-[300px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <LineChart data={rollingData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis
@@ -114,7 +114,7 @@ export function AccuracyVsRating({ games }: Props) {
 
   return (
     <div className="w-full h-[300px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <ScatterChart margin={{ bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis

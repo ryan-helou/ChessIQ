@@ -53,7 +53,7 @@ function MiniRatingChart({ timeClass, data }: MiniChartProps) {
 
   return (
     <div className="w-full h-[250px]">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <LineChart data={displayData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
           <XAxis
