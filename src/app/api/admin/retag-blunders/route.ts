@@ -14,7 +14,6 @@ export async function POST() {
       `SELECT id, eval_before_cp, player_move, best_move,
               (SELECT fen FROM analyzed_moves am WHERE am.game_id = b.game_id AND am.move_number = b.move_number LIMIT 1) as fen_before
        FROM blunders b
-       WHERE missed_tactic IS NULL OR missed_tactic = 'unknown'
        LIMIT 500`,
       []
     );
@@ -23,13 +22,11 @@ export async function POST() {
     for (const row of result.rows) {
       if (!row.fen_before || !row.best_move) continue;
       const tactic = detectMissedTactic(row.fen_before, row.best_move);
-      if (tactic) {
-        await query(
-          `UPDATE blunders SET missed_tactic = $1 WHERE id = $2`,
-          [tactic, row.id]
-        ).catch(() => {});
-        updated++;
-      }
+      await query(
+        `UPDATE blunders SET missed_tactic = $1 WHERE id = $2`,
+        [tactic ?? "positional", row.id]
+      ).catch(() => {});
+      updated++;
     }
 
     return NextResponse.json({ scanned: result.rows.length, updated });

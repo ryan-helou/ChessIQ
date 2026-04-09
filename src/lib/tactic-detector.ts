@@ -206,15 +206,22 @@ export function detectMissedTactic(
   const attacked = valuablePiecesAttackedFrom(chess, to, enemyColor, 3);
   if (attacked >= 2) return "fork";
 
-  // 5. Back-rank threat / discovered attack through check
+  // 5. Check — classify by what's actually happening
   if (chess.isCheck()) {
     const kingSquare = findKingSquare(chess, enemyColor);
+    // Back-rank check with rook/queen
     if (kingSquare && (kingSquare[1] === "1" || kingSquare[1] === "8")) {
       if (moveResult.piece === "r" || moveResult.piece === "q") return "backRankMate";
     }
-    if (moveResult.piece !== from) return "discoveredAttack"; // piece came from elsewhere
-    if (moveResult.piece === "r" || moveResult.piece === "q") return "skewer";
-    return "discoveredAttack";
+    // True discovered check: the moved piece is NOT the one giving check.
+    // Detect by seeing if the king is on the moved piece's attack ray vs actually attacked by it.
+    // Simplest proxy: can the piece on `to` directly reach the king square in one move?
+    const flippedForCheck = withFlippedTurn(chess);
+    const directMoves = flippedForCheck.moves({ square: to as Parameters<typeof flippedForCheck.moves>[0]["square"], verbose: true });
+    const canDirectlyAttackKing = kingSquare ? directMoves.some((m) => m.to === kingSquare) : false;
+    if (!canDirectlyAttackKing) return "discoveredAttack";
+    // The moved piece itself is giving check — skewer if sliding piece, otherwise just check
+    if (moveResult.piece === "r" || moveResult.piece === "q" || moveResult.piece === "b") return "skewer";
   }
 
   // 6. Knight fork (softer — attacks 1+ valuable piece)
@@ -260,14 +267,10 @@ export function detectMissedTactic(
     }
   }
 
-  // 10. Double attack / threat on a single valuable piece
-  const singleAttack = valuablePiecesAttackedFrom(chess, to, enemyColor, 5);
-  if (singleAttack >= 1) return "discoveredAttack";
-
-  // 11. Any remaining capture = some form of material gain
+  // 10. Any remaining capture = some form of material gain
   if (moveResult.captured) return "materialGain";
 
-  // 12. Catch-all: if the move creates a threat on any enemy piece (value >= 1)
+  // 11. Catch-all: if the move creates a threat on any enemy piece (value >= 1)
   const anyAttacked = valuablePiecesAttackedFrom(chess, to, enemyColor, 1);
   if (anyAttacked >= 1) return "materialGain";
 
