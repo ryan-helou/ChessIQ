@@ -91,8 +91,8 @@ export default function AnalysisDialog({
 
     progressRef.current = setInterval(() => {
       tick++;
-      // Ease-out curve: fast start, slow near target
-      const raw = tick / totalTicks;
+      // Ease-out curve: fast start, slow near target — clamp raw to 1 to avoid regression
+      const raw = Math.min(tick / totalTicks, 1);
       const eased = 1 - Math.pow(1 - raw, 2);
       const pct = Math.min(eased * targetPct, targetPct);
       setProgress(pct);
