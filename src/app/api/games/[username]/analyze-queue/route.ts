@@ -64,13 +64,14 @@ async function persistGameAnalysis(
 
   const gameId: string = gameResult.rows[0].id;
 
-  // Batch insert analyzed moves (skip if already present)
+  // Batch insert analyzed moves — DELETE existing first then insert fresh
+  await query(`DELETE FROM analyzed_moves WHERE game_id = $1`, [gameId]).catch(() => {});
   for (const m of moves) {
     await query(
       `
       INSERT INTO analyzed_moves (game_id, move_number, fen, move, san, best_move, evaluation_cp, accuracy, is_blunder, is_mistake, is_inaccuracy)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      ON CONFLICT (game_id, move_number, depth_analyzed) DO NOTHING
+      ON CONFLICT DO NOTHING
       `,
       [
         gameId,
@@ -85,7 +86,7 @@ async function persistGameAnalysis(
         m.classification === "mistake",
         m.classification === "inaccuracy",
       ]
-    ).catch(() => {}); // Ignore constraint violations (depth_analyzed nullable mismatch)
+    ).catch(() => {});
   }
 
   // Insert blunders + mistakes for this player's moves
@@ -124,7 +125,7 @@ export async function POST(
   try {
     const { username } = await params;
     const body = await request.json();
-    const { months = 1, gameCount = 20, depth = 18 } = body;
+    const { months = 1, gameCount = 20, depth = 14 } = body;
 
     const validCounts = [10, 20, 50, "all"];
     if (!validCounts.includes(gameCount)) {

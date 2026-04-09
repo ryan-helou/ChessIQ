@@ -107,7 +107,7 @@ export default function PlayerPage() {
       const res = await fetch(`/api/games/${username}/analyze-queue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ months, gameCount, depth: 18 }),
+        body: JSON.stringify({ months, gameCount, depth: 14 }),
       });
 
       if (!res.ok) {
