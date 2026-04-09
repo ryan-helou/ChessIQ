@@ -131,11 +131,11 @@ export async function GET(
       // Create blunder puzzle entries (limit to top ones)
       if (ownBlunderMap.size < limit) {
         try {
-          // Get the analyzed move to extract more details
+          // Get the FEN BEFORE the blunder (move_number - 1's fenAfter = this move's fenBefore)
           const moveResult = await query(
             `
             SELECT fen, san FROM analyzed_moves
-            WHERE game_id = $1 AND move_number = $2
+            WHERE game_id = $1 AND move_number = $2 - 1
             LIMIT 1
             `,
             [blunder.game_id, blunder.move_number]
@@ -147,7 +147,7 @@ export async function GET(
             ownBlunderMap.set(id, {
               gameId: blunder.game_id,
               moveNumber: blunder.move_number,
-              fen: move.fen,
+              fen: move.fen, // now correctly the pre-blunder FEN
               bestMove: blunder.best_move,
               bestMoveSan: move.san,
               severity: blunder.severity,
