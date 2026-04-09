@@ -186,7 +186,8 @@ export async function POST(
       if (!game.pgn) { errors++; continue; }
 
       try {
-        const analysis = await analyzeGame(game.pgn, depth);
+        // 20s per game — keeps bulk analysis well within Vercel's 60s limit
+        const analysis = await analyzeGame(game.pgn, depth, AbortSignal.timeout(20_000));
         const { blundersFound } = await persistGameAnalysis(
           chessComId,
           game.pgn,

@@ -42,7 +42,8 @@ export interface GameAnalysis {
 
 export async function analyzeGame(
   pgn: string,
-  depth: number = 18
+  depth: number = 18,
+  signal?: AbortSignal
 ): Promise<GameAnalysis> {
   // Validate PGN
   const chess = new Chess();
@@ -59,7 +60,7 @@ export async function analyzeGame(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pgn, depth }),
-    signal: AbortSignal.timeout(55_000), // 55s — leaves headroom under the 60s route limit
+    signal: signal ?? AbortSignal.timeout(55_000),
   });
 
   if (!response.ok) {

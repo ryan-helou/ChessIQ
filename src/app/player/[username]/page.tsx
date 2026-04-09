@@ -111,11 +111,19 @@ export default function PlayerPage() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to analyse games");
+        let message = "Analysis failed — try fewer games or try again.";
+        try {
+          const err = await res.json();
+          message = err.error || message;
+        } catch {}
+        throw new Error(message);
       }
 
-      return res.json();
+      try {
+        return await res.json();
+      } catch {
+        throw new Error("Analysis timed out. Try 10 games first, then run again for more.");
+      }
     },
     [username, months]
   );
