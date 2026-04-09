@@ -49,6 +49,7 @@ export default function AnalysisDialog({
   const [totalBlunders, setTotalBlunders] = useState(0);
   const [msgIdx, setMsgIdx] = useState(0);
   const [selectedCount, setSelectedCount] = useState<10 | 20 | 50 | "all" | null>(null);
+  const [alreadyUpToDate, setAlreadyUpToDate] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const msgRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -64,6 +65,7 @@ export default function AnalysisDialog({
         setGamesTotal(0);
         setTotalBlunders(0);
         setSelectedCount(null);
+        setAlreadyUpToDate(false);
       }, 300);
     }
   }, [isOpen]);
@@ -116,11 +118,16 @@ export default function AnalysisDialog({
       setGamesAnalyzed(alreadyDone);
 
       if (toAnalyze === 0) {
-        // All games already analyzed
         if (msgRef.current) clearInterval(msgRef.current);
-        setProgress(100);
-        setGamesAnalyzed(total);
-        setPhase("done");
+        if (total === 0) {
+          setError("No games found for this time period. Try a longer range.");
+          setPhase("select");
+        } else {
+          setAlreadyUpToDate(true);
+          setProgress(100);
+          setGamesAnalyzed(total);
+          setPhase("done");
+        }
         return;
       }
 
@@ -300,23 +307,29 @@ export default function AnalysisDialog({
               <div className="flex items-center gap-3 mb-5">
                 <span className="text-2xl">♔</span>
                 <div>
-                  <h2 className="text-base font-bold text-white">Analysis complete</h2>
+                  <h2 className="text-base font-bold text-white">
+                    {alreadyUpToDate ? "Already up to date" : "Analysis complete"}
+                  </h2>
                   <p className="text-xs text-[#706e6b]">
-                    {gamesAnalyzed} game{gamesAnalyzed !== 1 ? "s" : ""} analysed
+                    {alreadyUpToDate
+                      ? `${gamesAnalyzed} game${gamesAnalyzed !== 1 ? "s" : ""} already analyzed`
+                      : `${gamesAnalyzed} game${gamesAnalyzed !== 1 ? "s" : ""} analysed`}
                   </p>
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
+              <div className={`grid gap-3 mb-5 ${alreadyUpToDate ? "grid-cols-1" : "grid-cols-2"}`}>
                 <div className="bg-[#262522] rounded-xl p-3 text-center">
                   <div className="text-2xl font-bold text-[#81b64c]">{gamesAnalyzed}</div>
                   <div className="text-xs text-[#706e6b] mt-0.5">Games analysed</div>
                 </div>
-                <div className="bg-[#262522] rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-[#ca3431]">{totalBlunders}</div>
-                  <div className="text-xs text-[#706e6b] mt-0.5">Blunders found</div>
-                </div>
+                {!alreadyUpToDate && (
+                  <div className="bg-[#262522] rounded-xl p-3 text-center">
+                    <div className="text-2xl font-bold text-[#ca3431]">{totalBlunders}</div>
+                    <div className="text-xs text-[#706e6b] mt-0.5">Blunders found</div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

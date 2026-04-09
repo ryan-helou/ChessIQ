@@ -40,6 +40,7 @@ export async function POST(
     const userId = usernameToUserId(username);
     let queued = 0;
     let alreadyDone = 0;
+    let errors = 0;
 
     for (const game of gamesToProcess) {
       const chessComId = game.url.split("/").pop() ?? "";
@@ -57,12 +58,13 @@ export async function POST(
           continue;
         }
 
-        // Upsert as pending
+        // Upsert as pending (always update user_id so analyze-next can find it)
         await query(
           `
           INSERT INTO games (user_id, chess_com_id, pgn, white_username, black_username, analysis_status)
           VALUES ($1, $2, $3, $4, $5, 'pending')
           ON CONFLICT (chess_com_id) DO UPDATE SET
+            user_id = EXCLUDED.user_id,
             analysis_status = CASE WHEN games.analysis_status = 'complete' THEN 'complete' ELSE 'pending' END,
             pgn = EXCLUDED.pgn
           `,
@@ -70,8 +72,16 @@ export async function POST(
         );
         queued++;
       } catch (err) {
+        errors++;
         console.error(`[analyze-queue] Failed to queue game ${chessComId}:`, err);
       }
+    }
+
+    if (errors > 0 && queued === 0 && alreadyDone === 0) {
+      return NextResponse.json(
+        { error: "Database error — could not queue any games. Please try again." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ queued, alreadyDone, total: queued + alreadyDone });
