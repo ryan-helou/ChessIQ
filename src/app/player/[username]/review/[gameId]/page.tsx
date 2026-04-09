@@ -670,32 +670,29 @@ export default function GameReviewPage() {
     <div className="h-screen bg-[#312e2b] text-[#e8e6e1] flex flex-col overflow-hidden">
       <Header username={username} />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: board area — board centered, fills remaining space */}
-        <div className="flex-1 flex items-center justify-end overflow-hidden" style={{ padding: "4px" }}>
-          {/* Eval bar */}
-          <div style={{ width: 20, height: boardSizeCSS, marginRight: 4 }}>
-            <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
-          </div>
-          {/* Board — square, sized by viewport height */}
-          <div style={{ width: boardSizeCSS, height: boardSizeCSS }}>
-            <Chessboard
-              options={{
-                position: getCurrentFen(),
-                squareStyles: customSquareStyles,
-                darkSquareStyle: { backgroundColor: "#779952" },
-                lightSquareStyle: { backgroundColor: "#edeed1" },
-                boardOrientation: gameInfo?.playerColor ?? "white",
-                allowDragging: false,
-                animationDurationInMs: 200,
-                squareRenderer,
-              }}
-            />
-          </div>
+      {/* Board + panel centered together as one unit */}
+      <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>
+        {/* Eval bar */}
+        <div style={{ width: 20, height: boardSizeCSS, marginRight: 4 }}>
+          <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
         </div>
-
-        {/* Right: fixed-width panel like Chess.com */}
-        <div className="w-[300px] shrink-0 border-l border-[#3a3835] flex flex-col overflow-hidden">
+        {/* Board */}
+        <div style={{ width: boardSizeCSS, height: boardSizeCSS }}>
+          <Chessboard
+            options={{
+              position: getCurrentFen(),
+              squareStyles: customSquareStyles,
+              darkSquareStyle: { backgroundColor: "#779952" },
+              lightSquareStyle: { backgroundColor: "#edeed1" },
+              boardOrientation: gameInfo?.playerColor ?? "white",
+              allowDragging: false,
+              animationDurationInMs: 200,
+              squareRenderer,
+            }}
+          />
+        </div>
+        {/* Panel — adjacent to the board, fixed width */}
+        <div className="w-[300px] shrink-0 self-stretch border-l border-[#3a3835] flex flex-col overflow-hidden">
           {analyzing && !analysis && <AnalysisProgress />}
 
           {analysis && gameInfo && !reviewStarted && (
