@@ -3,18 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-interface AnalysisResult {
-  status: "complete" | "partial" | "already_complete";
-  message: string;
-  analyzed: number;
-  remaining: number;
-  totalBlunders: number;
-}
-
 interface AnalysisDialogProps {
   username: string;
   months: number;
-  onAnalyze: (gameCount: 10 | 20 | 50 | "all") => Promise<AnalysisResult>;
   onClose: () => void;
   isOpen: boolean;
 }
@@ -37,32 +28,30 @@ const MESSAGES = [
 ];
 
 const GAME_COUNTS = [
-  { count: 10, label: "10 games", est: 35 },
-  { count: 20, label: "20 games", est: 70 },
-  { count: 50, label: "50 games", est: 175 },
-  { count: "all", label: "All games this period", est: 200 },
+  { count: 10, label: "10 games" },
+  { count: 20, label: "20 games" },
+  { count: 50, label: "50 games" },
+  { count: "all", label: "All games this period" },
 ] as const;
 
 export default function AnalysisDialog({
   username,
   months,
-  onAnalyze,
   onClose,
   isOpen,
 }: AnalysisDialogProps) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("select");
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [progress, setProgress] = useState(0);          // 0-100
-  const [gamesDone, setGamesDone] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [gamesAnalyzed, setGamesAnalyzed] = useState(0);
   const [gamesTotal, setGamesTotal] = useState(0);
+  const [totalBlunders, setTotalBlunders] = useState(0);
   const [msgIdx, setMsgIdx] = useState(0);
   const [selectedCount, setSelectedCount] = useState<10 | 20 | 50 | "all" | null>(null);
 
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const msgRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const estimatedSecsRef = useRef(70);
 
   // Reset when closed
   useEffect(() => {
@@ -70,64 +59,109 @@ export default function AnalysisDialog({
       setTimeout(() => {
         setPhase("select");
         setError(null);
-        setResult(null);
         setProgress(0);
-        setGamesDone(0);
+        setGamesAnalyzed(0);
+        setGamesTotal(0);
+        setTotalBlunders(0);
         setSelectedCount(null);
       }, 300);
     }
   }, [isOpen]);
 
-  function startProgress(estSecs: number, total: number) {
-    setProgress(0);
-    setGamesDone(0);
-    setGamesTotal(total);
-    estimatedSecsRef.current = estSecs;
-
-    const tickMs = 200;
-    const targetPct = 88; // don't reach 100 until API returns
-    const totalTicks = (estSecs * 1000) / tickMs;
-    let tick = 0;
-
-    progressRef.current = setInterval(() => {
-      tick++;
-      // Ease-out curve: fast start, slow near target — clamp raw to 1 to avoid regression
-      const raw = Math.min(tick / totalTicks, 1);
-      const eased = 1 - Math.pow(1 - raw, 2);
-      const pct = Math.min(eased * targetPct, targetPct);
-      setProgress(pct);
-      setGamesDone(Math.min(Math.floor((pct / 100) * total), total - 1));
-    }, tickMs);
-
-    msgRef.current = setInterval(() => {
-      setMsgIdx((i) => (i + 1) % MESSAGES.length);
-    }, 2800);
-  }
-
-  function stopProgress(finalAnalyzed: number) {
-    if (progressRef.current) clearInterval(progressRef.current);
-    if (msgRef.current) clearInterval(msgRef.current);
-    setProgress(100);
-    setGamesDone(finalAnalyzed);
-  }
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (msgRef.current) clearInterval(msgRef.current);
+    };
+  }, []);
 
   async function handleAnalyze(count: 10 | 20 | 50 | "all") {
     setSelectedCount(count);
     setError(null);
     setMsgIdx(0);
-
-    const option = GAME_COUNTS.find((o) => o.count === count)!;
-    const total = count === "all" ? 50 : count;
+    setGamesAnalyzed(0);
+    setGamesTotal(0);
+    setTotalBlunders(0);
+    setProgress(0);
     setPhase("analyzing");
-    startProgress(option.est, total);
+
+    abortRef.current = new AbortController();
+
+    msgRef.current = setInterval(() => {
+      setMsgIdx((i) => (i + 1) % MESSAGES.length);
+    }, 2800);
 
     try {
-      const res = await onAnalyze(count);
-      stopProgress(res.analyzed);
-      setResult(res);
+      // Step 1: Queue all games
+      const queueRes = await fetch(`/api/games/${encodeURIComponent(username)}/analyze-queue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months, gameCount: count }),
+        signal: abortRef.current.signal,
+      });
+
+      if (!queueRes.ok) {
+        let msg = "Failed to queue games for analysis.";
+        try { const err = await queueRes.json(); msg = err.error || msg; } catch {}
+        throw new Error(msg);
+      }
+
+      const queueData = await queueRes.json();
+      const total: number = queueData.total ?? (queueData.queued + (queueData.alreadyDone ?? 0));
+      const alreadyDone: number = queueData.alreadyDone ?? 0;
+      const toAnalyze: number = queueData.queued ?? 0;
+
+      setGamesTotal(total);
+      setGamesAnalyzed(alreadyDone);
+
+      if (toAnalyze === 0) {
+        // All games already analyzed
+        if (msgRef.current) clearInterval(msgRef.current);
+        setProgress(100);
+        setGamesAnalyzed(total);
+        setPhase("done");
+        return;
+      }
+
+      // Step 2: Loop analyze-next until done
+      let analyzed = alreadyDone;
+      let blunders = 0;
+
+      while (true) {
+        if (abortRef.current?.signal.aborted) break;
+
+        const nextRes = await fetch(`/api/games/${encodeURIComponent(username)}/analyze-next`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ depth: 14 }),
+          signal: abortRef.current.signal,
+        });
+
+        if (!nextRes.ok) {
+          let msg = "Analysis failed. Try again.";
+          try { const err = await nextRes.json(); msg = err.error || msg; } catch {}
+          throw new Error(msg);
+        }
+
+        const nextData = await nextRes.json();
+        analyzed += 1;
+        blunders += nextData.blundersFound ?? 0;
+
+        setGamesAnalyzed(analyzed);
+        setTotalBlunders(blunders);
+        setProgress(Math.round((analyzed / total) * 100));
+
+        if (nextData.done || nextData.remaining === 0) break;
+      }
+
+      if (msgRef.current) clearInterval(msgRef.current);
+      setProgress(100);
+      setGamesAnalyzed(total);
       setPhase("done");
-    } catch (err) {
-      stopProgress(0);
+    } catch (err: unknown) {
+      if (msgRef.current) clearInterval(msgRef.current);
+      if (err instanceof Error && err.name === "AbortError") return;
       setError(err instanceof Error ? err.message : "Analysis failed");
       setPhase("select");
     }
@@ -160,7 +194,7 @@ export default function AnalysisDialog({
               )}
 
               <div className="space-y-2 mb-4">
-                {GAME_COUNTS.map(({ count, label, est }) => (
+                {GAME_COUNTS.map(({ count, label }) => (
                   <button
                     key={count}
                     onClick={() => handleAnalyze(count)}
@@ -168,7 +202,6 @@ export default function AnalysisDialog({
                   >
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{label}</span>
-                      <span className="text-xs text-[#706e6b] group-hover:text-[#989795]">~{Math.round(est / 60)}–{Math.round(est / 60) + 1} min</span>
                     </div>
                   </button>
                 ))}
@@ -191,7 +224,7 @@ export default function AnalysisDialog({
                 <span className="text-2xl animate-bounce">♟</span>
                 <div>
                   <h2 className="text-base font-bold text-white">Analysing your games</h2>
-                  <p className="text-xs text-[#706e6b]">This may take a minute — hang tight</p>
+                  <p className="text-xs text-[#706e6b]">This may take a few minutes — hang tight</p>
                 </div>
               </div>
 
@@ -200,10 +233,10 @@ export default function AnalysisDialog({
                 <div className="flex justify-between items-baseline mb-2">
                   <span className="text-sm text-[#989795]">
                     {gamesTotal > 0
-                      ? `Game ${Math.max(gamesDone, 0)} of ${gamesTotal}`
-                      : "Starting up..."}
+                      ? `Game ${gamesAnalyzed} of ${gamesTotal}`
+                      : "Queuing games..."}
                   </span>
-                  <span className="text-sm font-bold text-[#81b64c]">{Math.round(progress)}%</span>
+                  <span className="text-sm font-bold text-[#81b64c]">{progress}%</span>
                 </div>
 
                 {/* Chess-board track */}
@@ -212,7 +245,7 @@ export default function AnalysisDialog({
                 }}>
                   {/* Green fill */}
                   <div
-                    className="absolute inset-y-0 left-0 transition-all duration-200 rounded-lg"
+                    className="absolute inset-y-0 left-0 transition-all duration-300 rounded-lg"
                     style={{
                       width: `${progress}%`,
                       background: "linear-gradient(90deg, #5a8a2c, #81b64c)",
@@ -220,12 +253,12 @@ export default function AnalysisDialog({
                   />
                   {/* Pawn at leading edge */}
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-lg leading-none transition-all duration-200 drop-shadow-lg select-none"
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-lg leading-none transition-all duration-300 drop-shadow-lg select-none"
                     style={{ left: `${Math.max(progress, 2)}%` }}
                   >
                     ♙
                   </div>
-                  {/* Rank markers (chess squares aesthetic) */}
+                  {/* Rank markers */}
                   {[1,2,3,4,5,6,7].map((i) => (
                     <div
                       key={i}
@@ -261,59 +294,42 @@ export default function AnalysisDialog({
           )}
 
           {/* ── PHASE: DONE ── */}
-          {phase === "done" && result && (
+          {phase === "done" && (
             <div className="p-6">
               {/* Header */}
               <div className="flex items-center gap-3 mb-5">
                 <span className="text-2xl">♔</span>
                 <div>
-                  <h2 className="text-base font-bold text-white">
-                    {result.status === "already_complete" ? "Already up to date" : "Analysis complete"}
-                  </h2>
-                  <p className="text-xs text-[#706e6b]">{result.message}</p>
+                  <h2 className="text-base font-bold text-white">Analysis complete</h2>
+                  <p className="text-xs text-[#706e6b]">
+                    {gamesAnalyzed} game{gamesAnalyzed !== 1 ? "s" : ""} analysed
+                  </p>
                 </div>
               </div>
 
               {/* Stats */}
-              {result.analyzed > 0 && (
-                <div className="grid grid-cols-2 gap-3 mb-5">
-                  <div className="bg-[#262522] rounded-xl p-3 text-center">
-                    <div className="text-2xl font-bold text-[#81b64c]">{result.analyzed}</div>
-                    <div className="text-xs text-[#706e6b] mt-0.5">Games analysed</div>
-                  </div>
-                  <div className="bg-[#262522] rounded-xl p-3 text-center">
-                    <div className="text-2xl font-bold text-[#ca3431]">{result.totalBlunders}</div>
-                    <div className="text-xs text-[#706e6b] mt-0.5">Blunders found</div>
-                  </div>
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <div className="bg-[#262522] rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-[#81b64c]">{gamesAnalyzed}</div>
+                  <div className="text-xs text-[#706e6b] mt-0.5">Games analysed</div>
                 </div>
-              )}
-
-              {/* Remaining */}
-              {result.remaining > 0 && (
-                <div className="bg-[#e6a117]/10 border border-[#e6a117]/30 rounded-xl p-3 mb-4 text-sm text-[#e6a117]">
-                  {result.remaining} game{result.remaining !== 1 ? "s" : ""} still pending — click below to continue.
+                <div className="bg-[#262522] rounded-xl p-3 text-center">
+                  <div className="text-2xl font-bold text-[#ca3431]">{totalBlunders}</div>
+                  <div className="text-xs text-[#706e6b] mt-0.5">Blunders found</div>
                 </div>
-              )}
+              </div>
 
               <div className="space-y-2">
-                {result.remaining > 0 && (
-                  <button
-                    onClick={() => handleAnalyze(selectedCount ?? 20)}
-                    className="w-full px-4 py-2.5 bg-[#81b64c] hover:bg-[#96bc4b] text-white font-bold rounded-xl transition-colors text-sm"
-                  >
-                    Analyse {result.remaining} more
-                  </button>
-                )}
                 <button
                   onClick={() => {
                     onClose();
-                    if (result.totalBlunders > 0) {
+                    if (totalBlunders > 0) {
                       router.push(`/player/${encodeURIComponent(username)}/puzzles`);
                     }
                   }}
                   className="w-full px-4 py-2.5 bg-[#262522] hover:bg-[#2f2d2a] text-white rounded-xl transition-colors text-sm border border-[#3a3835]"
                 >
-                  {result.totalBlunders > 0 ? "View Puzzle Recommendations →" : "Done"}
+                  {totalBlunders > 0 ? "View Puzzle Recommendations →" : "Done"}
                 </button>
               </div>
             </div>

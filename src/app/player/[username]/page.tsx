@@ -102,32 +102,6 @@ export default function PlayerPage() {
     setMonths(m);
   };
 
-  const handleAnalyzeGames = useCallback(
-    async (gameCount: 10 | 20 | 50 | "all") => {
-      const res = await fetch(`/api/games/${username}/analyze-queue`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ months, gameCount, depth: 14 }),
-      });
-
-      if (!res.ok) {
-        let message = "Analysis failed — try fewer games or try again.";
-        try {
-          const err = await res.json();
-          message = err.error || message;
-        } catch {}
-        throw new Error(message);
-      }
-
-      try {
-        return await res.json();
-      } catch {
-        throw new Error("Analysis timed out. Try 10 games first, then run again for more.");
-      }
-    },
-    [username, months]
-  );
-
   // Compute stats
   const totalGames = data?.games.length ?? 0;
   const wins = data?.games.filter((g) => g.result === "win").length ?? 0;
@@ -307,7 +281,6 @@ export default function PlayerPage() {
           <AnalysisDialog
             username={username}
             months={months}
-            onAnalyze={handleAnalyzeGames}
             onClose={() => setShowAnalysisDialog(false)}
             isOpen={showAnalysisDialog}
           />
