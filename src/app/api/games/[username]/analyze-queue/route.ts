@@ -41,6 +41,7 @@ export async function POST(
     let queued = 0;
     let alreadyDone = 0;
     let errors = 0;
+    let lastError: string | null = null;
 
     for (const game of gamesToProcess) {
       const chessComId = game.url.split("/").pop() ?? "";
@@ -73,13 +74,14 @@ export async function POST(
         queued++;
       } catch (err) {
         errors++;
+        lastError = err instanceof Error ? err.message : String(err);
         console.error(`[analyze-queue] Failed to queue game ${chessComId}:`, err);
       }
     }
 
     if (errors > 0 && queued === 0 && alreadyDone === 0) {
       return NextResponse.json(
-        { error: "Database error — could not queue any games. Please try again." },
+        { error: `Database error: ${lastError ?? "unknown"}. Please try again.` },
         { status: 500 }
       );
     }
