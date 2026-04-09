@@ -87,6 +87,7 @@ export const THEME_LABELS: Record<string, string> = {
   zugzwang: "Zugzwang",
   endgame: "Endgame",
   middlegame: "Middlegame",
+  positional: "Positional",
 };
 
 export const THEME_COLORS: Record<string, string> = {
@@ -102,6 +103,7 @@ export const THEME_COLORS: Record<string, string> = {
   promotion: "#88bf40",
   mate: "#ca3431",
   materialGain: "#96bc4b",
+  positional: "#706e6b",
 };
 
 // ─────────────────────────────────────────────────────────────

@@ -264,5 +264,13 @@ export function detectMissedTactic(
   const singleAttack = valuablePiecesAttackedFrom(chess, to, enemyColor, 5);
   if (singleAttack >= 1) return "discoveredAttack";
 
-  return null;
+  // 11. Any remaining capture = some form of material gain
+  if (moveResult.captured) return "materialGain";
+
+  // 12. Catch-all: if the move creates a threat on any enemy piece (value >= 1)
+  const anyAttacked = valuablePiecesAttackedFrom(chess, to, enemyColor, 1);
+  if (anyAttacked >= 1) return "materialGain";
+
+  // 13. Positional blunder — no specific tactic identified but clearly strategic
+  return "positional";
 }
