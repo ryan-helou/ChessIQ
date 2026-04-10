@@ -12,14 +12,15 @@ const Chessboard = dynamic(
 );
 
 type Phase =
-  | "init"       // auto-playing setup move
-  | "idle"       // waiting for player
-  | "wrong"      // brief flash after wrong move
-  | "animating"  // playing opponent response
+  | "init"        // auto-playing setup move
+  | "idle"        // waiting for player
+  | "wrong"       // brief flash after wrong move
+  | "evaluating"  // checking move quality with engine
+  | "animating"   // playing opponent response
   | "solved"
   | "failed"
-  | "solution"   // playing through solution
-  | "done";      // solution finished
+  | "solution"    // playing through solution
+  | "done";       // solution finished
 
 interface Props {
   puzzle: TrainerPuzzle;
@@ -79,6 +80,10 @@ export default function PuzzleBoard({
   const [flashSq, setFlashSq] = useState<{ sq: string; color: "green" | "red" } | null>(null);
   const [hintUsed, setHintUsed] = useState(false);
 
+  // Precomputed good moves for the current puzzle position (instant lookup)
+  const goodMovesRef = useRef<Set<string> | null>(null);
+  const goodMovesReady = useRef(false);
+
   // ── Board orientation ─────────────────────────────────────────────
   const orientation = useMemo<"white" | "black">(() => {
     try {
@@ -131,7 +136,29 @@ export default function PuzzleBoard({
     setLastMove(null);
     setFlashSq(null);
     setHintUsed(false);
+    goodMovesRef.current = null;
+    goodMovesReady.current = false;
     startTimeRef.current = Date.now();
+
+    // Precompute all good moves from the puzzle position in background
+    // Use the position AFTER the setup move (if any) — that's what the player sees
+    const precomputeFen = puzzle.opponentMoves[0]
+      ? (() => { const c = new Chess(puzzle.fen); c.move(puzzle.opponentMoves[0]); return c.fen(); })()
+      : puzzle.fen;
+
+    fetch("/api/puzzles/evaluate-move", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fen: precomputeFen }),
+    })
+      .then((r) => r.json())
+      .then(({ goodMoves }) => {
+        if (!cancelled && Array.isArray(goodMoves)) {
+          goodMovesRef.current = new Set(goodMoves);
+          goodMovesReady.current = true;
+        }
+      })
+      .catch(() => { /* silent — fall back to per-move eval */ });
 
     if (puzzle.opponentMoves[0]) {
       setPhase("init");
@@ -148,52 +175,86 @@ export default function PuzzleBoard({
 
   const elapsed = () => Math.round((Date.now() - startTimeRef.current) / 1000);
 
+  // ── Accept a move (shared logic) ─────────────────────────────────
+  const acceptMove = useCallback((uci: string, to: string) => {
+    doMove(uci);
+    setFlashSq({ sq: to, color: "green" });
+    const nextIdx = moveIdxRef.current + 1;
+    moveIdxRef.current = nextIdx;
+    if (nextIdx >= puzzle.solutionMoves.length) {
+      setTimeout(() => { setFlashSq(null); setPhase("solved"); }, 400);
+      onSolved(attemptsRef.current + 1, Math.round((Date.now() - startTimeRef.current) / 1000));
+    } else {
+      playOpponent(nextIdx - 1, () => { if (!cancelled.current) setPhase("idle"); });
+      setTimeout(() => setFlashSq(null), 600);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puzzle, doMove, playOpponent, onSolved]);
+
+  // ── Reject a move ─────────────────────────────────────────────────
+  const rejectMove = useCallback((to: string) => {
+    const newAttempts = attemptsRef.current + 1;
+    attemptsRef.current = newAttempts;
+    setAttempts(newAttempts);
+    setFlashSq({ sq: to, color: "red" });
+    setPhase("wrong");
+    setTimeout(() => {
+      if (!cancelled.current) { setFlashSq(null); setPhase("idle"); }
+    }, 600);
+  }, []);
+
   // ── Attempt a move ────────────────────────────────────────────────
   const tryMove = useCallback((from: string, to: string): boolean => {
     if (phase !== "idle") return false;
     setSelectedSq(null);
     setLegalSqs([]);
 
-    // Check legal first (temp chess)
+    const piece = chessRef.current.get(from as Parameters<typeof chessRef.current.get>[0]);
+    const isPromotion = piece?.type === "p" && (to[1] === "8" || to[1] === "1");
+    const uci = from + to + (isPromotion ? "q" : "");
+
+    // Check legal first
     const temp = new Chess(chessRef.current.fen());
-    try { temp.move({ from, to, promotion: "q" }); }
+    try { temp.move({ from, to, ...(isPromotion ? { promotion: "q" } : {}) }); }
     catch { return false; }
 
     const expected = puzzle.solutionMoves[moveIdxRef.current];
-    const correct = expected && from === expected.slice(0, 2) && to === expected.slice(2, 4);
+    const isExact = expected && from === expected.slice(0, 2) && to === expected.slice(2, 4);
 
-    if (correct) {
-      doMove(expected);
-      setFlashSq({ sq: to, color: "green" });
-
-      const nextIdx = moveIdxRef.current + 1;
-      moveIdxRef.current = nextIdx;
-
-      if (nextIdx >= puzzle.solutionMoves.length) {
-        setTimeout(() => { setFlashSq(null); setPhase("solved"); }, 400);
-        onSolved(attemptsRef.current + 1, elapsed());
-      } else {
-        playOpponent(nextIdx - 1, () => {
-          if (!cancelled.current) setPhase("idle");
-        });
-        setTimeout(() => setFlashSq(null), 600);
-      }
+    if (isExact) {
+      acceptMove(expected, to);
       return true;
-    } else {
-      // Wrong — flash red but don't move the piece
-      const newAttempts = attemptsRef.current + 1;
-      attemptsRef.current = newAttempts;
-      setAttempts(newAttempts);
-      setFlashSq({ sq: to, color: "red" });
-      setPhase("wrong");
-      setTimeout(() => {
-        setFlashSq(null);
-        setPhase("idle");
-      }, 600);
-      return false;
     }
+
+    // Check precomputed good moves list (instant if ready)
+    if (goodMovesReady.current && goodMovesRef.current) {
+      if (goodMovesRef.current.has(uci)) {
+        acceptMove(uci, to);
+        return true;
+      } else {
+        rejectMove(to);
+        return false;
+      }
+    }
+
+    // Good moves not ready yet — fall back to per-move evaluation
+    setPhase("evaluating");
+    fetch("/api/puzzles/evaluate-move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fen: chessRef.current.fen(), move: uci }),
+    })
+      .then((r) => r.json())
+      .then(({ acceptable }) => {
+        if (cancelled.current) return;
+        if (acceptable) acceptMove(uci, to);
+        else rejectMove(to);
+      })
+      .catch(() => { if (!cancelled.current) rejectMove(to); });
+
+    return false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, puzzle, doMove, playOpponent, onSolved, onFailed]);
+  }, [phase, puzzle, acceptMove, rejectMove]);
 
   // Ref to prevent state updates after component unmount/puzzle change
   const cancelled = useRef(false);
@@ -300,6 +361,7 @@ export default function PuzzleBoard({
 
   const statusBar = (() => {
     if (phase === "init" || phase === "animating") return { text: "…", bg: "bg-[#1e1c1a]", textColor: "text-[#989795]" };
+    if (phase === "evaluating") return { text: "Checking…", bg: "bg-[#1e1c1a]", textColor: "text-[#989795]" };
     if (phase === "idle" || phase === "wrong") return { text: `Find the best move for ${colorName}`, bg: "bg-[#1e1c1a]", textColor: "text-[#e8e6e1]" };
     if (phase === "solved") return { text: "Best move! Puzzle solved.", bg: "bg-[#3d6b2c]", textColor: "text-white" };
     if (phase === "failed") return { text: "Puzzle failed.", bg: "bg-[#6b2828]", textColor: "text-white" };
@@ -312,7 +374,7 @@ export default function PuzzleBoard({
   const themeLabel = mainTheme ? (THEME_LABELS[mainTheme] ?? mainTheme) : null;
   const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#706e6b") : "#706e6b";
 
-  const canInteract = phase === "idle";
+  const canInteract = phase === "idle" || phase === "wrong";
   const isDone = phase === "solved" || phase === "failed" || phase === "done";
 
   return (
