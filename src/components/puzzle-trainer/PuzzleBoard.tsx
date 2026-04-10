@@ -365,16 +365,16 @@ export default function PuzzleBoard({
   const squareStyles = useMemo<Record<string, React.CSSProperties>>(() => {
     const s: Record<string, React.CSSProperties> = {};
     if (lastMove) {
-      s[lastMove.from] = { backgroundColor: "rgba(255,255,50,0.3)" };
-      s[lastMove.to] = { backgroundColor: "rgba(255,255,50,0.3)" };
+      s[lastMove.from] = { backgroundColor: "rgba(205,210,106,0.7)" };
+      s[lastMove.to] = { backgroundColor: "rgba(170,162,58,0.7)" };
     }
-    if (selectedSq) s[selectedSq] = { backgroundColor: "rgba(255,255,50,0.5)" };
+    if (selectedSq) s[selectedSq] = { backgroundColor: "rgba(20,85,30,0.5)" };
     if (legalSqs.length > 0) {
       for (const sq of legalSqs) {
         const isCapture = !!chessRef.current.get(sq as Parameters<typeof chessRef.current.get>[0]);
         s[sq] = isCapture
-          ? { background: "radial-gradient(circle, rgba(0,0,0,0) 58%, rgba(0,0,0,0.25) 61%)", borderRadius: "0" }
-          : { background: "radial-gradient(circle, rgba(0,0,0,0.25) 28%, transparent 30%)" };
+          ? { background: "radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.22) 62%)", borderRadius: "0" }
+          : { background: "radial-gradient(circle, rgba(0,0,0,0.18) 34%, transparent 36%)" };
       }
     }
     if (flashSq) {
@@ -420,8 +420,8 @@ export default function PuzzleBoard({
             options={{
               position: fen,
               squareStyles,
-              darkSquareStyle: { backgroundColor: "#779952" },
-              lightSquareStyle: { backgroundColor: "#edeed1" },
+              darkSquareStyle: { backgroundColor: "#769656" },
+              lightSquareStyle: { backgroundColor: "#eeeed2" },
               boardOrientation: orientation,
               allowDragging: canInteract,
               animationDurationInMs: 200,
