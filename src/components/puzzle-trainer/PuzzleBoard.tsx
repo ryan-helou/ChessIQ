@@ -373,8 +373,8 @@ export default function PuzzleBoard({
       for (const sq of legalSqs) {
         const isCapture = !!chessRef.current.get(sq as Parameters<typeof chessRef.current.get>[0]);
         s[sq] = isCapture
-          ? { background: "radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.22) 62%)", borderRadius: "0" }
-          : { background: "radial-gradient(circle, rgba(0,0,0,0.18) 34%, transparent 36%)" };
+          ? { background: "radial-gradient(circle, rgba(0,0,0,0) 76%, rgba(0,0,0,0.18) 78%)", borderRadius: "0" }
+          : { background: "radial-gradient(circle, rgba(0,0,0,0.15) 22%, transparent 24%)" };
       }
     }
     if (flashSq) {
