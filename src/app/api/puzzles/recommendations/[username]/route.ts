@@ -1,55 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-const THEME_TO_LICHESS: Record<string, string> = {
-  fork: "fork",
-  pin: "pin",
-  skewer: "skewer",
-  backRankMate: "backRankMate",
-  mate: "mateIn2",
-  hangingPiece: "hangingPiece",
-  discoveredAttack: "discoveredAttack",
-  promotion: "promotion",
-};
-
-async function fetchLichessPuzzles(themes: string[], count: number, rating: number): Promise<any[]> {
-  const puzzles: any[] = [];
-  const promises = themes.slice(0, 5).map(async (theme) => {
-    const lichessTheme = THEME_TO_LICHESS[theme] ?? theme;
-    try {
-      const res = await fetch(
-        `https://lichess.org/api/puzzle/next?angle=${lichessTheme}`,
-        { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(4000) }
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data?.puzzle) {
-        const game = data.game;
-        // Build FEN from initialPly
-        const { Chess } = await import("chess.js");
-        const chess = new Chess();
-        chess.loadPgn(game.pgn);
-        const history = chess.history({ verbose: true });
-        const chess2 = new Chess();
-        for (let i = 0; i < data.puzzle.initialPly; i++) {
-          if (history[i]) chess2.move(history[i].san);
-        }
-        return {
-          id: `lichess-${data.puzzle.id}`,
-          fen: chess2.fen(),
-          moves: Array.isArray(data.puzzle.solution) ? data.puzzle.solution.join(" ") : data.puzzle.solution,
-          rating: data.puzzle.rating,
-          themes: data.puzzle.themes || [theme],
-          openingTags: [],
-          moveCount: data.puzzle.solution?.length ?? 2,
-        };
-      }
-    } catch { return null; }
-    return null;
-  });
-  const results = await Promise.all(promises);
-  for (const r of results) if (r) puzzles.push(r);
-  return puzzles.slice(0, count);
+async function fetchDbPuzzles(themes: string[], count: number, rating: number): Promise<any[]> {
+  try {
+    const result = await query(
+      `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+       FROM puzzles
+       WHERE themes && $1::TEXT[]
+       ORDER BY RANDOM()
+       LIMIT $2`,
+      [themes, count]
+    );
+    return result.rows.map((p: any) => ({
+      id: p.id,
+      fen: p.fen,
+      moves: p.moves,
+      rating: p.rating,
+      themes: p.themes || [],
+      openingTags: p.opening_tags || [],
+      moveCount: p.move_count,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 import type {
@@ -106,10 +79,10 @@ export async function GET(
 
     const totalBlunders = blundersResult.rows.length;
 
-    // If no blunders yet, return general puzzles from Lichess as a fallback
+    // If no blunders yet, return general puzzles from local DB
     if (totalBlunders === 0) {
       const generalThemes = ["fork", "pin", "skewer", "hangingPiece", "mate"];
-      const fallbackPuzzles = await fetchLichessPuzzles(generalThemes, limit, rating).catch(() => []);
+      const fallbackPuzzles = await fetchDbPuzzles(generalThemes, limit, rating);
       return NextResponse.json({
         weaknesses: [],
         totalBlunders: 0,
@@ -168,32 +141,7 @@ export async function GET(
       try {
         const topThemes = weaknesses.map((w) => w.theme);
 
-        const puzzlesResult = await query(
-          `
-          SELECT id, fen, moves, rating, themes, opening_tags, move_count
-          FROM puzzles
-          WHERE themes && $1::TEXT[]
-          ORDER BY ABS(rating - $3), popularity DESC NULLS LAST
-          LIMIT $2
-          `,
-          [topThemes, limit, rating]
-        );
-
-        puzzles = puzzlesResult.rows.map((p: any) => ({
-          id: p.id,
-          fen: p.fen,
-          moves: p.moves,
-          rating: p.rating,
-          themes: p.themes || [],
-          openingTags: p.opening_tags || [],
-          moveCount: p.move_count,
-        }));
-
-        // Fallback: if no themed puzzles in local DB, fetch live from Lichess API
-        if (puzzles.length === 0) {
-          const lichessPuzzles = await fetchLichessPuzzles(topThemes, limit, rating);
-          puzzles = lichessPuzzles;
-        }
+        puzzles = await fetchDbPuzzles(topThemes, limit, rating);
       } catch (err) {
         console.error("Error fetching puzzles:", err);
       }

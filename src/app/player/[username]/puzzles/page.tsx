@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import PuzzleBoard from "@/components/puzzle-trainer/PuzzleBoard";
@@ -13,6 +13,8 @@ import {
   type PuzzleRecommendation,
   type TrainerPuzzle,
 } from "@/lib/puzzle-api";
+
+const PREFETCH_THRESHOLD = 5; // fetch more when this many puzzles remain
 
 export default function PuzzlesPage() {
   const params = useParams();
@@ -27,6 +29,10 @@ export default function PuzzlesPage() {
   const [sessionSolved, setSessionSolved] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [streak, setStreak] = useState(0);
+
+  const seenIds = useRef(new Set<string>());
+  const isFetching = useRef(false);
+  const activeThemeRef = useRef<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -47,14 +53,19 @@ export default function PuzzlesPage() {
   }, [username]);
 
   const buildQueue = useCallback((data: PuzzleRecommendation, themeFilter: string | null) => {
+    seenIds.current.clear();
     const queue: TrainerPuzzle[] = [];
     for (const bp of data.ownBlunderPuzzles) {
       if (themeFilter && bp.theme !== themeFilter) continue;
-      queue.push(blunderPuzzleToTrainer(bp));
+      const tp = blunderPuzzleToTrainer(bp);
+      queue.push(tp);
+      seenIds.current.add(tp.id);
     }
     for (const p of data.puzzles) {
       if (themeFilter && !p.themes.includes(themeFilter)) continue;
-      queue.push(lichessPuzzleToTrainer(p));
+      const tp = lichessPuzzleToTrainer(p);
+      queue.push(tp);
+      seenIds.current.add(tp.id);
     }
     setPuzzleQueue(queue);
     setCurrentIndex(0);
@@ -63,7 +74,38 @@ export default function PuzzlesPage() {
     setStreak(0);
   }, []);
 
+  const fetchMore = useCallback(async () => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+    try {
+      const data = await getPuzzleRecommendations(username);
+      const theme = activeThemeRef.current;
+      const newPuzzles: TrainerPuzzle[] = [];
+      for (const p of data.puzzles) {
+        if (theme && !p.themes.includes(theme)) continue;
+        const tp = lichessPuzzleToTrainer(p);
+        if (!seenIds.current.has(tp.id)) {
+          newPuzzles.push(tp);
+          seenIds.current.add(tp.id);
+        }
+      }
+      if (newPuzzles.length > 0) {
+        setPuzzleQueue((q) => [...q, ...newPuzzles]);
+      }
+    } catch { /* silent */ } finally {
+      isFetching.current = false;
+    }
+  }, [username]);
+
+  // Trigger prefetch when approaching end of queue
+  useEffect(() => {
+    if (puzzleQueue.length > 0 && currentIndex >= puzzleQueue.length - PREFETCH_THRESHOLD) {
+      fetchMore();
+    }
+  }, [currentIndex, puzzleQueue.length, fetchMore]);
+
   const handleThemeFilter = useCallback((theme: string | null) => {
+    activeThemeRef.current = theme;
     setActiveTheme(theme);
     if (recommendation) buildQueue(recommendation, theme);
   }, [recommendation, buildQueue]);
@@ -90,8 +132,8 @@ export default function PuzzlesPage() {
   }, [currentPuzzle, username]);
 
   const handleNext = useCallback(() => {
-    if (currentIndex < puzzleQueue.length - 1) setCurrentIndex((i) => i + 1);
-  }, [currentIndex, puzzleQueue.length]);
+    setCurrentIndex((i) => Math.min(i + 1, puzzleQueue.length - 1));
+  }, [puzzleQueue.length]);
 
   if (loading) {
     return (
