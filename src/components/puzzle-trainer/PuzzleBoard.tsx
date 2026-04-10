@@ -71,6 +71,7 @@ export default function PuzzleBoard({
   const [legalSqs, setLegalSqs] = useState<string[]>([]);
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [flashSq, setFlashSq] = useState<{ sq: string; color: "green" | "red" } | null>(null);
+  const [hintUsed, setHintUsed] = useState(false);
 
   // ── Board orientation ─────────────────────────────────────────────
   const orientation = useMemo<"white" | "black">(() => {
@@ -123,6 +124,7 @@ export default function PuzzleBoard({
     setLegalSqs([]);
     setLastMove(null);
     setFlashSq(null);
+    setHintUsed(false);
     startTimeRef.current = Date.now();
 
     if (puzzle.opponentMoves[0]) {
@@ -237,6 +239,7 @@ export default function PuzzleBoard({
     const moves = chessRef.current.moves({ square: from as Parameters<typeof chessRef.current.moves>[0]["square"], verbose: true });
     setSelectedSq(from);
     setLegalSqs(moves.map(m => m.to));
+    setHintUsed(true);
   }, [phase, puzzle]);
 
   // ── Show solution ─────────────────────────────────────────────────
@@ -352,7 +355,12 @@ export default function PuzzleBoard({
               <>
                 <button onClick={handleHint} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Hint</button>
                 <span className="text-[#3a3835]">·</span>
-                <button onClick={() => showSolution(true)} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Give up</button>
+                <button
+                  onClick={() => hintUsed && showSolution(true)}
+                  className={`text-xs underline underline-offset-2 transition-colors ${hintUsed ? "text-[#706e6b] hover:text-[#989795] cursor-pointer" : "text-[#3a3835] cursor-not-allowed"}`}
+                >
+                  Solution
+                </button>
                 <span className="text-[#3a3835]">·</span>
                 <button onClick={onSkip} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Skip</button>
               </>
@@ -362,7 +370,7 @@ export default function PuzzleBoard({
                 onClick={() => showSolution(false)}
                 className="text-xs font-bold text-white bg-[#4a4845] hover:bg-[#5a5855] px-3 py-1 rounded transition-colors"
               >
-                View Solution
+                Solution
               </button>
             )}
             {isDone && (
