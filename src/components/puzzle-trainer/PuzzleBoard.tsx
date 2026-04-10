@@ -313,7 +313,7 @@ export default function PuzzleBoard({
     <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
 
       {/* ── Board column ── */}
-      <div className="flex flex-col" style={{ width: "min(520px, calc(100vw - 32px))" }}>
+      <div className="flex flex-col" style={{ width: "min(520px, calc(100vw - 32px), calc(100dvh - 300px))" }}>
 
         {/* Player-to-move bar */}
         <div className="flex items-center gap-2 mb-2">
