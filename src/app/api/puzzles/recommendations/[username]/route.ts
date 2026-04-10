@@ -37,7 +37,7 @@ async function fetchLichessPuzzles(themes: string[], count: number, rating: numb
         return {
           id: `lichess-${data.puzzle.id}`,
           fen: chess2.fen(),
-          moves: data.puzzle.solution,
+          moves: Array.isArray(data.puzzle.solution) ? data.puzzle.solution.join(" ") : data.puzzle.solution,
           rating: data.puzzle.rating,
           themes: data.puzzle.themes || [theme],
           openingTags: [],
