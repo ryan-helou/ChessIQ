@@ -182,12 +182,7 @@ export default function PuzzleBoard({
       setPhase("wrong");
       setTimeout(() => {
         setFlashSq(null);
-        if (newAttempts >= 3) {
-          setPhase("failed");
-          onFailed(newAttempts, elapsed());
-        } else {
-          setPhase("idle");
-        }
+        setPhase("idle");
       }, 600);
       return false;
     }
@@ -364,14 +359,6 @@ export default function PuzzleBoard({
                 <span className="text-[#3a3835]">·</span>
                 <button onClick={onSkip} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Skip</button>
               </>
-            )}
-            {phase === "failed" && (
-              <button
-                onClick={() => showSolution(false)}
-                className="text-xs font-bold text-white bg-[#4a4845] hover:bg-[#5a5855] px-3 py-1 rounded transition-colors"
-              >
-                Solution
-              </button>
             )}
             {isDone && (
               <button
