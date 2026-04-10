@@ -50,10 +50,10 @@ async function persistGameAnalysis(
   for (const m of badMoves) {
     const missedTactic = detectMissedTactic(m.fenBefore ?? m.fen, m.bestMove);
     await query(
-      `INSERT INTO blunders (game_id, move_number, player_move, best_move, eval_before_cp, eval_after_cp, severity, missed_tactic)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       ON CONFLICT (game_id, move_number) DO NOTHING`,
-      [gameId, m.moveNumber, m.move, m.bestMove, m.evalBefore, m.engineEval, m.classification, missedTactic]
+      `INSERT INTO blunders (game_id, move_number, player_move, best_move, eval_before_cp, eval_after_cp, severity, missed_tactic, fen_before)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (game_id, move_number) DO UPDATE SET fen_before = EXCLUDED.fen_before`,
+      [gameId, m.moveNumber, m.move, m.bestMove, m.evalBefore, m.engineEval, m.classification, missedTactic, m.fenBefore ?? null]
     ).catch(() => {});
   }
 

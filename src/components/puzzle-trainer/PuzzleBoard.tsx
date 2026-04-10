@@ -8,25 +8,18 @@ import { THEME_LABELS, THEME_COLORS } from "@/lib/puzzle-api";
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full aspect-square bg-[#3a3835]/40 rounded-lg animate-pulse" />
-    ),
-  }
+  { ssr: false, loading: () => <div className="w-full aspect-square bg-[#3a3835]/40 animate-pulse rounded" /> }
 );
 
-type PuzzlePhase =
-  | "opponentSetup"
-  | "playerTurn"
-  | "correct"
-  | "wrong"
+type Phase =
+  | "init"       // auto-playing setup move
+  | "idle"       // waiting for player
+  | "wrong"      // brief flash after wrong move
+  | "animating"  // playing opponent response
   | "solved"
   | "failed"
-  | "showSolution"
-  | "solutionDone";
-
-interface LineEntry { fen: string; from: string; to: string }
+  | "solution"   // playing through solution
+  | "done";      // solution finished
 
 interface Props {
   puzzle: TrainerPuzzle;
@@ -41,11 +34,16 @@ interface Props {
   onSkip: () => void;
 }
 
-function uciMove(chess: Chess, uci: string) {
+// Apply UCI move — only adds promotion if actually needed
+function applyUci(chess: Chess, uci: string) {
+  const from = uci.slice(0, 2);
+  const to = uci.slice(2, 4);
+  const piece = chess.get(from as Parameters<typeof chess.get>[0]);
+  const isPromotion = piece?.type === "p" && (to[1] === "8" || to[1] === "1");
   return chess.move({
-    from: uci.slice(0, 2),
-    to: uci.slice(2, 4),
-    promotion: (uci[4] as "q" | "r" | "b" | "n") ?? "q",
+    from,
+    to,
+    ...(isPromotion ? { promotion: (uci[4] as "q" | "r" | "b" | "n") ?? "q" } : {}),
   });
 }
 
@@ -61,71 +59,24 @@ export default function PuzzleBoard({
   onNext,
   onSkip,
 }: Props) {
+  const chessRef = useRef(new Chess(puzzle.fen));
   const [fen, setFen] = useState(puzzle.fen);
-  const [phase, setPhase] = useState<PuzzlePhase>("opponentSetup");
-  const [solutionIndex, setSolutionIndex] = useState(0);
-  const [attempts, setAttempts] = useState(0);
-  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
-  const [legalMoveSquares, setLegalMoveSquares] = useState<string[]>([]);
-  const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
-  const [wrongSquare, setWrongSquare] = useState<string | null>(null);
-  const [correctSquare, setCorrectSquare] = useState<string | null>(null);
-
-  const startTimeRef = useRef(Date.now());
-  const solIdxRef = useRef(0);
+  const [phase, setPhase] = useState<Phase>("init");
+  const moveIdxRef = useRef(0);
   const attemptsRef = useRef(0);
+  const [attempts, setAttempts] = useState(0);
+  const startTimeRef = useRef(Date.now());
 
-  // ─── Pre-compute full solution line at load time ──────────────
-  // solutionLine[0] = puzzle start (after setup move if any)
-  // solutionLine[1] = after player move 0
-  // solutionLine[2] = after opponent response 0
-  // solutionLine[3] = after player move 1, etc.
-  const solutionLine = useMemo<LineEntry[]>(() => {
-    const chess = new Chess(puzzle.fen);
-    const line: LineEntry[] = [];
+  const [selectedSq, setSelectedSq] = useState<string | null>(null);
+  const [legalSqs, setLegalSqs] = useState<string[]>([]);
+  const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
+  const [flashSq, setFlashSq] = useState<{ sq: string; color: "green" | "red" } | null>(null);
 
-    // Apply setup move (opponentMoves[0])
-    if (puzzle.opponentMoves[0]) {
-      try {
-        uciMove(chess, puzzle.opponentMoves[0]);
-        line.push({ fen: chess.fen(), from: puzzle.opponentMoves[0].slice(0, 2), to: puzzle.opponentMoves[0].slice(2, 4) });
-      } catch (e) {
-        console.error("[puzzle] setup move failed:", puzzle.opponentMoves[0], e);
-        return [];
-      }
-    } else {
-      line.push({ fen: chess.fen(), from: "", to: "" });
-    }
-
-    // Apply solution + opponent responses
-    for (let i = 0; i < puzzle.solutionMoves.length; i++) {
-      const sol = puzzle.solutionMoves[i];
-      try {
-        uciMove(chess, sol);
-        line.push({ fen: chess.fen(), from: sol.slice(0, 2), to: sol.slice(2, 4) });
-      } catch (e) {
-        console.error("[puzzle] solution move failed:", sol, chess.fen(), e);
-        break;
-      }
-      const opp = puzzle.opponentMoves[i + 1];
-      if (opp && i < puzzle.solutionMoves.length - 1) {
-        try {
-          uciMove(chess, opp);
-          line.push({ fen: chess.fen(), from: opp.slice(0, 2), to: opp.slice(2, 4) });
-        } catch (e) {
-          console.error("[puzzle] opponent move failed:", opp, chess.fen(), e);
-          break;
-        }
-      }
-    }
-
-    return line;
-  }, [puzzle]);
-
-  // ─── Board orientation ────────────────────────────────────────
-  const orientation: "white" | "black" = useMemo(() => {
+  // ── Board orientation ─────────────────────────────────────────────
+  const orientation = useMemo<"white" | "black">(() => {
     try {
       const c = new Chess(puzzle.fen);
+      // If opponent goes first (Lichess setup move), player is the other color
       return puzzle.opponentMoves.length > 0
         ? (c.turn() === "w" ? "black" : "white")
         : (c.turn() === "w" ? "white" : "black");
@@ -134,287 +85,248 @@ export default function PuzzleBoard({
 
   const playerColor = orientation === "white" ? "w" : "b";
 
-  // ─── Reset + init on puzzle change ────────────────────────────
+  // ── Apply move to board ───────────────────────────────────────────
+  const doMove = useCallback((uci: string) => {
+    try {
+      applyUci(chessRef.current, uci);
+      const newFen = chessRef.current.fen();
+      setFen(newFen);
+      setLastMove({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
+      return true;
+    } catch (e) {
+      console.error("[puzzle] move failed:", uci, chessRef.current.fen(), e);
+      return false;
+    }
+  }, []);
+
+  // ── Opponent response ─────────────────────────────────────────────
+  const playOpponent = useCallback((solIdx: number, onDone: () => void) => {
+    const uci = puzzle.opponentMoves[solIdx + 1]; // +1 because opponentMoves[0] is setup
+    if (!uci) { onDone(); return; }
+    setPhase("animating");
+    setTimeout(() => {
+      doMove(uci);
+      onDone();
+    }, 500);
+  }, [puzzle, doMove]);
+
+  // ── Init puzzle ───────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    setAttempts(0);
+    const chess = new Chess(puzzle.fen);
+    chessRef.current = chess;
+    setFen(puzzle.fen);
+    moveIdxRef.current = 0;
     attemptsRef.current = 0;
-    setSolutionIndex(0);
-    solIdxRef.current = 0;
-    setSelectedSquare(null);
-    setLegalMoveSquares([]);
+    setAttempts(0);
+    setSelectedSq(null);
+    setLegalSqs([]);
     setLastMove(null);
-    setWrongSquare(null);
-    setCorrectSquare(null);
+    setFlashSq(null);
     startTimeRef.current = Date.now();
 
-    if (solutionLine.length === 0) {
-      // Pre-computation failed — skip
-      setFen(puzzle.fen);
-      setPhase("failed");
-      return;
-    }
-
-    if (puzzle.opponentMoves.length > 0) {
-      setFen(puzzle.fen);
-      setPhase("opponentSetup");
-      const t = setTimeout(() => {
+    if (puzzle.opponentMoves[0]) {
+      setPhase("init");
+      setTimeout(() => {
         if (cancelled) return;
-        setFen(solutionLine[0].fen);
-        setLastMove({ from: solutionLine[0].from, to: solutionLine[0].to });
-        setPhase("playerTurn");
-      }, 500);
-      return () => { cancelled = true; clearTimeout(t); };
+        doMove(puzzle.opponentMoves[0]);
+        setPhase("idle");
+      }, 600);
     } else {
-      setFen(solutionLine[0].fen);
-      setPhase("playerTurn");
+      setPhase("idle");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [puzzle, solutionLine]);
+    return () => { cancelled = true; };
+  }, [puzzle, doMove]);
 
   const elapsed = () => Math.round((Date.now() - startTimeRef.current) / 1000);
 
-  // lineIdx for the current puzzle-start position: solutionIndex * 2
-  // (each player+opponent pair = 2 entries; puzzle start = index 0)
-  const currentLineIdx = useMemo(() => solIdxRef.current * 2, [solutionIndex]);
+  // ── Attempt a move ────────────────────────────────────────────────
+  const tryMove = useCallback((from: string, to: string): boolean => {
+    if (phase !== "idle") return false;
+    setSelectedSq(null);
+    setLegalSqs([]);
 
-  // ─── Attempt move ─────────────────────────────────────────────
-  const attemptMove = useCallback(
-    (from: string, to: string): boolean => {
-      if (phase !== "playerTurn") return false;
+    // Check legal first (temp chess)
+    const temp = new Chess(chessRef.current.fen());
+    try { temp.move({ from, to, promotion: "q" }); }
+    catch { return false; }
 
-      const expectedUci = puzzle.solutionMoves[solIdxRef.current];
-      if (!expectedUci) return false;
+    const expected = puzzle.solutionMoves[moveIdxRef.current];
+    const correct = expected && from === expected.slice(0, 2) && to === expected.slice(2, 4);
 
-      // Validate it's legal first (using a temp chess instance)
-      const tempChess = new Chess(fen);
-      try { tempChess.move({ from, to, promotion: "q" }); }
-      catch { return false; } // not a legal move at all
+    if (correct) {
+      doMove(expected);
+      setFlashSq({ sq: to, color: "green" });
 
-      setSelectedSquare(null);
-      setLegalMoveSquares([]);
+      const nextIdx = moveIdxRef.current + 1;
+      moveIdxRef.current = nextIdx;
 
-      const isCorrect = from === expectedUci.slice(0, 2) && to === expectedUci.slice(2, 4);
-
-      if (isCorrect) {
-        const nextSolIdx = solIdxRef.current + 1;
-        const playerLineIdx = currentLineIdx + 1; // position after this player move
-
-        if (playerLineIdx < solutionLine.length) {
-          setFen(solutionLine[playerLineIdx].fen);
-          setLastMove({ from, to });
-        }
-        setCorrectSquare(to);
-        setWrongSquare(null);
-        setSolutionIndex(nextSolIdx);
-        solIdxRef.current = nextSolIdx;
-
-        if (nextSolIdx >= puzzle.solutionMoves.length) {
-          setPhase("solved");
-          onSolved(attemptsRef.current + 1, elapsed());
-        } else {
-          setPhase("correct");
-          const oppLineIdx = playerLineIdx + 1; // position after opponent response
-          setTimeout(() => {
-            setCorrectSquare(null);
-            if (oppLineIdx < solutionLine.length) {
-              setFen(solutionLine[oppLineIdx].fen);
-              setLastMove({ from: solutionLine[oppLineIdx].from, to: solutionLine[oppLineIdx].to });
-            }
-            setPhase("playerTurn");
-          }, 600);
-        }
-        return true;
+      if (nextIdx >= puzzle.solutionMoves.length) {
+        setTimeout(() => { setFlashSq(null); setPhase("solved"); }, 400);
+        onSolved(attemptsRef.current + 1, elapsed());
       } else {
-        const newAttempts = attemptsRef.current + 1;
-        attemptsRef.current = newAttempts;
-        setAttempts(newAttempts);
-        setWrongSquare(to);
-        setCorrectSquare(null);
-        setPhase("wrong");
-
-        setTimeout(() => {
-          setWrongSquare(null);
-          if (newAttempts >= 3) {
-            setPhase("failed");
-            onFailed(newAttempts, elapsed());
-          } else {
-            setPhase("playerTurn");
-          }
-        }, 700);
-        return false;
+        playOpponent(nextIdx - 1, () => {
+          if (!cancelled.current) setPhase("idle");
+        });
+        setTimeout(() => setFlashSq(null), 600);
       }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [phase, fen, puzzle, solutionLine, currentLineIdx, onSolved, onFailed]
-  );
-
-  // ─── Give up (view solution from playerTurn) ─────────────────
-  const handleGiveUp = useCallback(() => {
-    onFailed(attemptsRef.current, elapsed());
-    // fall through to show solution immediately
-    setPhase("showSolution");
-    setSelectedSquare(null);
-    setLegalMoveSquares([]);
-    setWrongSquare(null);
-    setCorrectSquare(null);
-
-    const startFrom = currentLineIdx + 1;
-    const remaining = solutionLine.slice(startFrom);
-    if (remaining.length === 0) { setPhase("solutionDone"); return; }
-
-    const playNext = (idx: number) => {
-      if (idx >= remaining.length) { setPhase("solutionDone"); return; }
+      return true;
+    } else {
+      // Wrong — flash red but don't move the piece
+      const newAttempts = attemptsRef.current + 1;
+      attemptsRef.current = newAttempts;
+      setAttempts(newAttempts);
+      setFlashSq({ sq: to, color: "red" });
+      setPhase("wrong");
       setTimeout(() => {
-        const entry = remaining[idx];
-        setFen(entry.fen);
-        setLastMove({ from: entry.from, to: entry.to });
-        playNext(idx + 1);
-      }, 700);
-    };
-    playNext(0);
+        setFlashSq(null);
+        if (newAttempts >= 3) {
+          setPhase("failed");
+          onFailed(newAttempts, elapsed());
+        } else {
+          setPhase("idle");
+        }
+      }, 600);
+      return false;
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solutionLine, currentLineIdx, onFailed]);
+  }, [phase, puzzle, doMove, playOpponent, onSolved, onFailed]);
 
-  // ─── View solution — step through pre-computed FENs ──────────
-  const handleViewSolution = useCallback(() => {
-    setPhase("showSolution");
-    setSelectedSquare(null);
-    setLegalMoveSquares([]);
-    setWrongSquare(null);
-    setCorrectSquare(null);
+  // Ref to prevent state updates after component unmount/puzzle change
+  const cancelled = useRef(false);
+  useEffect(() => {
+    cancelled.current = false;
+    return () => { cancelled.current = true; };
+  }, [puzzle]);
 
-    const startFrom = currentLineIdx + 1;
-    const remaining = solutionLine.slice(startFrom);
-    if (remaining.length === 0) { setPhase("solutionDone"); return; }
+  // ── Square click ──────────────────────────────────────────────────
+  const handleSquareClick = useCallback(({ square }: { piece: unknown; square: string }) => {
+    if (phase !== "idle") return;
+    const piece = chessRef.current.get(square as Parameters<typeof chessRef.current.get>[0]);
 
-    const playNext = (idx: number) => {
-      if (idx >= remaining.length) { setPhase("solutionDone"); return; }
-      setTimeout(() => {
-        const entry = remaining[idx];
-        setFen(entry.fen);
-        setLastMove({ from: entry.from, to: entry.to });
-        playNext(idx + 1);
-      }, 700);
-    };
-
-    playNext(0);
-  }, [solutionLine, currentLineIdx]);
-
-  // ─── Square click ─────────────────────────────────────────────
-  const handleSquareClick = useCallback(
-    ({ square }: { piece: unknown; square: string }) => {
-      if (phase !== "playerTurn") return;
-      const chess = new Chess(fen);
-      const piece = chess.get(square as Parameters<typeof chess.get>[0]);
-
-      if (selectedSquare) {
-        if (legalMoveSquares.includes(square)) {
-          attemptMove(selectedSquare, square);
-          return;
-        }
-        if (piece && piece.color === playerColor) {
-          const moves = chess.moves({ square: square as Parameters<typeof chess.moves>[0]["square"], verbose: true });
-          setSelectedSquare(square);
-          setLegalMoveSquares(moves.map((m) => m.to));
-          return;
-        }
-        setSelectedSquare(null);
-        setLegalMoveSquares([]);
+    if (selectedSq) {
+      if (legalSqs.includes(square)) { tryMove(selectedSq, square); return; }
+      if (piece?.color === playerColor) {
+        const moves = chessRef.current.moves({ square: square as Parameters<typeof chessRef.current.moves>[0]["square"], verbose: true });
+        setSelectedSq(square);
+        setLegalSqs(moves.map(m => m.to));
         return;
       }
+      setSelectedSq(null); setLegalSqs([]); return;
+    }
+    if (piece?.color === playerColor) {
+      const moves = chessRef.current.moves({ square: square as Parameters<typeof chessRef.current.moves>[0]["square"], verbose: true });
+      setSelectedSq(square);
+      setLegalSqs(moves.map(m => m.to));
+    }
+  }, [phase, selectedSq, legalSqs, playerColor, tryMove]);
 
-      if (piece && piece.color === playerColor) {
-        const moves = chess.moves({ square: square as Parameters<typeof chess.moves>[0]["square"], verbose: true });
-        setSelectedSquare(square);
-        setLegalMoveSquares(moves.map((m) => m.to));
-      }
-    },
-    [phase, fen, selectedSquare, legalMoveSquares, playerColor, attemptMove]
-  );
+  // ── Drag drop ─────────────────────────────────────────────────────
+  const handleDrop = useCallback(({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }): boolean => {
+    if (!targetSquare) return false;
+    setSelectedSq(null); setLegalSqs([]);
+    return tryMove(sourceSquare, targetSquare);
+  }, [tryMove]);
 
-  const handlePieceDrop = useCallback(
-    ({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }): boolean => {
-      if (!targetSquare) return false;
-      setSelectedSquare(null);
-      setLegalMoveSquares([]);
-      return attemptMove(sourceSquare, targetSquare);
-    },
-    [attemptMove]
-  );
-
+  // ── Hint ──────────────────────────────────────────────────────────
   const handleHint = useCallback(() => {
-    if (phase !== "playerTurn") return;
-    const expected = puzzle.solutionMoves[solIdxRef.current];
+    if (phase !== "idle") return;
+    const expected = puzzle.solutionMoves[moveIdxRef.current];
     if (!expected) return;
     const from = expected.slice(0, 2);
-    const chess = new Chess(fen);
-    const moves = chess.moves({ square: from as Parameters<typeof chess.moves>[0]["square"], verbose: true });
-    setSelectedSquare(from);
-    setLegalMoveSquares(moves.map((m) => m.to));
-  }, [phase, fen, puzzle]);
+    const moves = chessRef.current.moves({ square: from as Parameters<typeof chessRef.current.moves>[0]["square"], verbose: true });
+    setSelectedSq(from);
+    setLegalSqs(moves.map(m => m.to));
+  }, [phase, puzzle]);
 
-  // ─── Square styles ────────────────────────────────────────────
-  const squareStyles: Record<string, React.CSSProperties> = {};
-  if (lastMove) {
-    squareStyles[lastMove.from] = { backgroundColor: "rgba(255,255,50,0.28)" };
-    squareStyles[lastMove.to] = { backgroundColor: "rgba(255,255,50,0.28)" };
-  }
-  if (selectedSquare) {
-    squareStyles[selectedSquare] = { backgroundColor: "rgba(255,255,50,0.5)" };
-  }
-  if (legalMoveSquares.length > 0) {
-    const boardForStyles = new Chess(fen);
-    for (const sq of legalMoveSquares) {
-      const isCapture = !!boardForStyles.get(sq as Parameters<typeof boardForStyles.get>[0]);
-      squareStyles[sq] = isCapture
-        ? { background: "radial-gradient(circle, rgba(0,0,0,0) 58%, rgba(0,0,0,0.22) 60%)" }
-        : { background: "radial-gradient(circle, rgba(0,0,0,0.22) 30%, transparent 30%)" };
+  // ── Show solution ─────────────────────────────────────────────────
+  const showSolution = useCallback((recordFail: boolean) => {
+    if (recordFail) onFailed(attemptsRef.current, elapsed());
+    setPhase("solution");
+    setSelectedSq(null); setLegalSqs([]); setFlashSq(null);
+
+    // Build remaining moves: [playerMove, opponentResponse, playerMove, ...]
+    const startIdx = moveIdxRef.current;
+    const toPlay: string[] = [];
+    for (let i = startIdx; i < puzzle.solutionMoves.length; i++) {
+      toPlay.push(puzzle.solutionMoves[i]);
+      const opp = puzzle.opponentMoves[i + 1];
+      if (opp && i < puzzle.solutionMoves.length - 1) toPlay.push(opp);
     }
-  }
-  if (wrongSquare) squareStyles[wrongSquare] = { backgroundColor: "rgba(202,52,49,0.55)" };
-  if (correctSquare) squareStyles[correctSquare] = { backgroundColor: "rgba(150,188,75,0.55)" };
 
-  // ─── Status ───────────────────────────────────────────────────
+    const step = (i: number) => {
+      if (i >= toPlay.length) { setPhase("done"); return; }
+      setTimeout(() => {
+        doMove(toPlay[i]);
+        step(i + 1);
+      }, 700);
+    };
+    step(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puzzle, doMove, onFailed]);
+
+  // ── Square styles ─────────────────────────────────────────────────
+  const squareStyles = useMemo<Record<string, React.CSSProperties>>(() => {
+    const s: Record<string, React.CSSProperties> = {};
+    if (lastMove) {
+      s[lastMove.from] = { backgroundColor: "rgba(255,255,50,0.3)" };
+      s[lastMove.to] = { backgroundColor: "rgba(255,255,50,0.3)" };
+    }
+    if (selectedSq) s[selectedSq] = { backgroundColor: "rgba(255,255,50,0.5)" };
+    if (legalSqs.length > 0) {
+      for (const sq of legalSqs) {
+        const isCapture = !!chessRef.current.get(sq as Parameters<typeof chessRef.current.get>[0]);
+        s[sq] = isCapture
+          ? { background: "radial-gradient(circle, rgba(0,0,0,0) 58%, rgba(0,0,0,0.25) 61%)", borderRadius: "0" }
+          : { background: "radial-gradient(circle, rgba(0,0,0,0.25) 28%, transparent 30%)" };
+      }
+    }
+    if (flashSq) {
+      s[flashSq.sq] = {
+        backgroundColor: flashSq.color === "green" ? "rgba(96,198,89,0.6)" : "rgba(220,50,50,0.55)",
+        transition: "background-color 0.1s",
+      };
+    }
+    return s;
+  }, [lastMove, selectedSq, legalSqs, flashSq]);
+
+  // ── UI helpers ────────────────────────────────────────────────────
   const colorName = orientation === "white" ? "White" : "Black";
-  const statusMsg = {
-    opponentSetup: { text: "Setting up position…", color: "text-[#989795]" },
-    playerTurn: { text: `Find the best move for ${colorName}`, color: "text-[#e8e6e1]" },
-    correct: { text: "Best move!", color: "text-[#96bc4b]" },
-    wrong: { text: "Not quite — try again", color: "text-[#ca3431]" },
-    solved: { text: "Puzzle complete!", color: "text-[#96bc4b]" },
-    failed: { text: "Puzzle failed", color: "text-[#ca3431]" },
-    showSolution: { text: "Showing solution…", color: "text-[#989795]" },
-    solutionDone: { text: "Solution complete", color: "text-[#e8e6e1]" },
-  }[phase];
+  const revealed = phase === "solved" || phase === "failed" || phase === "solution" || phase === "done";
 
-  const revealed = phase === "solved" || phase === "failed" || phase === "showSolution" || phase === "solutionDone";
+  const statusBar = (() => {
+    if (phase === "init" || phase === "animating") return { text: "…", bg: "bg-[#1e1c1a]", textColor: "text-[#989795]" };
+    if (phase === "idle" || phase === "wrong") return { text: `Find the best move for ${colorName}`, bg: "bg-[#1e1c1a]", textColor: "text-[#e8e6e1]" };
+    if (phase === "solved") return { text: "Best move! Puzzle solved.", bg: "bg-[#3d6b2c]", textColor: "text-white" };
+    if (phase === "failed") return { text: "Puzzle failed.", bg: "bg-[#6b2828]", textColor: "text-white" };
+    if (phase === "solution") return { text: "Best continuation…", bg: "bg-[#1e1c1a]", textColor: "text-[#989795]" };
+    if (phase === "done") return { text: "Solution complete.", bg: "bg-[#1e1c1a]", textColor: "text-[#e8e6e1]" };
+    return { text: "", bg: "bg-[#1e1c1a]", textColor: "text-[#e8e6e1]" };
+  })();
+
   const mainTheme = puzzle.themes[0] ?? null;
   const themeLabel = mainTheme ? (THEME_LABELS[mainTheme] ?? mainTheme) : null;
-  const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#989795") : "#989795";
-  // Only show Next button once solution is done playing (not during playback)
-  const isDone = phase === "solved" || phase === "failed" || phase === "solutionDone";
+  const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#706e6b") : "#706e6b";
+
+  const canInteract = phase === "idle";
+  const isDone = phase === "solved" || phase === "failed" || phase === "done";
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 items-start">
-      {/* Board column */}
-      <div className="flex flex-col gap-0" style={{ width: "min(520px, calc(100vw - 32px))" }}>
-        <div className="flex items-center justify-between mb-2 px-0.5">
-          <span className="text-xs text-[#706e6b] font-medium uppercase tracking-wide">
-            Puzzle {puzzleIndex + 1} of {totalPuzzles}
-          </span>
-          {/* Theme hidden until revealed — avoids spoiling the tactic */}
-          {themeLabel && revealed && (
-            <span className="text-xs font-bold text-white px-2 py-0.5 rounded-full" style={{ backgroundColor: themeColor }}>
-              {themeLabel}
-            </span>
-          )}
-          {!revealed && (
-            <span className="text-xs text-[#706e6b]">Find the best move</span>
-          )}
+    <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
+
+      {/* ── Board column ── */}
+      <div className="flex flex-col" style={{ width: "min(520px, calc(100vw - 32px))" }}>
+
+        {/* Player-to-move bar */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className={`w-4 h-4 rounded-sm border border-[#555] ${orientation === "white" ? "bg-white" : "bg-[#312e2b]"}`} />
+          <span className="text-sm font-semibold text-[#e8e6e1]">{colorName} to move</span>
+          <div className="flex-1" />
+          <span className="text-xs text-[#706e6b]">Puzzle {puzzleIndex + 1} / {totalPuzzles}</span>
         </div>
 
-        <div className="aspect-square w-full">
+        {/* Board */}
+        <div className="w-full aspect-square">
           <Chessboard
             options={{
               position: fen,
@@ -422,96 +334,109 @@ export default function PuzzleBoard({
               darkSquareStyle: { backgroundColor: "#779952" },
               lightSquareStyle: { backgroundColor: "#edeed1" },
               boardOrientation: orientation,
-              allowDragging: phase === "playerTurn",
-              animationDurationInMs: 180,
-              onPieceDrop: handlePieceDrop,
+              allowDragging: canInteract,
+              animationDurationInMs: 200,
+              onPieceDrop: handleDrop,
               onSquareClick: handleSquareClick,
             }}
           />
         </div>
 
-        <div className={`flex items-center justify-between mt-2 px-0.5 min-h-[32px] ${
-          phase === "solved" ? "bg-[#96bc4b]/10 rounded px-3 py-1.5" :
-          phase === "failed" ? "bg-[#ca3431]/10 rounded px-3 py-1.5" : ""
-        }`}>
-          <span className={`text-sm font-semibold ${statusMsg.color}`}>{statusMsg.text}</span>
+        {/* Status bar */}
+        <div className={`flex items-center justify-between px-4 py-2.5 mt-1 rounded-b-lg ${statusBar.bg} transition-colors duration-300 min-h-[44px]`}>
+          <span className={`text-sm font-semibold ${statusBar.textColor}`}>
+            {statusBar.text}
+          </span>
           <div className="flex items-center gap-2">
-            {phase === "playerTurn" && (
+            {canInteract && (
               <>
-                <button onClick={handleHint} className="text-xs text-[#706e6b] hover:text-[#989795] underline underline-offset-2">Hint</button>
-                <button onClick={handleGiveUp} className="text-xs text-[#706e6b] hover:text-[#989795] underline underline-offset-2">Give up</button>
-                <button onClick={onSkip} className="text-xs text-[#706e6b] hover:text-[#989795] underline underline-offset-2">Skip</button>
+                <button onClick={handleHint} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Hint</button>
+                <span className="text-[#3a3835]">·</span>
+                <button onClick={() => showSolution(true)} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Give up</button>
+                <span className="text-[#3a3835]">·</span>
+                <button onClick={onSkip} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Skip</button>
               </>
             )}
             {phase === "failed" && (
-              <button onClick={handleViewSolution} className="text-xs font-semibold text-white bg-[#4a4845] hover:bg-[#5a5855] px-3 py-1 rounded">
+              <button
+                onClick={() => showSolution(false)}
+                className="text-xs font-bold text-white bg-[#4a4845] hover:bg-[#5a5855] px-3 py-1 rounded transition-colors"
+              >
                 View Solution
               </button>
             )}
             {isDone && (
-              <button onClick={onNext} className="px-4 py-1.5 bg-[#81b64c] hover:bg-[#96bc4b] text-white text-sm font-bold rounded">
+              <button
+                onClick={onNext}
+                className="px-4 py-1.5 bg-[#81b64c] hover:bg-[#96bc4b] text-white text-sm font-bold rounded transition-colors"
+              >
                 Next →
               </button>
             )}
           </div>
         </div>
+
+        {/* Attempts */}
+        {attempts > 0 && !revealed && (
+          <div className="flex items-center gap-1.5 mt-2 px-1">
+            <span className="text-xs text-[#706e6b]">Attempts:</span>
+            {[0, 1, 2].map(i => (
+              <div key={i} className={`w-2.5 h-2.5 rounded-full ${i < attempts ? "bg-[#ca3431]" : "bg-[#3a3835]"}`} />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Sidebar */}
-      <div className="flex flex-col gap-3 lg:w-[220px] w-full">
+      {/* ── Sidebar ── */}
+      <div className="lg:w-[200px] w-full flex flex-col gap-3">
+
+        {/* Session stats */}
         <div className="bg-[#262522] rounded-xl p-4">
-          <div className="text-xs text-[#706e6b] uppercase tracking-wider font-bold mb-3">Session</div>
+          <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-3">Session</p>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-[#989795]">Solved</span>
-              <span className="font-bold text-white">{sessionSolved} / {sessionTotal}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-[#989795]">Streak</span>
-              <span className={`font-bold ${streak > 0 ? "text-[#96bc4b]" : "text-white"}`}>{streak}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-[#989795]">Accuracy</span>
-              <span className="font-bold text-white">
-                {sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—"}
-              </span>
-            </div>
+            {[
+              ["Solved", `${sessionSolved} / ${sessionTotal}`],
+              ["Streak", streak],
+              ["Accuracy", sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—"],
+            ].map(([label, value]) => (
+              <div key={label as string} className="flex justify-between text-sm">
+                <span className="text-[#989795]">{label}</span>
+                <span className={`font-bold ${label === "Streak" && (value as number) > 0 ? "text-[#96bc4b]" : "text-white"}`}>{value}</span>
+              </div>
+            ))}
           </div>
         </div>
 
+        {/* Puzzle info */}
         <div className="bg-[#262522] rounded-xl p-4">
-          <div className="text-xs text-[#706e6b] uppercase tracking-wider font-bold mb-3">Puzzle</div>
+          <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-3">Puzzle</p>
           {puzzle.rating && (
             <div className="flex justify-between text-sm mb-2">
               <span className="text-[#989795]">Rating</span>
               <span className="font-bold text-white">{puzzle.rating}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm mb-2">
+          <div className="flex justify-between text-sm">
             <span className="text-[#989795]">Source</span>
-            <span className="text-[#e8e6e1] text-xs">{puzzle.sourceLabel}</span>
+            <span className="text-[#e8e6e1] text-xs truncate ml-2">{puzzle.sourceLabel}</span>
           </div>
-          {revealed && puzzle.themes.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {puzzle.themes.slice(0, 3).map((t) => (
-                <span key={t} className="text-xs px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: THEME_COLORS[t] ?? "#4a4845" }}>
-                  {THEME_LABELS[t] ?? t}
-                </span>
-              ))}
+          {/* Theme revealed after solving */}
+          {revealed && themeLabel && (
+            <div className="mt-3">
+              <span
+                className="inline-block text-xs font-bold text-white px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: themeColor }}
+              >
+                {themeLabel}
+              </span>
+            </div>
+          )}
+          {!revealed && (
+            <div className="mt-3">
+              <span className="text-xs text-[#4a4845] italic">Theme hidden until solved</span>
             </div>
           )}
         </div>
-
-        {attempts > 0 && phase !== "solved" && (
-          <div className="bg-[#262522] rounded-xl p-4">
-            <div className="text-xs text-[#706e6b] uppercase tracking-wider font-bold mb-2">Attempts</div>
-            <div className="flex gap-1.5">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className={`w-3 h-3 rounded-full ${i < attempts ? "bg-[#ca3431]" : "bg-[#3a3835]"}`} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
