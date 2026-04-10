@@ -2,9 +2,26 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { Chess } from "chess.js";
 import type { TrainerPuzzle, WeaknessProfile } from "@/lib/puzzle-api";
 import { THEME_LABELS, THEME_COLORS } from "@/lib/puzzle-api";
+
+const THEME_DESCRIPTIONS: Record<string, string> = {
+  fork: "Can you find the fork?",
+  pin: "Can you pin a piece?",
+  skewer: "Can you execute the skewer?",
+  backRankMate: "Look for the back rank weakness",
+  hangingPiece: "Find the hanging piece",
+  mate: "Find the checkmate",
+  discoveredAttack: "Find the discovered attack",
+  promotion: "Can you promote a pawn?",
+  sacrifice: "Find the winning sacrifice",
+  deflection: "Can you deflect the defender?",
+  trappedPiece: "The piece has nowhere to go",
+  doubleCheck: "Can you give a double check?",
+  materialGain: "Find the way to win material",
+};
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
@@ -36,6 +53,7 @@ interface Props {
   weaknesses?: WeaknessProfile[];
   activeTheme?: string | null;
   onThemeClick?: (theme: string | null) => void;
+  username?: string;
 }
 
 // Apply UCI move — only adds promotion if actually needed
@@ -65,6 +83,7 @@ export default function PuzzleBoard({
   weaknesses,
   activeTheme,
   onThemeClick,
+  username,
 }: Props) {
   const chessRef = useRef(new Chess(puzzle.fen));
   const [fen, setFen] = useState(puzzle.fen);
@@ -83,6 +102,9 @@ export default function PuzzleBoard({
   // Precomputed good moves for the current puzzle position (instant lookup)
   const goodMovesRef = useRef<Set<string> | null>(null);
   const goodMovesReady = useRef(false);
+
+  // Timer
+  const [timerSecs, setTimerSecs] = useState(0);
 
   // ── Board orientation ─────────────────────────────────────────────
   const orientation = useMemo<"white" | "black">(() => {
@@ -139,6 +161,7 @@ export default function PuzzleBoard({
     goodMovesRef.current = null;
     goodMovesReady.current = false;
     startTimeRef.current = Date.now();
+    setTimerSecs(0);
 
     // Precompute all good moves from the puzzle position in background
     // Use the position AFTER the setup move (if any) — that's what the player sees
@@ -256,6 +279,14 @@ export default function PuzzleBoard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, puzzle, acceptMove, rejectMove]);
 
+  // Timer tick
+  useEffect(() => {
+    const isDone = phase === "solved" || phase === "done" || phase === "failed";
+    if (isDone) return;
+    const id = setInterval(() => setTimerSecs((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [phase, puzzle]);
+
   // Ref to prevent state updates after component unmount/puzzle change
   const cancelled = useRef(false);
   useEffect(() => {
@@ -358,33 +389,32 @@ export default function PuzzleBoard({
   // ── UI helpers ────────────────────────────────────────────────────
   const colorName = orientation === "white" ? "White" : "Black";
   const revealed = phase === "solved" || phase === "failed" || phase === "solution" || phase === "done";
-
-  const statusBar = (() => {
-    if (phase === "init" || phase === "animating") return { text: "…", bg: "bg-[#1e1c1a]", textColor: "text-[#989795]" };
-    if (phase === "evaluating") return { text: "Checking…", bg: "bg-[#1e1c1a]", textColor: "text-[#989795]" };
-    if (phase === "idle" || phase === "wrong") return { text: `Find the best move for ${colorName}`, bg: "bg-[#1e1c1a]", textColor: "text-[#e8e6e1]" };
-    if (phase === "solved") return { text: "Best move! Puzzle solved.", bg: "bg-[#3d6b2c]", textColor: "text-white" };
-    if (phase === "failed") return { text: "Puzzle failed.", bg: "bg-[#6b2828]", textColor: "text-white" };
-    if (phase === "solution") return { text: "Best continuation…", bg: "bg-[#1e1c1a]", textColor: "text-[#989795]" };
-    if (phase === "done") return { text: "Solution complete.", bg: "bg-[#1e1c1a]", textColor: "text-[#e8e6e1]" };
-    return { text: "", bg: "bg-[#1e1c1a]", textColor: "text-[#e8e6e1]" };
-  })();
-
   const mainTheme = puzzle.themes[0] ?? null;
   const themeLabel = mainTheme ? (THEME_LABELS[mainTheme] ?? mainTheme) : null;
   const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#706e6b") : "#706e6b";
-
+  const themeDesc = mainTheme ? (THEME_DESCRIPTIONS[mainTheme] ?? null) : null;
   const canInteract = phase === "idle" || phase === "wrong";
   const isDone = phase === "solved" || phase === "failed" || phase === "done";
+  const timerDisplay = `${Math.floor(timerSecs / 60)}:${String(timerSecs % 60).padStart(2, "0")}`;
+
+  // Status line shown in the bubble
+  const statusLine = (() => {
+    if (phase === "init" || phase === "animating") return { heading: `${colorName} to move`, sub: "…" };
+    if (phase === "evaluating") return { heading: `${colorName} to move`, sub: "Checking…" };
+    if (phase === "idle" || phase === "wrong") return { heading: `${colorName} to move`, sub: themeDesc ?? "Find the best move" };
+    if (phase === "solved") return { heading: "Best move!", sub: revealed && themeLabel ? `It's a ${themeLabel}` : "Puzzle solved" };
+    if (phase === "solution") return { heading: "Best continuation", sub: "Watching the solution…" };
+    if (phase === "done") return { heading: "Solution complete", sub: revealed && themeLabel ? `It's a ${themeLabel}` : "" };
+    return { heading: "", sub: "" };
+  })();
+
+  const boardSize = "min(560px, calc(100vw - 32px), calc(100dvh - 160px))";
 
   return (
-    <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
+    <div className="flex flex-col lg:flex-row w-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
 
-      {/* ── Board (clean square, nothing above or below) ── */}
-      <div
-        className="rounded-sm overflow-hidden flex-shrink-0"
-        style={{ width: "min(560px, calc(100vw - 32px), calc(100dvh - 160px))" }}
-      >
+      {/* ── Board ── */}
+      <div className="flex-shrink-0 bg-[#312e2b]" style={{ width: boardSize }}>
         <div className="w-full aspect-square">
           <Chessboard
             options={{
@@ -403,122 +433,167 @@ export default function PuzzleBoard({
       </div>
 
       {/* ── Sidebar ── */}
-      <div className="lg:w-[220px] w-full flex flex-col gap-3 flex-shrink-0">
+      <div className="flex flex-col bg-[#1e1c1a] lg:w-[300px] w-full flex-shrink-0">
 
-        {/* Status card — main feedback + actions */}
-        <div className={`rounded-xl px-4 py-3 transition-colors duration-300 ${statusBar.bg}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`w-3.5 h-3.5 rounded-sm border border-[#555] flex-shrink-0 ${orientation === "white" ? "bg-white" : "bg-[#1e1c1a]"}`} />
-            <span className={`text-sm font-semibold ${statusBar.textColor}`}>{statusBar.text}</span>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {canInteract && (
-              <>
-                <button onClick={handleHint} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Hint</button>
-                <button
-                  onClick={() => hintUsed && showSolution(true)}
-                  className={`text-xs underline underline-offset-2 transition-colors ${hintUsed ? "text-[#706e6b] hover:text-[#989795] cursor-pointer" : "text-[#3a3835] cursor-not-allowed"}`}
-                >
-                  Solution
-                </button>
-                <button onClick={onSkip} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Skip</button>
-              </>
-            )}
-            {isDone && (
-              <button
-                onClick={onNext}
-                className="px-4 py-1.5 bg-[#81b64c] hover:bg-[#96bc4b] text-white text-sm font-bold rounded transition-colors"
-              >
-                Next →
-              </button>
-            )}
-          </div>
-          {attempts > 0 && !revealed && (
-            <div className="flex items-center gap-1.5 mt-2">
-              {[0, 1, 2].map(i => (
-                <div key={i} className={`w-2 h-2 rounded-full ${i < attempts ? "bg-[#ca3431]" : "bg-[#3a3835]"}`} />
-              ))}
-            </div>
-          )}
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-[#2a2826]">
+          {username ? (
+            <Link href={`/player/${username}`} className="text-[#706e6b] hover:text-[#989795] transition-colors">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 5l-7 7 7 7"/>
+              </svg>
+            </Link>
+          ) : <div className="w-[18px]" />}
+          <span className="text-base font-bold text-white tracking-tight">Puzzles</span>
+          <div className="flex-1" />
+          <span className="text-xs text-[#4a4845]">{puzzleIndex + 1} / {totalPuzzles}</span>
         </div>
 
-        {/* Theme filter */}
-        {weaknesses && weaknesses.length > 0 && onThemeClick && (
-          <div className="bg-[#262522] rounded-xl p-4">
-            <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-2">Filter</p>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => onThemeClick(null)}
-                className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
-                  !activeTheme ? "bg-[#81b64c] text-white" : "bg-[#3a3835] text-[#989795] hover:text-white"
-                }`}
-              >
-                All
-              </button>
-              {weaknesses.map((w) => (
-                <button
-                  key={w.theme}
-                  onClick={() => onThemeClick(w.theme)}
-                  className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
-                    activeTheme === w.theme ? "text-white" : "bg-[#3a3835] text-[#989795] hover:text-white"
-                  }`}
-                  style={activeTheme === w.theme ? { backgroundColor: THEME_COLORS[w.theme] ?? "#706e6b" } : {}}
-                >
-                  {THEME_LABELS[w.theme] ?? w.theme}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Content — scrollable if needed */}
+        <div className="flex-1 flex flex-col px-5 pt-5 pb-3 gap-5 overflow-y-auto">
 
-        {/* Session stats */}
-        <div className="bg-[#262522] rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider">Session</p>
-            <span className="text-xs text-[#4a4845]">{puzzleIndex + 1} / {totalPuzzles}</span>
+          {/* Status bubble */}
+          <div className={`rounded-xl p-4 transition-colors duration-300 ${
+            phase === "solved" ? "bg-[#1e3a12]" :
+            phase === "done" ? "bg-[#1a2a10]" :
+            "bg-[#262522]"
+          }`}>
+            <div className="flex items-center gap-2.5 mb-1.5">
+              <div className={`w-4 h-4 rounded-sm border flex-shrink-0 ${
+                orientation === "white" ? "bg-white border-[#aaa]" : "bg-[#1e1c1a] border-[#555]"
+              }`} />
+              <span className="text-base font-bold text-white">{statusLine.heading}</span>
+            </div>
+            {statusLine.sub && (
+              <p className="text-sm text-[#989795] ml-6.5">{statusLine.sub}</p>
+            )}
+            {attempts > 0 && !revealed && (
+              <div className="flex items-center gap-1.5 mt-2.5 ml-6.5">
+                {Array.from({ length: attempts }).map((_, i) => (
+                  <div key={i} className="w-2 h-2 rounded-full bg-[#ca3431]" />
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Puzzle info */}
           <div className="space-y-2">
+            {puzzle.rating && (
+              <div className="flex justify-between text-sm">
+                <span className="text-[#706e6b]">Rating</span>
+                <span className="font-bold text-white">{puzzle.rating}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-[#706e6b]">Source</span>
+              <span className="text-[#e8e6e1] text-xs">{puzzle.sourceLabel}</span>
+            </div>
+            {revealed && themeLabel && (
+              <div className="flex justify-between text-sm items-center">
+                <span className="text-[#706e6b]">Theme</span>
+                <span
+                  className="text-xs font-bold text-white px-2.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  {themeLabel}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Session stats */}
+          <div className="border-t border-[#2a2826] pt-4 space-y-2.5">
+            <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider">Session</p>
             {[
               ["Solved", `${sessionSolved} / ${sessionTotal}`],
-              ["Streak", streak],
+              ["Streak", streak > 0 ? `🔥 ${streak}` : "0"],
               ["Accuracy", sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—"],
             ].map(([label, value]) => (
               <div key={label as string} className="flex justify-between text-sm">
-                <span className="text-[#989795]">{label}</span>
-                <span className={`font-bold ${label === "Streak" && (value as number) > 0 ? "text-[#96bc4b]" : "text-white"}`}>{value}</span>
+                <span className="text-[#706e6b]">{label}</span>
+                <span className="font-bold text-white">{value}</span>
               </div>
             ))}
           </div>
+
+          {/* Theme filter */}
+          {weaknesses && weaknesses.length > 0 && onThemeClick && (
+            <div className="border-t border-[#2a2826] pt-4">
+              <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-2.5">Filter by theme</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => onThemeClick(null)}
+                  className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
+                    !activeTheme ? "bg-[#81b64c] text-white" : "bg-[#2a2826] text-[#989795] hover:text-white"
+                  }`}
+                >
+                  All
+                </button>
+                {weaknesses.map((w) => (
+                  <button
+                    key={w.theme}
+                    onClick={() => onThemeClick(w.theme)}
+                    className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
+                      activeTheme === w.theme ? "text-white" : "bg-[#2a2826] text-[#989795] hover:text-white"
+                    }`}
+                    style={activeTheme === w.theme ? { backgroundColor: THEME_COLORS[w.theme] ?? "#706e6b" } : {}}
+                  >
+                    {THEME_LABELS[w.theme] ?? w.theme}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Timer */}
+          <div className="flex items-center gap-2 text-[#706e6b] text-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            {timerDisplay}
+          </div>
         </div>
 
-        {/* Puzzle info */}
-        <div className="bg-[#262522] rounded-xl p-4">
-          <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-3">Puzzle</p>
-          {puzzle.rating && (
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-[#989795]">Rating</span>
-              <span className="font-bold text-white">{puzzle.rating}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-sm">
-            <span className="text-[#989795]">Source</span>
-            <span className="text-[#e8e6e1] text-xs truncate ml-2">{puzzle.sourceLabel}</span>
-          </div>
-          {/* Theme revealed after solving */}
-          {revealed && themeLabel && (
-            <div className="mt-3">
-              <span
-                className="inline-block text-xs font-bold text-white px-2.5 py-1 rounded-full"
-                style={{ backgroundColor: themeColor }}
+        {/* Footer — action buttons always at bottom */}
+        <div className="px-5 py-4 border-t border-[#2a2826] flex flex-col gap-2">
+          {isDone ? (
+            <button
+              onClick={onNext}
+              className="w-full py-3 bg-[#81b64c] hover:bg-[#96bc4b] text-white font-bold rounded-lg transition-colors text-sm"
+            >
+              Next Puzzle →
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleHint}
+                className="w-full py-3 bg-[#2a2826] hover:bg-[#3a3835] text-[#e8e6e1] font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
               >
-                {themeLabel}
-              </span>
-            </div>
-          )}
-          {!revealed && (
-            <div className="mt-3">
-              <span className="text-xs text-[#4a4845] italic">Theme hidden until solved</span>
-            </div>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Hint
+              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => hintUsed && showSolution(true)}
+                  disabled={!hintUsed}
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                    hintUsed
+                      ? "bg-[#2a2826] hover:bg-[#3a3835] text-[#989795]"
+                      : "bg-[#1e1c1a] text-[#3a3835] cursor-not-allowed"
+                  }`}
+                >
+                  Solution
+                </button>
+                <button
+                  onClick={onSkip}
+                  className="flex-1 py-2.5 bg-[#2a2826] hover:bg-[#3a3835] text-[#706e6b] rounded-lg text-xs font-semibold transition-colors"
+                >
+                  Skip
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

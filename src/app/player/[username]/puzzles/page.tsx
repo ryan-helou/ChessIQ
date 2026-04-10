@@ -177,16 +177,6 @@ export default function PuzzlesPage() {
     <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
       <Header username={username} />
       <div className="max-w-5xl mx-auto px-4 py-4">
-        <div className="mb-4">
-          <h1 className="text-lg font-bold text-white">Puzzle Trainer</h1>
-          <p className="text-sm text-[#989795]">
-            Puzzles based on your tactical weaknesses
-            {recommendation && recommendation.totalBlunders > 0 && (
-              <> &middot; {recommendation.totalBlunders} blunders analyzed</>
-            )}
-          </p>
-        </div>
-
         {currentPuzzle && (
           <PuzzleBoard
             key={currentPuzzle.id}
@@ -203,6 +193,7 @@ export default function PuzzlesPage() {
             weaknesses={recommendation?.weaknesses}
             activeTheme={activeTheme}
             onThemeClick={handleThemeFilter}
+            username={username}
           />
         )}
       </div>
