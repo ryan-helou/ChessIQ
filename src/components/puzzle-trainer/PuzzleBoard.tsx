@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Chess } from "chess.js";
-import type { TrainerPuzzle } from "@/lib/puzzle-api";
+import type { TrainerPuzzle, WeaknessProfile } from "@/lib/puzzle-api";
 import { THEME_LABELS, THEME_COLORS } from "@/lib/puzzle-api";
 
 const Chessboard = dynamic(
@@ -32,6 +32,9 @@ interface Props {
   onFailed: (attempts: number, timeSeconds: number) => void;
   onNext: () => void;
   onSkip: () => void;
+  weaknesses?: WeaknessProfile[];
+  activeTheme?: string | null;
+  onThemeClick?: (theme: string | null) => void;
 }
 
 // Apply UCI move — only adds promotion if actually needed
@@ -58,6 +61,9 @@ export default function PuzzleBoard({
   onFailed,
   onNext,
   onSkip,
+  weaknesses,
+  activeTheme,
+  onThemeClick,
 }: Props) {
   const chessRef = useRef(new Chess(puzzle.fen));
   const [fen, setFen] = useState(puzzle.fen);
@@ -313,7 +319,7 @@ export default function PuzzleBoard({
     <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
 
       {/* ── Board column ── */}
-      <div className="flex flex-col" style={{ width: "min(520px, calc(100vw - 32px), calc(100dvh - 300px))" }}>
+      <div className="flex flex-col" style={{ width: "min(560px, calc(100vw - 32px))" }}>
 
         {/* Player-to-move bar */}
         <div className="flex items-center gap-2 mb-2">
@@ -383,7 +389,36 @@ export default function PuzzleBoard({
       </div>
 
       {/* ── Sidebar ── */}
-      <div className="lg:w-[200px] w-full flex flex-col gap-3">
+      <div className="lg:w-[220px] w-full flex flex-col gap-3">
+
+        {/* Theme filter */}
+        {weaknesses && weaknesses.length > 0 && onThemeClick && (
+          <div className="bg-[#262522] rounded-xl p-4">
+            <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-2">Filter by theme</p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => onThemeClick(null)}
+                className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
+                  !activeTheme ? "bg-[#81b64c] text-white" : "bg-[#3a3835] text-[#989795] hover:text-white"
+                }`}
+              >
+                All
+              </button>
+              {weaknesses.map((w) => (
+                <button
+                  key={w.theme}
+                  onClick={() => onThemeClick(w.theme)}
+                  className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
+                    activeTheme === w.theme ? "text-white" : "bg-[#3a3835] text-[#989795] hover:text-white"
+                  }`}
+                  style={activeTheme === w.theme ? { backgroundColor: THEME_COLORS[w.theme] ?? "#706e6b" } : {}}
+                >
+                  {THEME_LABELS[w.theme] ?? w.theme}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Session stats */}
         <div className="bg-[#262522] rounded-xl p-4">

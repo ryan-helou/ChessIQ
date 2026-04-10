@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import PuzzleBoard from "@/components/puzzle-trainer/PuzzleBoard";
-import WeaknessChart from "@/components/puzzle-trainer/WeaknessChart";
 import {
   getPuzzleRecommendations,
   recordPuzzleAttempt,
@@ -164,17 +163,10 @@ export default function PuzzlesPage() {
     return (
       <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
         <Header username={username} />
-        <div className="max-w-5xl mx-auto px-4 py-6">
-          {recommendation && recommendation.weaknesses.length > 0 && (
-            <div className="mb-6">
-              <WeaknessChart weaknesses={recommendation.weaknesses} activeTheme={activeTheme} onThemeClick={handleThemeFilter} />
-            </div>
-          )}
-          <div className="flex items-center justify-center min-h-[40vh]">
-            <div className="text-center">
-              <p className="text-[#989795] text-lg mb-1">No puzzles available yet</p>
-              <p className="text-sm text-[#706e6b]">Analyze some games first to generate personalized puzzles.</p>
-            </div>
+        <div className="flex items-center justify-center min-h-[80vh]">
+          <div className="text-center">
+            <p className="text-[#989795] text-lg mb-1">No puzzles available yet</p>
+            <p className="text-sm text-[#706e6b]">Analyze some games first to generate personalized puzzles.</p>
           </div>
         </div>
       </div>
@@ -195,12 +187,6 @@ export default function PuzzlesPage() {
           </p>
         </div>
 
-        {recommendation && recommendation.weaknesses.length > 0 && (
-          <div className="mb-5">
-            <WeaknessChart weaknesses={recommendation.weaknesses} activeTheme={activeTheme} onThemeClick={handleThemeFilter} />
-          </div>
-        )}
-
         {currentPuzzle && (
           <PuzzleBoard
             key={currentPuzzle.id}
@@ -214,6 +200,9 @@ export default function PuzzlesPage() {
             onFailed={handleFailed}
             onNext={handleNext}
             onSkip={handleNext}
+            weaknesses={recommendation?.weaknesses}
+            activeTheme={activeTheme}
+            onThemeClick={handleThemeFilter}
           />
         )}
       </div>
