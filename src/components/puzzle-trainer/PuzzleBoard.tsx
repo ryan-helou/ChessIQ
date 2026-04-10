@@ -23,7 +23,8 @@ type PuzzlePhase =
   | "wrong"
   | "solved"
   | "failed"
-  | "showSolution";
+  | "showSolution"
+  | "solutionDone";
 
 interface LineEntry { fen: string; from: string; to: string }
 
@@ -248,6 +249,33 @@ export default function PuzzleBoard({
     [phase, fen, puzzle, solutionLine, currentLineIdx, onSolved, onFailed]
   );
 
+  // ─── Give up (view solution from playerTurn) ─────────────────
+  const handleGiveUp = useCallback(() => {
+    onFailed(attemptsRef.current, elapsed());
+    // fall through to show solution immediately
+    setPhase("showSolution");
+    setSelectedSquare(null);
+    setLegalMoveSquares([]);
+    setWrongSquare(null);
+    setCorrectSquare(null);
+
+    const startFrom = currentLineIdx + 1;
+    const remaining = solutionLine.slice(startFrom);
+    if (remaining.length === 0) { setPhase("solutionDone"); return; }
+
+    const playNext = (idx: number) => {
+      if (idx >= remaining.length) { setPhase("solutionDone"); return; }
+      setTimeout(() => {
+        const entry = remaining[idx];
+        setFen(entry.fen);
+        setLastMove({ from: entry.from, to: entry.to });
+        playNext(idx + 1);
+      }, 700);
+    };
+    playNext(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [solutionLine, currentLineIdx, onFailed]);
+
   // ─── View solution — step through pre-computed FENs ──────────
   const handleViewSolution = useCallback(() => {
     setPhase("showSolution");
@@ -256,14 +284,12 @@ export default function PuzzleBoard({
     setWrongSquare(null);
     setCorrectSquare(null);
 
-    // Remaining entries start right after current position
     const startFrom = currentLineIdx + 1;
     const remaining = solutionLine.slice(startFrom);
-
-    if (remaining.length === 0) return;
+    if (remaining.length === 0) { setPhase("solutionDone"); return; }
 
     const playNext = (idx: number) => {
-      if (idx >= remaining.length) return;
+      if (idx >= remaining.length) { setPhase("solutionDone"); return; }
       setTimeout(() => {
         const entry = remaining[idx];
         setFen(entry.fen);
@@ -337,12 +363,14 @@ export default function PuzzleBoard({
   if (selectedSquare) {
     squareStyles[selectedSquare] = { backgroundColor: "rgba(255,255,50,0.5)" };
   }
-  for (const sq of legalMoveSquares) {
-    const chess = new Chess(fen);
-    const isCapture = !!chess.get(sq as Parameters<typeof chess.get>[0]);
-    squareStyles[sq] = isCapture
-      ? { background: "radial-gradient(circle, rgba(0,0,0,0) 58%, rgba(0,0,0,0.22) 60%)" }
-      : { background: "radial-gradient(circle, rgba(0,0,0,0.22) 30%, transparent 30%)" };
+  if (legalMoveSquares.length > 0) {
+    const boardForStyles = new Chess(fen);
+    for (const sq of legalMoveSquares) {
+      const isCapture = !!boardForStyles.get(sq as Parameters<typeof boardForStyles.get>[0]);
+      squareStyles[sq] = isCapture
+        ? { background: "radial-gradient(circle, rgba(0,0,0,0) 58%, rgba(0,0,0,0.22) 60%)" }
+        : { background: "radial-gradient(circle, rgba(0,0,0,0.22) 30%, transparent 30%)" };
+    }
   }
   if (wrongSquare) squareStyles[wrongSquare] = { backgroundColor: "rgba(202,52,49,0.55)" };
   if (correctSquare) squareStyles[correctSquare] = { backgroundColor: "rgba(150,188,75,0.55)" };
@@ -353,16 +381,19 @@ export default function PuzzleBoard({
     opponentSetup: { text: "Setting up position…", color: "text-[#989795]" },
     playerTurn: { text: `Find the best move for ${colorName}`, color: "text-[#e8e6e1]" },
     correct: { text: "Best move!", color: "text-[#96bc4b]" },
-    wrong: { text: attempts >= 3 ? "Puzzle failed" : "Not quite — try again", color: "text-[#ca3431]" },
+    wrong: { text: "Not quite — try again", color: "text-[#ca3431]" },
     solved: { text: "Puzzle complete!", color: "text-[#96bc4b]" },
     failed: { text: "Puzzle failed", color: "text-[#ca3431]" },
-    showSolution: { text: "Showing solution…", color: "text-[#e8e6e1]" },
+    showSolution: { text: "Showing solution…", color: "text-[#989795]" },
+    solutionDone: { text: "Solution complete", color: "text-[#e8e6e1]" },
   }[phase];
 
+  const revealed = phase === "solved" || phase === "failed" || phase === "showSolution" || phase === "solutionDone";
   const mainTheme = puzzle.themes[0] ?? null;
   const themeLabel = mainTheme ? (THEME_LABELS[mainTheme] ?? mainTheme) : null;
   const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#989795") : "#989795";
-  const isDone = phase === "solved" || phase === "failed" || phase === "showSolution";
+  // Only show Next button once solution is done playing (not during playback)
+  const isDone = phase === "solved" || phase === "failed" || phase === "solutionDone";
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 items-start">
@@ -372,10 +403,14 @@ export default function PuzzleBoard({
           <span className="text-xs text-[#706e6b] font-medium uppercase tracking-wide">
             Puzzle {puzzleIndex + 1} of {totalPuzzles}
           </span>
-          {themeLabel && (
+          {/* Theme hidden until revealed — avoids spoiling the tactic */}
+          {themeLabel && revealed && (
             <span className="text-xs font-bold text-white px-2 py-0.5 rounded-full" style={{ backgroundColor: themeColor }}>
               {themeLabel}
             </span>
+          )}
+          {!revealed && (
+            <span className="text-xs text-[#706e6b]">Find the best move</span>
           )}
         </div>
 
@@ -404,6 +439,7 @@ export default function PuzzleBoard({
             {phase === "playerTurn" && (
               <>
                 <button onClick={handleHint} className="text-xs text-[#706e6b] hover:text-[#989795] underline underline-offset-2">Hint</button>
+                <button onClick={handleGiveUp} className="text-xs text-[#706e6b] hover:text-[#989795] underline underline-offset-2">Give up</button>
                 <button onClick={onSkip} className="text-xs text-[#706e6b] hover:text-[#989795] underline underline-offset-2">Skip</button>
               </>
             )}
@@ -455,7 +491,7 @@ export default function PuzzleBoard({
             <span className="text-[#989795]">Source</span>
             <span className="text-[#e8e6e1] text-xs">{puzzle.sourceLabel}</span>
           </div>
-          {puzzle.themes.length > 0 && (
+          {revealed && puzzle.themes.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {puzzle.themes.slice(0, 3).map((t) => (
                 <span key={t} className="text-xs px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: THEME_COLORS[t] ?? "#4a4845" }}>
