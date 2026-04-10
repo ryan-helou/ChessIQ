@@ -422,6 +422,11 @@ export default function PuzzleBoard({
               squareStyles,
               darkSquareStyle: { backgroundColor: "#769656" },
               lightSquareStyle: { backgroundColor: "#eeeed2" },
+              customNotationStyle: {
+                color: "rgba(255,255,255,0.75)",
+                fontSize: "11px",
+                fontWeight: "600",
+              },
               boardOrientation: orientation,
               allowDragging: canInteract,
               animationDurationInMs: 200,
