@@ -380,18 +380,11 @@ export default function PuzzleBoard({
   return (
     <div className="flex flex-col lg:flex-row gap-5 items-start w-full">
 
-      {/* ── Board column ── */}
-      <div className="flex flex-col" style={{ width: "min(560px, calc(100vw - 32px), calc(100dvh - 230px))" }}>
-
-        {/* Player-to-move bar */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className={`w-4 h-4 rounded-sm border border-[#555] ${orientation === "white" ? "bg-white" : "bg-[#312e2b]"}`} />
-          <span className="text-sm font-semibold text-[#e8e6e1]">{colorName} to move</span>
-          <div className="flex-1" />
-          <span className="text-xs text-[#706e6b]">Puzzle {puzzleIndex + 1} / {totalPuzzles}</span>
-        </div>
-
-        {/* Board */}
+      {/* ── Board (clean square, nothing above or below) ── */}
+      <div
+        className="rounded-sm overflow-hidden flex-shrink-0"
+        style={{ width: "min(560px, calc(100vw - 32px), calc(100dvh - 160px))" }}
+      >
         <div className="w-full aspect-square">
           <Chessboard
             options={{
@@ -407,24 +400,27 @@ export default function PuzzleBoard({
             }}
           />
         </div>
+      </div>
 
-        {/* Status bar */}
-        <div className={`flex items-center justify-between px-4 py-2.5 mt-1 rounded-b-lg ${statusBar.bg} transition-colors duration-300 min-h-[44px]`}>
-          <span className={`text-sm font-semibold ${statusBar.textColor}`}>
-            {statusBar.text}
-          </span>
-          <div className="flex items-center gap-2">
+      {/* ── Sidebar ── */}
+      <div className="lg:w-[220px] w-full flex flex-col gap-3 flex-shrink-0">
+
+        {/* Status card — main feedback + actions */}
+        <div className={`rounded-xl px-4 py-3 transition-colors duration-300 ${statusBar.bg}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`w-3.5 h-3.5 rounded-sm border border-[#555] flex-shrink-0 ${orientation === "white" ? "bg-white" : "bg-[#1e1c1a]"}`} />
+            <span className={`text-sm font-semibold ${statusBar.textColor}`}>{statusBar.text}</span>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
             {canInteract && (
               <>
                 <button onClick={handleHint} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Hint</button>
-                <span className="text-[#3a3835]">·</span>
                 <button
                   onClick={() => hintUsed && showSolution(true)}
                   className={`text-xs underline underline-offset-2 transition-colors ${hintUsed ? "text-[#706e6b] hover:text-[#989795] cursor-pointer" : "text-[#3a3835] cursor-not-allowed"}`}
                 >
                   Solution
                 </button>
-                <span className="text-[#3a3835]">·</span>
                 <button onClick={onSkip} className="text-xs text-[#706e6b] hover:text-[#989795] transition-colors underline underline-offset-2">Skip</button>
               </>
             )}
@@ -437,26 +433,19 @@ export default function PuzzleBoard({
               </button>
             )}
           </div>
+          {attempts > 0 && !revealed && (
+            <div className="flex items-center gap-1.5 mt-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className={`w-2 h-2 rounded-full ${i < attempts ? "bg-[#ca3431]" : "bg-[#3a3835]"}`} />
+              ))}
+            </div>
+          )}
         </div>
-
-        {/* Attempts */}
-        {attempts > 0 && !revealed && (
-          <div className="flex items-center gap-1.5 mt-2 px-1">
-            <span className="text-xs text-[#706e6b]">Attempts:</span>
-            {[0, 1, 2].map(i => (
-              <div key={i} className={`w-2.5 h-2.5 rounded-full ${i < attempts ? "bg-[#ca3431]" : "bg-[#3a3835]"}`} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Sidebar ── */}
-      <div className="lg:w-[220px] w-full flex flex-col gap-3">
 
         {/* Theme filter */}
         {weaknesses && weaknesses.length > 0 && onThemeClick && (
           <div className="bg-[#262522] rounded-xl p-4">
-            <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-2">Filter by theme</p>
+            <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-2">Filter</p>
             <div className="flex flex-wrap gap-1.5">
               <button
                 onClick={() => onThemeClick(null)}
@@ -484,7 +473,10 @@ export default function PuzzleBoard({
 
         {/* Session stats */}
         <div className="bg-[#262522] rounded-xl p-4">
-          <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider mb-3">Session</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-[#706e6b] uppercase tracking-wider">Session</p>
+            <span className="text-xs text-[#4a4845]">{puzzleIndex + 1} / {totalPuzzles}</span>
+          </div>
           <div className="space-y-2">
             {[
               ["Solved", `${sessionSolved} / ${sessionTotal}`],
