@@ -535,7 +535,7 @@ export default function PuzzleBoard({
               <span className="text-[#706e6b]">Source</span>
               <span className="text-[#e8e6e1] text-xs">{puzzle.sourceLabel}</span>
             </div>
-            {revealed && themeLabel && (
+            {themeLabel && (
               <div className="flex justify-between text-sm items-center">
                 <span className="text-[#706e6b]">Theme</span>
                 <span
