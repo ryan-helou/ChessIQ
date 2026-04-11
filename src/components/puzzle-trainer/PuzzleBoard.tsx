@@ -21,6 +21,12 @@ const THEME_DESCRIPTIONS: Record<string, string> = {
   trappedPiece: "The piece has nowhere to go",
   doubleCheck: "Can you give a double check?",
   materialGain: "Find the way to win material",
+  exposedKing: "The king needs protection",
+  weakKingSafety: "Improve your king's safety",
+  inactivePieces: "Activate your pieces",
+  pawnStructure: "Find the best pawn move",
+  poorPawnStructure: "Avoid weakening your pawns",
+  overextension: "Watch out for overextended pieces",
 };
 
 const Chessboard = dynamic(

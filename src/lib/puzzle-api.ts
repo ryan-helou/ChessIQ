@@ -88,6 +88,12 @@ export const THEME_LABELS: Record<string, string> = {
   endgame: "Endgame",
   middlegame: "Middlegame",
   positional: "Positional",
+  exposedKing: "Exposed King",
+  weakKingSafety: "King Safety",
+  inactivePieces: "Inactive Pieces",
+  pawnStructure: "Pawn Structure",
+  poorPawnStructure: "Pawn Structure",
+  overextension: "Overextension",
 };
 
 export const THEME_COLORS: Record<string, string> = {
@@ -104,6 +110,12 @@ export const THEME_COLORS: Record<string, string> = {
   mate: "#ca3431",
   materialGain: "#96bc4b",
   positional: "#706e6b",
+  exposedKing: "#ca3431",
+  weakKingSafety: "#e26b50",
+  inactivePieces: "#5b8bb4",
+  pawnStructure: "#96bc4b",
+  poorPawnStructure: "#dbac18",
+  overextension: "#e28c28",
 };
 
 // ─────────────────────────────────────────────────────────────

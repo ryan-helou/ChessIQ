@@ -11,8 +11,10 @@ import { detectMissedTactic } from "@/lib/tactic-detector";
 export async function POST() {
   try {
     const result = await query(
-      `SELECT id, eval_before_cp, player_move, best_move,
-              (SELECT fen FROM analyzed_moves am WHERE am.game_id = b.game_id AND am.move_number = b.move_number - 1 LIMIT 1) as fen_before
+      `SELECT id, best_move,
+              COALESCE(fen_before,
+                (SELECT fen FROM analyzed_moves am WHERE am.game_id = b.game_id AND am.move_number = b.move_number - 1 LIMIT 1)
+              ) as fen_before
        FROM blunders b
        LIMIT 500`,
       []

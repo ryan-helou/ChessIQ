@@ -274,6 +274,71 @@ export function detectMissedTactic(
   const anyAttacked = valuablePiecesAttackedFrom(chess, to, enemyColor, 1);
   if (anyAttacked >= 1) return "materialGain";
 
-  // 13. Positional blunder — no specific tactic identified but clearly strategic
+  // 12. Positional sub-category detection
+  const originalPos = new Chess(fenBefore);
+
+  // 12a. King safety — mover's king has a weak pawn shield
+  const kingSq = findKingSquare(originalPos, moverColor);
+  if (kingSq) {
+    const kingFile = kingSq.charCodeAt(0) - 97;
+    const kingRank = parseInt(kingSq[1]) - 1;
+    const forward = moverColor === "w" ? 1 : -1;
+    let pawnShield = 0;
+    for (let df = -1; df <= 1; df++) {
+      for (let dr = 1; dr <= 2; dr++) {
+        const f = kingFile + df;
+        const r = kingRank + forward * dr;
+        if (f >= 0 && f < 8 && r >= 0 && r < 8) {
+          const sq = String.fromCharCode(97 + f) + (r + 1);
+          const p = originalPos.get(sq as Parameters<typeof originalPos.get>[0]);
+          if (p && p.type === "p" && p.color === moverColor) pawnShield++;
+        }
+      }
+    }
+    // King has no castled shelter AND enemy has active pieces pointing at the king side
+    if (pawnShield < 2) {
+      // Check enemy piece activity near king
+      const enemyAttackingKingSide = originalPos.moves({ verbose: true }).some((m) => {
+        const dc = Math.abs(m.to.charCodeAt(0) - 97 - kingFile);
+        const dr = Math.abs(parseInt(m.to[1]) - 1 - kingRank);
+        return dc <= 2 && dr <= 2;
+      });
+      if (enemyAttackingKingSide) return "exposedKing";
+      return "weakKingSafety";
+    }
+  }
+
+  // 12b. Piece activity — best move dramatically improves mobility of the moved piece
+  const beforeMobility = originalPos.moves({
+    square: from as Parameters<typeof originalPos.moves>[0]["square"],
+    verbose: true,
+  }).length;
+  const afterMobility = chess.moves({
+    square: to as Parameters<typeof chess.moves>[0]["square"],
+    verbose: true,
+  }).length;
+  if (afterMobility - beforeMobility >= 4) return "inactivePieces";
+
+  // 12c. Pawn structure — best move is a pawn push (likely structure-related)
+  if (moveResult.piece === "p") {
+    // Doubled pawn? Check if there's already a pawn on the same file
+    const file = to.charCodeAt(0) - 97;
+    let pawnsOnFile = 0;
+    for (let r = 0; r < 8; r++) {
+      const sq = String.fromCharCode(97 + file) + (r + 1);
+      const p = chess.get(sq as Parameters<typeof chess.get>[0]);
+      if (p && p.type === "p" && p.color === moverColor) pawnsOnFile++;
+    }
+    if (pawnsOnFile >= 2) return "poorPawnStructure";
+    return "pawnStructure";
+  }
+
+  // 12d. Overextension — best move is a retreat from an advanced square
+  const fromRank = parseInt(from[1]) - 1;
+  const toRank = parseInt(to[1]) - 1;
+  const isRetreating = moverColor === "w" ? toRank < fromRank : toRank > fromRank;
+  const wasAdvanced = moverColor === "w" ? fromRank >= 4 : fromRank <= 3;
+  if (isRetreating && wasAdvanced) return "overextension";
+
   return "positional";
 }
