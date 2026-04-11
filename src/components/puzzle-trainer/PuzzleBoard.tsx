@@ -59,8 +59,8 @@ interface Props {
   weaknesses?: WeaknessProfile[];
   activeTheme?: string | null;
   onThemeClick?: (theme: string | null) => void;
-  sourceFilter?: "all" | "blunders" | "lichess";
-  onSourceFilter?: (source: "all" | "blunders" | "lichess") => void;
+  sourceFilter?: "blunders" | "lichess";
+  onSourceFilter?: (source: "blunders" | "lichess") => void;
   hasBlunderPuzzles?: boolean;
   username?: string;
 }
@@ -92,7 +92,7 @@ export default function PuzzleBoard({
   weaknesses,
   activeTheme,
   onThemeClick,
-  sourceFilter = "all",
+  sourceFilter = "lichess",
   onSourceFilter,
   hasBlunderPuzzles = false,
   username,
@@ -460,17 +460,40 @@ export default function PuzzleBoard({
       <div className="flex flex-col bg-[#1e1c1a] lg:w-[300px] w-full flex-shrink-0 h-full">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-[#2a2826]">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#2a2826]">
           {username ? (
-            <Link href={`/player/${username}`} className="text-[#706e6b] hover:text-[#989795] transition-colors">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <Link href={`/player/${username}`} className="text-[#706e6b] hover:text-[#989795] transition-colors flex-shrink-0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5M12 5l-7 7 7 7"/>
               </svg>
             </Link>
-          ) : <div className="w-[18px]" />}
-          <span className="text-base font-bold text-white tracking-tight">Puzzles</span>
-          <div className="flex-1" />
-          <span className="text-xs text-[#4a4845]">{puzzleIndex + 1} / {totalPuzzles}</span>
+          ) : <div className="w-4" />}
+
+          {/* Mode tabs */}
+          {onSourceFilter ? (
+            <div className="flex-1 flex bg-[#2a2826] rounded-lg p-0.5 gap-0.5">
+              {([
+                { src: "blunders" as const, label: "My Blunders", show: hasBlunderPuzzles },
+                { src: "lichess" as const, label: "New Puzzles", show: true },
+              ].filter(t => t.show)).map(({ src, label }) => (
+                <button
+                  key={src}
+                  onClick={() => sourceFilter !== src && onSourceFilter(src)}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                    sourceFilter === src || (!hasBlunderPuzzles && src === "lichess" && sourceFilter !== "blunders")
+                      ? "bg-[#1e1c1a] text-white shadow-sm"
+                      : "text-[#706e6b] hover:text-[#989795]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="flex-1 text-sm font-bold text-white tracking-tight">Puzzles</span>
+          )}
+
+          <span className="text-xs text-[#4a4845] flex-shrink-0">{puzzleIndex + 1}/{totalPuzzles}</span>
         </div>
 
         {/* Content — scrollable if needed */}
@@ -539,32 +562,6 @@ export default function PuzzleBoard({
               </div>
             ))}
           </div>
-
-          {/* Source filter */}
-          {onSourceFilter && (
-            <div className="border-t border-[#2a2826] pt-4">
-              <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-2.5">Puzzle source</p>
-              <div className="flex gap-1.5">
-                {(["all", "lichess", ...(hasBlunderPuzzles ? ["blunders"] : [])] as ("all" | "lichess" | "blunders")[]).map((src) => {
-                  const label = src === "all" ? "All" : src === "lichess" ? "Lichess" : "My Games";
-                  const active = sourceFilter === src;
-                  return (
-                    <button
-                      key={src}
-                      onClick={() => onSourceFilter(src)}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        active
-                          ? "bg-[#81b64c] text-white"
-                          : "bg-[#2a2826] text-[#989795] hover:text-white"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Weaknesses breakdown + theme filter */}
           {weaknesses && weaknesses.length > 0 && onThemeClick && (

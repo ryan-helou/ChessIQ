@@ -28,12 +28,12 @@ export default function PuzzlesPage() {
   const [sessionSolved, setSessionSolved] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [sourceFilter, setSourceFilter] = useState<"all" | "blunders" | "lichess">("all");
+  const [sourceFilter, setSourceFilter] = useState<"blunders" | "lichess">("lichess");
 
   const seenIds = useRef(new Set<string>());
   const isFetching = useRef(false);
   const activeThemeRef = useRef<string | null>(null);
-  const sourceFilterRef = useRef<"all" | "blunders" | "lichess">("all");
+  const sourceFilterRef = useRef<"blunders" | "lichess">("lichess");
 
   useEffect(() => {
     async function load() {
@@ -42,7 +42,10 @@ export default function PuzzlesPage() {
       try {
         const data = await getPuzzleRecommendations(username);
         setRecommendation(data);
-        buildQueue(data, null, "all");
+        const defaultSource = data.ownBlunderPuzzles.length > 0 ? "blunders" : "lichess";
+        setSourceFilter(defaultSource);
+        sourceFilterRef.current = defaultSource;
+        buildQueue(data, null, defaultSource);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load puzzles");
       } finally {
@@ -56,19 +59,18 @@ export default function PuzzlesPage() {
   const buildQueue = useCallback((
     data: PuzzleRecommendation,
     themeFilter: string | null,
-    source: "all" | "blunders" | "lichess" = "all",
+    source: "blunders" | "lichess",
   ) => {
     seenIds.current.clear();
     const queue: TrainerPuzzle[] = [];
-    if (source !== "lichess") {
+    if (source === "blunders") {
       for (const bp of data.ownBlunderPuzzles) {
         if (themeFilter && bp.theme !== themeFilter) continue;
         const tp = blunderPuzzleToTrainer(bp);
         queue.push(tp);
         seenIds.current.add(tp.id);
       }
-    }
-    if (source !== "blunders") {
+    } else {
       for (const p of data.puzzles) {
         if (themeFilter && !p.themes.includes(themeFilter)) continue;
         const tp = lichessPuzzleToTrainer(p);
@@ -119,7 +121,7 @@ export default function PuzzlesPage() {
     if (recommendation) buildQueue(recommendation, theme, sourceFilterRef.current);
   }, [recommendation, buildQueue]);
 
-  const handleSourceFilter = useCallback((source: "all" | "blunders" | "lichess") => {
+  const handleSourceFilter = useCallback((source: "blunders" | "lichess") => {
     sourceFilterRef.current = source;
     setSourceFilter(source);
     if (recommendation) buildQueue(recommendation, activeThemeRef.current, source);
