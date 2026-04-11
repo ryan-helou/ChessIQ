@@ -28,10 +28,12 @@ export default function PuzzlesPage() {
   const [sessionSolved, setSessionSolved] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [sourceFilter, setSourceFilter] = useState<"all" | "blunders" | "lichess">("all");
 
   const seenIds = useRef(new Set<string>());
   const isFetching = useRef(false);
   const activeThemeRef = useRef<string | null>(null);
+  const sourceFilterRef = useRef<"all" | "blunders" | "lichess">("all");
 
   useEffect(() => {
     async function load() {
@@ -40,7 +42,7 @@ export default function PuzzlesPage() {
       try {
         const data = await getPuzzleRecommendations(username);
         setRecommendation(data);
-        buildQueue(data, null);
+        buildQueue(data, null, "all");
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load puzzles");
       } finally {
@@ -51,20 +53,28 @@ export default function PuzzlesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username]);
 
-  const buildQueue = useCallback((data: PuzzleRecommendation, themeFilter: string | null) => {
+  const buildQueue = useCallback((
+    data: PuzzleRecommendation,
+    themeFilter: string | null,
+    source: "all" | "blunders" | "lichess" = "all",
+  ) => {
     seenIds.current.clear();
     const queue: TrainerPuzzle[] = [];
-    for (const bp of data.ownBlunderPuzzles) {
-      if (themeFilter && bp.theme !== themeFilter) continue;
-      const tp = blunderPuzzleToTrainer(bp);
-      queue.push(tp);
-      seenIds.current.add(tp.id);
+    if (source !== "lichess") {
+      for (const bp of data.ownBlunderPuzzles) {
+        if (themeFilter && bp.theme !== themeFilter) continue;
+        const tp = blunderPuzzleToTrainer(bp);
+        queue.push(tp);
+        seenIds.current.add(tp.id);
+      }
     }
-    for (const p of data.puzzles) {
-      if (themeFilter && !p.themes.includes(themeFilter)) continue;
-      const tp = lichessPuzzleToTrainer(p);
-      queue.push(tp);
-      seenIds.current.add(tp.id);
+    if (source !== "blunders") {
+      for (const p of data.puzzles) {
+        if (themeFilter && !p.themes.includes(themeFilter)) continue;
+        const tp = lichessPuzzleToTrainer(p);
+        queue.push(tp);
+        seenIds.current.add(tp.id);
+      }
     }
     setPuzzleQueue(queue);
     setCurrentIndex(0);
@@ -106,7 +116,13 @@ export default function PuzzlesPage() {
   const handleThemeFilter = useCallback((theme: string | null) => {
     activeThemeRef.current = theme;
     setActiveTheme(theme);
-    if (recommendation) buildQueue(recommendation, theme);
+    if (recommendation) buildQueue(recommendation, theme, sourceFilterRef.current);
+  }, [recommendation, buildQueue]);
+
+  const handleSourceFilter = useCallback((source: "all" | "blunders" | "lichess") => {
+    sourceFilterRef.current = source;
+    setSourceFilter(source);
+    if (recommendation) buildQueue(recommendation, activeThemeRef.current, source);
   }, [recommendation, buildQueue]);
 
   const currentPuzzle = puzzleQueue[currentIndex] ?? null;
@@ -193,6 +209,9 @@ export default function PuzzlesPage() {
             weaknesses={recommendation?.weaknesses}
             activeTheme={activeTheme}
             onThemeClick={handleThemeFilter}
+            sourceFilter={sourceFilter}
+            onSourceFilter={handleSourceFilter}
+            hasBlunderPuzzles={(recommendation?.ownBlunderPuzzles?.length ?? 0) > 0}
             username={username}
           />
         )}

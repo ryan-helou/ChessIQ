@@ -53,6 +53,9 @@ interface Props {
   weaknesses?: WeaknessProfile[];
   activeTheme?: string | null;
   onThemeClick?: (theme: string | null) => void;
+  sourceFilter?: "all" | "blunders" | "lichess";
+  onSourceFilter?: (source: "all" | "blunders" | "lichess") => void;
+  hasBlunderPuzzles?: boolean;
   username?: string;
 }
 
@@ -83,6 +86,9 @@ export default function PuzzleBoard({
   weaknesses,
   activeTheme,
   onThemeClick,
+  sourceFilter = "all",
+  onSourceFilter,
+  hasBlunderPuzzles = false,
   username,
 }: Props) {
   const chessRef = useRef(new Chess(puzzle.fen));
@@ -408,16 +414,18 @@ export default function PuzzleBoard({
     return { heading: "", sub: "" };
   })();
 
-  const boardSize = "min(560px, calc(100vw - 32px), calc(100dvh - 160px))";
-
   return (
     <div className="flex flex-col lg:flex-row w-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
 
       {/* ── Board ── */}
-      <div className="flex-shrink-0 bg-[#312e2b]" style={{ width: boardSize }}>
-        <div className="w-full aspect-square">
-          <Chessboard
-            options={{
+      <div className="flex-1 min-w-0 bg-[#312e2b] flex items-center justify-center">
+        <div
+          className="w-full aspect-square"
+          style={{ maxWidth: "min(560px, calc(100dvh - 160px))" }}
+        >
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {(() => {
+            const boardOptions: any = {
               position: fen,
               squareStyles,
               darkSquareStyle: { backgroundColor: "#769656" },
@@ -432,8 +440,9 @@ export default function PuzzleBoard({
               animationDurationInMs: 200,
               onPieceDrop: handleDrop,
               onSquareClick: handleSquareClick,
-            }}
-          />
+            };
+            return <Chessboard options={boardOptions} />;
+          })()}
         </div>
       </div>
 
@@ -520,6 +529,32 @@ export default function PuzzleBoard({
               </div>
             ))}
           </div>
+
+          {/* Source filter */}
+          {onSourceFilter && (
+            <div className="border-t border-[#2a2826] pt-4">
+              <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-2.5">Puzzle source</p>
+              <div className="flex gap-1.5">
+                {(["all", "lichess", ...(hasBlunderPuzzles ? ["blunders"] : [])] as ("all" | "lichess" | "blunders")[]).map((src) => {
+                  const label = src === "all" ? "All" : src === "lichess" ? "Lichess" : "My Games";
+                  const active = sourceFilter === src;
+                  return (
+                    <button
+                      key={src}
+                      onClick={() => onSourceFilter(src)}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        active
+                          ? "bg-[#81b64c] text-white"
+                          : "bg-[#2a2826] text-[#989795] hover:text-white"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Theme filter */}
           {weaknesses && weaknesses.length > 0 && onThemeClick && (
