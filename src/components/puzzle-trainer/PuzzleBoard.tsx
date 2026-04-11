@@ -551,7 +551,7 @@ export default function PuzzleBoard({
                 <span className="text-4xl font-black text-white tabular-nums leading-none">
                   {playerRating.toLocaleString()}
                 </span>
-                {ratingChange !== null && (
+                {ratingChange !== null && ratingChange !== 0 && (
                   <span className={`text-sm font-bold pb-0.5 ${ratingChange >= 0 ? "text-[#81b64c]" : "text-[#ca3431]"}`}>
                     {ratingChange >= 0 ? `+${ratingChange}` : ratingChange}
                   </span>

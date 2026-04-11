@@ -9,7 +9,7 @@ import { query } from "@/lib/db";
  * Gave up:            2 pts  (minimum — still earn something)
  */
 function calcRatingGain(playerRating: number, puzzleRating: number, solved: boolean, attempts: number): number {
-  if (!solved) return 2;
+  if (!solved) return 0;
 
   // Difficulty offset: ±25 for first try, ±5 for multi-attempt, capped at ±400 rating diff
   const diff = Math.max(-400, Math.min(400, puzzleRating - playerRating));
