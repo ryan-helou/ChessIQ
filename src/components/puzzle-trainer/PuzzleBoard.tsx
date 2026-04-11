@@ -473,30 +473,20 @@ export default function PuzzleBoard({
             </Link>
           ) : <div className="w-4" />}
 
-          {/* Mode tabs */}
-          {onModeChange ? (
-            <div className="flex-1 flex bg-[#2a2826] rounded-lg p-0.5 gap-0.5">
-              {([
-                { m: "random" as PuzzleMode, label: "Random" },
-                { m: "weakness" as PuzzleMode, label: "Weak Spots" },
-                ...(hasBlunderPuzzles ? [{ m: "blunders" as PuzzleMode, label: "Blunders" }] : []),
-              ]).map(({ m, label }) => (
-                <button
-                  key={m}
-                  onClick={() => mode !== m && onModeChange(m)}
-                  className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                    mode === m
-                      ? "bg-[#1e1c1a] text-white shadow-sm"
-                      : "text-[#706e6b] hover:text-[#989795]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span className="flex-1 text-sm font-bold text-white tracking-tight">Puzzles</span>
-          )}
+          {/* Mode label + back */}
+          <div className="flex-1 flex items-center gap-2 min-w-0">
+            <span className="text-sm font-bold text-white truncate">
+              {mode === "random" ? "Random Puzzles" : mode === "weakness" ? "Weak Spots" : "My Blunders"}
+            </span>
+            {onModeChange && (
+              <button
+                onClick={() => onModeChange(mode)} // page intercepts this to go back to picker
+                className="text-[10px] text-[#4a4845] hover:text-[#706e6b] transition-colors flex-shrink-0 underline underline-offset-2"
+              >
+                change
+              </button>
+            )}
+          </div>
 
           <span className="text-xs text-[#4a4845] flex-shrink-0">{puzzleIndex + 1}/{totalPuzzles}</span>
         </div>
@@ -553,40 +543,41 @@ export default function PuzzleBoard({
             )}
           </div>
 
-          {/* Rating */}
-          <div className="border-t border-[#2a2826] pt-4">
-            <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-3">Puzzle Rating</p>
-            <div className="flex items-end gap-3">
-              <span className="text-4xl font-black text-white tabular-nums leading-none">
-                {playerRating.toLocaleString()}
-              </span>
-              {ratingChange !== null && (
-                <span className={`text-sm font-bold pb-0.5 ${ratingChange >= 0 ? "text-[#81b64c]" : "text-[#ca3431]"}`}>
-                  {ratingChange >= 0 ? `+${ratingChange}` : ratingChange}
+          {/* Rating — only for random/weakness modes */}
+          {mode !== "blunders" && (
+            <div className="border-t border-[#2a2826] pt-4">
+              <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-3">Puzzle Rating</p>
+              <div className="flex items-end gap-3">
+                <span className="text-4xl font-black text-white tabular-nums leading-none">
+                  {playerRating.toLocaleString()}
                 </span>
+                {ratingChange !== null && (
+                  <span className={`text-sm font-bold pb-0.5 ${ratingChange >= 0 ? "text-[#81b64c]" : "text-[#ca3431]"}`}>
+                    {ratingChange >= 0 ? `+${ratingChange}` : ratingChange}
+                  </span>
+                )}
+              </div>
+              {puzzle.rating && (
+                <div className="mt-3">
+                  <div className="flex justify-between text-[11px] text-[#706e6b] mb-1">
+                    <span>Puzzle difficulty</span>
+                    <span>{puzzle.rating}</span>
+                  </div>
+                  <div className="h-1.5 bg-[#2a2826] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(100, Math.max(5, 50 + (puzzle.rating - playerRating) / 20))}%`,
+                        backgroundColor: puzzle.rating > playerRating + 200 ? "#ca3431"
+                          : puzzle.rating > playerRating ? "#dbac18"
+                          : "#81b64c",
+                      }}
+                    />
+                  </div>
+                </div>
               )}
             </div>
-            {/* Difficulty bar: puzzle rating vs player rating */}
-            {puzzle.rating && (
-              <div className="mt-3">
-                <div className="flex justify-between text-[11px] text-[#706e6b] mb-1">
-                  <span>Puzzle difficulty</span>
-                  <span>{puzzle.rating}</span>
-                </div>
-                <div className="h-1.5 bg-[#2a2826] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min(100, Math.max(5, 50 + (puzzle.rating - playerRating) / 20))}%`,
-                      backgroundColor: puzzle.rating > playerRating + 200 ? "#ca3431"
-                        : puzzle.rating > playerRating ? "#dbac18"
-                        : "#81b64c",
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Session stats */}
           <div className="border-t border-[#2a2826] pt-4 space-y-2.5">

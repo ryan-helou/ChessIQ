@@ -31,6 +31,7 @@ export default function PuzzlesPage() {
   const [sessionTotal, setSessionTotal] = useState(0);
   const [streak, setStreak] = useState(0);
   const [mode, setMode] = useState<PuzzleMode>("random");
+  const [modeSelected, setModeSelected] = useState(false);
   const [playerRating, setPlayerRating] = useState(1200);
   const [ratingChange, setRatingChange] = useState<number | null>(null);
 
@@ -142,8 +143,14 @@ export default function PuzzlesPage() {
     setMode(newMode);
     activeThemeRef.current = null;
     setActiveTheme(null);
+    setRatingChange(null);
     if (recommendation) buildQueue(recommendation, null, newMode);
   }, [recommendation, buildQueue]);
+
+  const handleSelectMode = useCallback((newMode: PuzzleMode) => {
+    handleModeChange(newMode);
+    setModeSelected(true);
+  }, [handleModeChange]);
 
   const currentPuzzle = puzzleQueue[currentIndex] ?? null;
 
@@ -153,7 +160,7 @@ export default function PuzzlesPage() {
     setStreak((s) => s + 1);
     if (currentPuzzle) {
       const id = currentPuzzle.id.replace(/^(lichess-|blunder-)/, "");
-      recordPuzzleAttempt(id, username, true, attempts, timeSeconds, currentPuzzle.rating)
+      recordPuzzleAttempt(id, username, true, attempts, timeSeconds, mode !== "blunders" ? currentPuzzle.rating : null)
         .then((result) => {
           if (result) {
             setPlayerRating(result.newRating);
@@ -168,7 +175,7 @@ export default function PuzzlesPage() {
     setStreak(0);
     if (currentPuzzle) {
       const id = currentPuzzle.id.replace(/^(lichess-|blunder-)/, "");
-      recordPuzzleAttempt(id, username, false, attempts, timeSeconds, currentPuzzle.rating)
+      recordPuzzleAttempt(id, username, false, attempts, timeSeconds, mode !== "blunders" ? currentPuzzle.rating : null)
         .then((result) => {
           if (result) {
             setPlayerRating(result.newRating);
@@ -223,6 +230,97 @@ export default function PuzzlesPage() {
     );
   }
 
+  const hasBlunders = (recommendation?.ownBlunderPuzzles?.length ?? 0) > 0;
+
+  if (!modeSelected) {
+    return (
+      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+        <Header username={username} />
+        <div className="flex items-center justify-center min-h-[80vh] px-4">
+          <div className="w-full max-w-2xl">
+            <h1 className="text-2xl font-black text-white text-center mb-2">Puzzle Training</h1>
+            <p className="text-[#706e6b] text-center text-sm mb-10">Choose how you want to train</p>
+            <div className="grid grid-cols-1 gap-4">
+
+              {/* Random */}
+              <button
+                onClick={() => handleSelectMode("random")}
+                className="group text-left bg-[#262522] hover:bg-[#2e2b28] border border-[#3a3835] hover:border-[#81b64c] rounded-2xl p-6 transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#81b64c]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#81b64c]/30 transition-colors">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#81b64c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-lg font-bold text-white">Random Puzzles</h2>
+                      <span className="text-[10px] font-bold text-[#81b64c] bg-[#81b64c]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
+                    </div>
+                    <p className="text-sm text-[#706e6b]">Classic puzzle training. Solve random positions and build your rating.</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-2xl font-black text-white">{playerRating.toLocaleString()}</div>
+                    <div className="text-[11px] text-[#706e6b]">your rating</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Weak Spots */}
+              <button
+                onClick={() => handleSelectMode("weakness")}
+                className="group text-left bg-[#262522] hover:bg-[#2e2b28] border border-[#3a3835] hover:border-[#e28c28] rounded-2xl p-6 transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#e28c28]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#e28c28]/30 transition-colors">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e28c28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-lg font-bold text-white">Weak Spots</h2>
+                      <span className="text-[10px] font-bold text-[#e28c28] bg-[#e28c28]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
+                    </div>
+                    <p className="text-sm text-[#706e6b]">Puzzles matched to the tactical patterns you miss most in your games.</p>
+                    {recommendation?.weaknesses?.[0] && (
+                      <p className="text-xs text-[#e28c28] mt-1.5">Top weakness: {recommendation.weaknesses[0].theme} ({recommendation.weaknesses[0].percentage}%)</p>
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {/* Blunders */}
+              {hasBlunders && (
+                <button
+                  onClick={() => handleSelectMode("blunders")}
+                  className="group text-left bg-[#262522] hover:bg-[#2e2b28] border border-[#3a3835] hover:border-[#ca3431] rounded-2xl p-6 transition-all"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-[#ca3431]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#ca3431]/30 transition-colors">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ca3431" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-lg font-bold text-white">My Blunders</h2>
+                        <span className="text-[10px] font-bold text-[#706e6b] bg-[#2a2826] px-2 py-0.5 rounded-full uppercase tracking-wide">Unrated</span>
+                      </div>
+                      <p className="text-sm text-[#706e6b]">Replay the exact positions from your own games where you made a mistake. No rating impact.</p>
+                      <p className="text-xs text-[#ca3431] mt-1.5">{recommendation?.ownBlunderPuzzles?.length} positions from your games</p>
+                    </div>
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-dvh flex flex-col bg-[#312e2b] text-[#e8e6e1] overflow-hidden">
       <Header username={username} />
@@ -244,7 +342,7 @@ export default function PuzzlesPage() {
             activeTheme={activeTheme}
             onThemeClick={handleThemeFilter}
             mode={mode}
-            onModeChange={handleModeChange}
+            onModeChange={() => setModeSelected(false)}
             hasBlunderPuzzles={(recommendation?.ownBlunderPuzzles?.length ?? 0) > 0}
             playerRating={playerRating}
             ratingChange={ratingChange}

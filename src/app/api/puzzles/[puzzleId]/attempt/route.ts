@@ -73,15 +73,16 @@ export async function POST(
       ).catch(() => {});
     });
 
-    // Calculate ELO change
+    // Only update ELO for rated modes (random / weak spots) — not blunders
     const currentRating = await getUserRating(username);
-    const pRating = typeof puzzleRating === "number" && puzzleRating > 0 ? puzzleRating : 1500;
-    const ratingChange = calcEloChange(currentRating, pRating, solved);
-    const newRating = Math.max(100, currentRating + ratingChange);
+    if (typeof puzzleRating === "number" && puzzleRating > 0) {
+      const ratingChange = calcEloChange(currentRating, puzzleRating, solved);
+      const newRating = Math.max(100, currentRating + ratingChange);
+      await updateUserRating(username, newRating);
+      return NextResponse.json({ success: true, ratingChange, newRating });
+    }
 
-    await updateUserRating(username, newRating);
-
-    return NextResponse.json({ success: true, ratingChange, newRating });
+    return NextResponse.json({ success: true, ratingChange: null, newRating: currentRating });
   } catch (error) {
     console.error("Error recording puzzle attempt:", error);
     return NextResponse.json({ success: false, ratingChange: 0, newRating: 1200 });
