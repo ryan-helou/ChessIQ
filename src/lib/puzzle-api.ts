@@ -44,10 +44,13 @@ export interface PuzzleStats {
 export interface PuzzleRecommendation {
   weaknesses: WeaknessProfile[];
   totalBlunders: number;
-  puzzles: Puzzle[];
+  puzzles: Puzzle[];          // weakness-targeted
+  randomPuzzles: Puzzle[];    // random from DB
   ownBlunderPuzzles: BlunderPuzzle[];
   stats: PuzzleStats;
 }
+
+export type PuzzleMode = "random" | "weakness" | "blunders";
 
 // Unified puzzle type for the trainer (covers both Lichess and own-blunder)
 export interface TrainerPuzzle {

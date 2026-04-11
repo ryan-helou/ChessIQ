@@ -10,6 +10,7 @@ import {
   lichessPuzzleToTrainer,
   blunderPuzzleToTrainer,
   type PuzzleRecommendation,
+  type PuzzleMode,
   type TrainerPuzzle,
 } from "@/lib/puzzle-api";
 
@@ -28,12 +29,12 @@ export default function PuzzlesPage() {
   const [sessionSolved, setSessionSolved] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [sourceFilter, setSourceFilter] = useState<"blunders" | "lichess">("lichess");
+  const [mode, setMode] = useState<PuzzleMode>("random");
 
   const seenIds = useRef(new Set<string>());
   const isFetching = useRef(false);
   const activeThemeRef = useRef<string | null>(null);
-  const sourceFilterRef = useRef<"blunders" | "lichess">("lichess");
+  const modeRef = useRef<PuzzleMode>("random");
 
   useEffect(() => {
     async function load() {
@@ -42,10 +43,10 @@ export default function PuzzlesPage() {
       try {
         const data = await getPuzzleRecommendations(username);
         setRecommendation(data);
-        const defaultSource = data.ownBlunderPuzzles.length > 0 ? "blunders" : "lichess";
-        setSourceFilter(defaultSource);
-        sourceFilterRef.current = defaultSource;
-        buildQueue(data, null, defaultSource);
+        const defaultMode: PuzzleMode = data.ownBlunderPuzzles.length > 0 ? "blunders" : "random";
+        setMode(defaultMode);
+        modeRef.current = defaultMode;
+        buildQueue(data, null, defaultMode);
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Failed to load puzzles");
       } finally {
@@ -59,19 +60,26 @@ export default function PuzzlesPage() {
   const buildQueue = useCallback((
     data: PuzzleRecommendation,
     themeFilter: string | null,
-    source: "blunders" | "lichess",
+    puzzleMode: PuzzleMode,
   ) => {
     seenIds.current.clear();
     const queue: TrainerPuzzle[] = [];
-    if (source === "blunders") {
+    if (puzzleMode === "blunders") {
       for (const bp of data.ownBlunderPuzzles) {
         if (themeFilter && bp.theme !== themeFilter) continue;
         const tp = blunderPuzzleToTrainer(bp);
         queue.push(tp);
         seenIds.current.add(tp.id);
       }
-    } else {
+    } else if (puzzleMode === "weakness") {
       for (const p of data.puzzles) {
+        if (themeFilter && !p.themes.includes(themeFilter)) continue;
+        const tp = lichessPuzzleToTrainer(p);
+        queue.push(tp);
+        seenIds.current.add(tp.id);
+      }
+    } else {
+      for (const p of data.randomPuzzles ?? []) {
         if (themeFilter && !p.themes.includes(themeFilter)) continue;
         const tp = lichessPuzzleToTrainer(p);
         queue.push(tp);
@@ -86,13 +94,14 @@ export default function PuzzlesPage() {
   }, []);
 
   const fetchMore = useCallback(async () => {
-    if (isFetching.current) return;
+    if (isFetching.current || modeRef.current === "blunders") return;
     isFetching.current = true;
     try {
       const data = await getPuzzleRecommendations(username);
       const theme = activeThemeRef.current;
+      const source = modeRef.current === "weakness" ? data.puzzles : (data.randomPuzzles ?? []);
       const newPuzzles: TrainerPuzzle[] = [];
-      for (const p of data.puzzles) {
+      for (const p of source) {
         if (theme && !p.themes.includes(theme)) continue;
         const tp = lichessPuzzleToTrainer(p);
         if (!seenIds.current.has(tp.id)) {
@@ -118,13 +127,15 @@ export default function PuzzlesPage() {
   const handleThemeFilter = useCallback((theme: string | null) => {
     activeThemeRef.current = theme;
     setActiveTheme(theme);
-    if (recommendation) buildQueue(recommendation, theme, sourceFilterRef.current);
+    if (recommendation) buildQueue(recommendation, theme, modeRef.current);
   }, [recommendation, buildQueue]);
 
-  const handleSourceFilter = useCallback((source: "blunders" | "lichess") => {
-    sourceFilterRef.current = source;
-    setSourceFilter(source);
-    if (recommendation) buildQueue(recommendation, activeThemeRef.current, source);
+  const handleModeChange = useCallback((newMode: PuzzleMode) => {
+    modeRef.current = newMode;
+    setMode(newMode);
+    activeThemeRef.current = null;
+    setActiveTheme(null);
+    if (recommendation) buildQueue(recommendation, null, newMode);
   }, [recommendation, buildQueue]);
 
   const currentPuzzle = puzzleQueue[currentIndex] ?? null;
@@ -211,8 +222,8 @@ export default function PuzzlesPage() {
             weaknesses={recommendation?.weaknesses}
             activeTheme={activeTheme}
             onThemeClick={handleThemeFilter}
-            sourceFilter={sourceFilter}
-            onSourceFilter={handleSourceFilter}
+            mode={mode}
+            onModeChange={handleModeChange}
             hasBlunderPuzzles={(recommendation?.ownBlunderPuzzles?.length ?? 0) > 0}
             username={username}
           />

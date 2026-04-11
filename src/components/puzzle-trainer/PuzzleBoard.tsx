@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Chess } from "chess.js";
-import type { TrainerPuzzle, WeaknessProfile } from "@/lib/puzzle-api";
+import type { TrainerPuzzle, WeaknessProfile, PuzzleMode } from "@/lib/puzzle-api";
 import { THEME_LABELS, THEME_COLORS } from "@/lib/puzzle-api";
 
 const THEME_DESCRIPTIONS: Record<string, string> = {
@@ -59,8 +59,8 @@ interface Props {
   weaknesses?: WeaknessProfile[];
   activeTheme?: string | null;
   onThemeClick?: (theme: string | null) => void;
-  sourceFilter?: "blunders" | "lichess";
-  onSourceFilter?: (source: "blunders" | "lichess") => void;
+  mode?: PuzzleMode;
+  onModeChange?: (mode: PuzzleMode) => void;
   hasBlunderPuzzles?: boolean;
   username?: string;
 }
@@ -92,8 +92,8 @@ export default function PuzzleBoard({
   weaknesses,
   activeTheme,
   onThemeClick,
-  sourceFilter = "lichess",
-  onSourceFilter,
+  mode = "random",
+  onModeChange,
   hasBlunderPuzzles = false,
   username,
 }: Props) {
@@ -470,17 +470,18 @@ export default function PuzzleBoard({
           ) : <div className="w-4" />}
 
           {/* Mode tabs */}
-          {onSourceFilter ? (
+          {onModeChange ? (
             <div className="flex-1 flex bg-[#2a2826] rounded-lg p-0.5 gap-0.5">
               {([
-                { src: "blunders" as const, label: "My Blunders", show: hasBlunderPuzzles },
-                { src: "lichess" as const, label: "New Puzzles", show: true },
-              ].filter(t => t.show)).map(({ src, label }) => (
+                { m: "random" as PuzzleMode, label: "Random" },
+                { m: "weakness" as PuzzleMode, label: "Weak Spots" },
+                ...(hasBlunderPuzzles ? [{ m: "blunders" as PuzzleMode, label: "Blunders" }] : []),
+              ]).map(({ m, label }) => (
                 <button
-                  key={src}
-                  onClick={() => sourceFilter !== src && onSourceFilter(src)}
+                  key={m}
+                  onClick={() => mode !== m && onModeChange(m)}
                   className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                    sourceFilter === src || (!hasBlunderPuzzles && src === "lichess" && sourceFilter !== "blunders")
+                    mode === m
                       ? "bg-[#1e1c1a] text-white shadow-sm"
                       : "text-[#706e6b] hover:text-[#989795]"
                   }`}

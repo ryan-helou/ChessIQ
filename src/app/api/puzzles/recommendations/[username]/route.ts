@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-async function fetchDbPuzzles(themes: string[], count: number, rating: number): Promise<any[]> {
+async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number): Promise<any[]> {
   try {
-    const result = await query(
-      `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-       FROM puzzles
-       WHERE themes && $1::TEXT[]
-       ORDER BY RANDOM()
-       LIMIT $2`,
-      [themes, count]
-    );
+    const result = themes && themes.length > 0
+      ? await query(
+          `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+           FROM puzzles
+           WHERE themes && $1::TEXT[]
+           ORDER BY RANDOM()
+           LIMIT $2`,
+          [themes, count]
+        )
+      : await query(
+          `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+           FROM puzzles
+           ORDER BY RANDOM()
+           LIMIT $1`,
+          [count]
+        );
     return result.rows.map((p: any) => ({
       id: p.id,
       fen: p.fen,
@@ -67,6 +75,7 @@ export async function GET(
         weaknesses: [],
         totalBlunders: 0,
         puzzles: [],
+        randomPuzzles: [],
         ownBlunderPuzzles: [],
         stats: {
           totalAttempted: 0,
@@ -82,11 +91,15 @@ export async function GET(
     // If no blunders yet, return general puzzles from local DB
     if (totalBlunders === 0) {
       const generalThemes = ["fork", "pin", "skewer", "hangingPiece", "mate"];
-      const fallbackPuzzles = await fetchDbPuzzles(generalThemes, limit, rating);
+      const [fallbackPuzzles, randomPuzzles] = await Promise.all([
+        fetchDbPuzzles(generalThemes, limit, rating),
+        fetchDbPuzzles(null, limit, rating),
+      ]);
       return NextResponse.json({
         weaknesses: [],
         totalBlunders: 0,
         puzzles: fallbackPuzzles,
+        randomPuzzles,
         ownBlunderPuzzles: [],
         stats: { totalAttempted: 0, totalSolved: 0, solveRate: 0, byTheme: [] },
       });
@@ -135,16 +148,17 @@ export async function GET(
         percentage: totalBlunders > 0 ? Math.round((count / totalBlunders) * 100) : 0,
       }));
 
-    // Get Lichess puzzles for top weakness themes
+    // Fetch weakness-targeted puzzles and random puzzles in parallel
     let puzzles: Puzzle[] = [];
-    if (weaknesses.length > 0) {
-      try {
-        const topThemes = weaknesses.map((w) => w.theme);
-
-        puzzles = await fetchDbPuzzles(topThemes, limit, rating);
-      } catch (err) {
-        console.error("Error fetching puzzles:", err);
-      }
+    let randomPuzzles: Puzzle[] = [];
+    try {
+      const topThemes = weaknesses.map((w) => w.theme);
+      [puzzles, randomPuzzles] = await Promise.all([
+        topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating) : Promise.resolve([]),
+        fetchDbPuzzles(null, limit, rating),
+      ]);
+    } catch (err) {
+      console.error("Error fetching puzzles:", err);
     }
 
     // Get user's puzzle attempt stats
@@ -190,6 +204,7 @@ export async function GET(
       weaknesses,
       totalBlunders,
       puzzles,
+      randomPuzzles,
       ownBlunderPuzzles: Array.from(ownBlunderMap.values()),
       stats,
     };
@@ -202,6 +217,7 @@ export async function GET(
         weaknesses: [],
         totalBlunders: 0,
         puzzles: [],
+        randomPuzzles: [],
         ownBlunderPuzzles: [],
         stats: {
           totalAttempted: 0,
