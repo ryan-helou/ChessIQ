@@ -556,31 +556,46 @@ export default function PuzzleBoard({
             </div>
           )}
 
-          {/* Theme filter */}
+          {/* Weaknesses breakdown + theme filter */}
           {weaknesses && weaknesses.length > 0 && onThemeClick && (
             <div className="border-t border-[#2a2826] pt-4">
-              <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-2.5">Filter by theme</p>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => onThemeClick(null)}
-                  className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
-                    !activeTheme ? "bg-[#81b64c] text-white" : "bg-[#2a2826] text-[#989795] hover:text-white"
-                  }`}
-                >
-                  All
-                </button>
-                {weaknesses.map((w) => (
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider">Your Weaknesses</p>
+                {activeTheme && (
                   <button
-                    key={w.theme}
-                    onClick={() => onThemeClick(w.theme)}
-                    className={`text-xs px-2.5 py-1 rounded-full font-semibold transition-colors ${
-                      activeTheme === w.theme ? "text-white" : "bg-[#2a2826] text-[#989795] hover:text-white"
-                    }`}
-                    style={activeTheme === w.theme ? { backgroundColor: THEME_COLORS[w.theme] ?? "#706e6b" } : {}}
+                    onClick={() => onThemeClick(null)}
+                    className="text-[10px] text-[#706e6b] hover:text-[#989795] transition-colors"
                   >
-                    {THEME_LABELS[w.theme] ?? w.theme}
+                    Clear filter
                   </button>
-                ))}
+                )}
+              </div>
+              <div className="space-y-2">
+                {weaknesses.map((w) => {
+                  const isActive = activeTheme === w.theme;
+                  const color = THEME_COLORS[w.theme] ?? "#706e6b";
+                  const label = THEME_LABELS[w.theme] ?? w.theme;
+                  return (
+                    <button
+                      key={w.theme}
+                      onClick={() => onThemeClick(isActive ? null : w.theme)}
+                      className={`w-full text-left group transition-opacity ${isActive ? "opacity-100" : activeTheme ? "opacity-50 hover:opacity-80" : "opacity-100"}`}
+                    >
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className={`text-xs font-semibold ${isActive ? "text-white" : "text-[#989795] group-hover:text-white"} transition-colors`}>
+                          {label}
+                        </span>
+                        <span className="text-[11px] text-[#706e6b] font-mono">{w.percentage}%</span>
+                      </div>
+                      <div className="h-1.5 bg-[#2a2826] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{ width: `${w.percentage}%`, backgroundColor: isActive ? color : "#4a4845" }}
+                        />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
