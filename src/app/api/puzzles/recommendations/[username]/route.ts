@@ -1,23 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number): Promise<any[]> {
+async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number, username?: string): Promise<any[]> {
   try {
     const result = themes && themes.length > 0
       ? await query(
           `SELECT id, fen, moves, rating, themes, opening_tags, move_count
            FROM puzzles
            WHERE themes && $1::TEXT[]
+             AND ($3::TEXT IS NULL OR id NOT IN (
+               SELECT puzzle_id FROM puzzle_attempts WHERE username = $3
+             ))
            ORDER BY RANDOM()
            LIMIT $2`,
-          [themes, count]
+          [themes, count, username ?? null]
         )
       : await query(
           `SELECT id, fen, moves, rating, themes, opening_tags, move_count
            FROM puzzles
+           WHERE ($2::TEXT IS NULL OR id NOT IN (
+             SELECT puzzle_id FROM puzzle_attempts WHERE username = $2
+           ))
            ORDER BY RANDOM()
            LIMIT $1`,
-          [count]
+          [count, username ?? null]
         );
     return result.rows.map((p: any) => ({
       id: p.id,
@@ -92,8 +98,8 @@ export async function GET(
     if (totalBlunders === 0) {
       const generalThemes = ["fork", "pin", "skewer", "hangingPiece", "mate"];
       const [fallbackPuzzles, randomPuzzles] = await Promise.all([
-        fetchDbPuzzles(generalThemes, limit, rating),
-        fetchDbPuzzles(null, limit, rating),
+        fetchDbPuzzles(generalThemes, limit, rating, username),
+        fetchDbPuzzles(null, limit, rating, username),
       ]);
       return NextResponse.json({
         weaknesses: [],
@@ -154,8 +160,8 @@ export async function GET(
     try {
       const topThemes = weaknesses.map((w) => w.theme);
       [puzzles, randomPuzzles] = await Promise.all([
-        topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating) : Promise.resolve([]),
-        fetchDbPuzzles(null, limit, rating),
+        topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating, username) : Promise.resolve([]),
+        fetchDbPuzzles(null, limit, rating, username),
       ]);
     } catch (err) {
       console.error("Error fetching puzzles:", err);
