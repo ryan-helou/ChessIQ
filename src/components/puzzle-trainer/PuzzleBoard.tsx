@@ -421,13 +421,17 @@ export default function PuzzleBoard({
   })();
 
   return (
-    <div className="flex flex-col lg:flex-row w-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
+    <div className="flex flex-col lg:flex-row w-full h-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
 
       {/* ── Board ── */}
-      <div className="flex-1 min-w-0 bg-[#312e2b] flex items-center justify-center">
+      <div className="flex-1 min-w-0 min-h-0 bg-[#312e2b] flex items-center justify-center">
         <div
-          className="w-full aspect-square"
-          style={{ maxWidth: "min(560px, calc(100dvh - 160px))" }}
+          style={{
+            height: "100%",
+            maxHeight: "560px",
+            aspectRatio: "1",
+            maxWidth: "100%",
+          }}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {(() => {
@@ -453,7 +457,7 @@ export default function PuzzleBoard({
       </div>
 
       {/* ── Sidebar ── */}
-      <div className="flex flex-col bg-[#1e1c1a] lg:w-[300px] w-full flex-shrink-0">
+      <div className="flex flex-col bg-[#1e1c1a] lg:w-[300px] w-full flex-shrink-0 h-full">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-3 border-b border-[#2a2826]">

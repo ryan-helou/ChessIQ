@@ -190,9 +190,9 @@ export default function PuzzlesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+    <div className="h-dvh flex flex-col bg-[#312e2b] text-[#e8e6e1] overflow-hidden">
       <Header username={username} />
-      <div className="max-w-5xl mx-auto px-4 py-4">
+      <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 py-4 flex flex-col">
         {currentPuzzle && (
           <PuzzleBoard
             key={currentPuzzle.id}
