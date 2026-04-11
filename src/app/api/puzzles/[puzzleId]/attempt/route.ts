@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
-/** ELO-style rating change for puzzle training (K=20, like Chess.com) */
-function calcEloChange(playerRating: number, puzzleRating: number, solved: boolean): number {
-  const K = 20;
-  const expected = 1 / (1 + Math.pow(10, (puzzleRating - playerRating) / 400));
-  const actual = solved ? 1 : 0;
-  return Math.round(K * (actual - expected));
+/**
+ * Chess.com-style puzzle rating gain — always positive, first try = big bonus.
+ *
+ * First try:        75–125 pts  (scales with puzzle difficulty vs player rating)
+ * Wrong then right:  5–15 pts
+ * Gave up:            2 pts  (minimum — still earn something)
+ */
+function calcRatingGain(playerRating: number, puzzleRating: number, solved: boolean, attempts: number): number {
+  if (!solved) return 2;
+
+  // Difficulty offset: ±25 for first try, ±5 for multi-attempt, capped at ±400 rating diff
+  const diff = Math.max(-400, Math.min(400, puzzleRating - playerRating));
+
+  if (attempts === 1) {
+    // Base 100, ±25 based on difficulty → range 75–125
+    return Math.round(100 + (diff / 400) * 25);
+  }
+
+  // Base 10, ±5 based on difficulty → range 5–15
+  return Math.round(10 + (diff / 400) * 5);
 }
 
 async function ensureRatingTable() {
@@ -76,7 +90,7 @@ export async function POST(
     // Only update ELO for rated modes (random / weak spots) — not blunders
     const currentRating = await getUserRating(username);
     if (typeof puzzleRating === "number" && puzzleRating > 0) {
-      const ratingChange = calcEloChange(currentRating, puzzleRating, solved);
+      const ratingChange = calcRatingGain(currentRating, puzzleRating, solved, attempts || 1);
       const newRating = Math.max(100, currentRating + ratingChange);
       await updateUserRating(username, newRating);
       return NextResponse.json({ success: true, ratingChange, newRating });
