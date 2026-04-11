@@ -217,12 +217,17 @@ export function lichessPuzzleToTrainer(puzzle: Puzzle): TrainerPuzzle {
  * Own-blunder puzzles: show the position, player must find the best move.
  */
 export function blunderPuzzleToTrainer(puzzle: BlunderPuzzle): TrainerPuzzle {
+  // Estimate difficulty from how big the blunder was: 300cp→1200, 600cp→1500, 900cp→1800
+  const estimatedRating = puzzle.evalDrop
+    ? Math.round(Math.min(2400, Math.max(800, 900 + puzzle.evalDrop * 1.0)))
+    : 1500;
+
   return {
     id: `blunder-${puzzle.gameId}-${puzzle.moveNumber}`,
     fen: puzzle.fen,
     solutionMoves: [puzzle.bestMove],
     opponentMoves: [],
-    rating: null,
+    rating: estimatedRating,
     themes: puzzle.theme ? [puzzle.theme] : [],
     source: "own-blunder",
     sourceLabel: "From your game",

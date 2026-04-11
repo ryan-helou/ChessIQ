@@ -160,7 +160,7 @@ export default function PuzzlesPage() {
     setStreak((s) => s + 1);
     if (currentPuzzle) {
       const id = currentPuzzle.id.replace(/^(lichess-|blunder-)/, "");
-      recordPuzzleAttempt(id, username, true, attempts, timeSeconds, mode !== "blunders" ? currentPuzzle.rating : null)
+      recordPuzzleAttempt(id, username, true, attempts, timeSeconds, currentPuzzle.rating)
         .then((result) => {
           if (result) {
             setPlayerRating(result.newRating);
@@ -175,7 +175,7 @@ export default function PuzzlesPage() {
     setStreak(0);
     if (currentPuzzle) {
       const id = currentPuzzle.id.replace(/^(lichess-|blunder-)/, "");
-      recordPuzzleAttempt(id, username, false, attempts, timeSeconds, mode !== "blunders" ? currentPuzzle.rating : null)
+      recordPuzzleAttempt(id, username, false, attempts, timeSeconds, currentPuzzle.rating)
         .then((result) => {
           if (result) {
             setPlayerRating(result.newRating);
@@ -306,9 +306,9 @@ export default function PuzzlesPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h2 className="text-lg font-bold text-white">My Blunders</h2>
-                        <span className="text-[10px] font-bold text-[#706e6b] bg-[#2a2826] px-2 py-0.5 rounded-full uppercase tracking-wide">Unrated</span>
+                        <span className="text-[10px] font-bold text-[#ca3431] bg-[#ca3431]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
                       </div>
-                      <p className="text-sm text-[#706e6b]">Replay the exact positions from your own games where you made a mistake. No rating impact.</p>
+                      <p className="text-sm text-[#706e6b]">Replay the exact positions from your own games where you made a mistake.</p>
                       <p className="text-xs text-[#ca3431] mt-1.5">{recommendation?.ownBlunderPuzzles?.length} positions from your games</p>
                     </div>
                   </div>

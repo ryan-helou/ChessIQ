@@ -543,9 +543,8 @@ export default function PuzzleBoard({
             )}
           </div>
 
-          {/* Rating — only for random/weakness modes */}
-          {mode !== "blunders" && (
-            <div className="border-t border-[#2a2826] pt-4">
+          {/* Rating */}
+          <div className="border-t border-[#2a2826] pt-4">
               <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-3">Puzzle Rating</p>
               <div className="flex items-end gap-3">
                 <span className="text-4xl font-black text-white tabular-nums leading-none">
@@ -577,7 +576,6 @@ export default function PuzzleBoard({
                 </div>
               )}
             </div>
-          )}
 
           {/* Session stats */}
           <div className="border-t border-[#2a2826] pt-4 space-y-2.5">
