@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import PuzzleBoard from "@/components/puzzle-trainer/PuzzleBoard";
 import {
   getPuzzleRecommendations,
+  getUserPuzzleRating,
   recordPuzzleAttempt,
   lichessPuzzleToTrainer,
   blunderPuzzleToTrainer,
@@ -30,6 +31,8 @@ export default function PuzzlesPage() {
   const [sessionTotal, setSessionTotal] = useState(0);
   const [streak, setStreak] = useState(0);
   const [mode, setMode] = useState<PuzzleMode>("random");
+  const [playerRating, setPlayerRating] = useState(1200);
+  const [ratingChange, setRatingChange] = useState<number | null>(null);
 
   const seenIds = useRef(new Set<string>());
   const isFetching = useRef(false);
@@ -41,8 +44,12 @@ export default function PuzzlesPage() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getPuzzleRecommendations(username);
+        const [data, rating] = await Promise.all([
+          getPuzzleRecommendations(username),
+          getUserPuzzleRating(username),
+        ]);
         setRecommendation(data);
+        setPlayerRating(rating);
         const defaultMode: PuzzleMode = data.ownBlunderPuzzles.length > 0 ? "blunders" : "random";
         setMode(defaultMode);
         modeRef.current = defaultMode;
@@ -146,7 +153,13 @@ export default function PuzzlesPage() {
     setStreak((s) => s + 1);
     if (currentPuzzle) {
       const id = currentPuzzle.id.replace(/^(lichess-|blunder-)/, "");
-      recordPuzzleAttempt(id, username, true, attempts, timeSeconds).catch(() => {});
+      recordPuzzleAttempt(id, username, true, attempts, timeSeconds, currentPuzzle.rating)
+        .then((result) => {
+          if (result) {
+            setPlayerRating(result.newRating);
+            setRatingChange(result.ratingChange);
+          }
+        }).catch(() => {});
     }
   }, [currentPuzzle, username]);
 
@@ -155,13 +168,21 @@ export default function PuzzlesPage() {
     setStreak(0);
     if (currentPuzzle) {
       const id = currentPuzzle.id.replace(/^(lichess-|blunder-)/, "");
-      recordPuzzleAttempt(id, username, false, attempts, timeSeconds).catch(() => {});
+      recordPuzzleAttempt(id, username, false, attempts, timeSeconds, currentPuzzle.rating)
+        .then((result) => {
+          if (result) {
+            setPlayerRating(result.newRating);
+            setRatingChange(result.ratingChange);
+          }
+        }).catch(() => {});
     }
   }, [currentPuzzle, username]);
 
   const handleNext = useCallback(() => {
+    setRatingChange(null);
     setCurrentIndex((i) => Math.min(i + 1, puzzleQueue.length - 1));
   }, [puzzleQueue.length]);
+
 
   if (loading) {
     return (
@@ -225,6 +246,8 @@ export default function PuzzlesPage() {
             mode={mode}
             onModeChange={handleModeChange}
             hasBlunderPuzzles={(recommendation?.ownBlunderPuzzles?.length ?? 0) > 0}
+            playerRating={playerRating}
+            ratingChange={ratingChange}
             username={username}
           />
         )}

@@ -62,6 +62,8 @@ interface Props {
   mode?: PuzzleMode;
   onModeChange?: (mode: PuzzleMode) => void;
   hasBlunderPuzzles?: boolean;
+  playerRating?: number;
+  ratingChange?: number | null;
   username?: string;
 }
 
@@ -95,6 +97,8 @@ export default function PuzzleBoard({
   mode = "random",
   onModeChange,
   hasBlunderPuzzles = false,
+  playerRating = 1200,
+  ratingChange = null,
   username,
 }: Props) {
   const chessRef = useRef(new Chess(puzzle.fen));
@@ -545,6 +549,41 @@ export default function PuzzleBoard({
                 >
                   {themeLabel}
                 </span>
+              </div>
+            )}
+          </div>
+
+          {/* Rating */}
+          <div className="border-t border-[#2a2826] pt-4">
+            <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-3">Puzzle Rating</p>
+            <div className="flex items-end gap-3">
+              <span className="text-4xl font-black text-white tabular-nums leading-none">
+                {playerRating.toLocaleString()}
+              </span>
+              {ratingChange !== null && (
+                <span className={`text-sm font-bold pb-0.5 ${ratingChange >= 0 ? "text-[#81b64c]" : "text-[#ca3431]"}`}>
+                  {ratingChange >= 0 ? `+${ratingChange}` : ratingChange}
+                </span>
+              )}
+            </div>
+            {/* Difficulty bar: puzzle rating vs player rating */}
+            {puzzle.rating && (
+              <div className="mt-3">
+                <div className="flex justify-between text-[11px] text-[#706e6b] mb-1">
+                  <span>Puzzle difficulty</span>
+                  <span>{puzzle.rating}</span>
+                </div>
+                <div className="h-1.5 bg-[#2a2826] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min(100, Math.max(5, 50 + (puzzle.rating - playerRating) / 20))}%`,
+                      backgroundColor: puzzle.rating > playerRating + 200 ? "#ca3431"
+                        : puzzle.rating > playerRating ? "#dbac18"
+                        : "#81b64c",
+                    }}
+                  />
+                </div>
               </div>
             )}
           </div>

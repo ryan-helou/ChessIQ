@@ -146,19 +146,34 @@ export async function recordPuzzleAttempt(
   username: string,
   solved: boolean,
   attempts: number,
-  timeSeconds: number | null
-): Promise<void> {
-  const res = await fetch(
-    `/api/puzzles/${encodeURIComponent(puzzleId)}/attempt`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, solved, attempts, timeSeconds }),
-    }
-  );
+  timeSeconds: number | null,
+  puzzleRating?: number | null,
+): Promise<{ ratingChange: number; newRating: number } | null> {
+  try {
+    const res = await fetch(
+      `/api/puzzles/${encodeURIComponent(puzzleId)}/attempt`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, solved, attempts, timeSeconds, puzzleRating }),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { ratingChange: data.ratingChange ?? 0, newRating: data.newRating ?? 1200 };
+  } catch {
+    return null;
+  }
+}
 
-  if (!res.ok) {
-    throw new Error(`Failed to record puzzle attempt: ${res.status}`);
+export async function getUserPuzzleRating(username: string): Promise<number> {
+  try {
+    const res = await fetch(`/api/puzzles/rating?username=${encodeURIComponent(username)}`);
+    if (!res.ok) return 1200;
+    const data = await res.json();
+    return data.rating ?? 1200;
+  } catch {
+    return 1200;
   }
 }
 
