@@ -35,6 +35,17 @@ async function _init(): Promise<void> {
     )
   `, []);
 
+  // Schema migrations — idempotent column additions
+  const alter = (sql: string) => query(sql, []).catch(() => {});
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS analysis_cache JSONB`);
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS white_elo INTEGER`);
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS black_elo INTEGER`);
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS time_class TEXT`);
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS eco TEXT`);
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS opening TEXT`);
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS played_at TIMESTAMPTZ`);
+  await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS result TEXT`);
+
   // Indexes — all wrapped in catch so a missing table never blocks startup
   const idx = (sql: string) => query(sql, []).catch(() => {});
 

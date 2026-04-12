@@ -31,7 +31,7 @@ const THEME_DESCRIPTIONS: Record<string, string> = {
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
-  { ssr: false, loading: () => <div className="w-full aspect-square bg-[#222136]/40 animate-pulse rounded" /> }
+  { ssr: false, loading: () => <div className="w-full aspect-square bg-[var(--border)]/40 animate-pulse rounded" /> }
 );
 
 type Phase =
@@ -430,7 +430,7 @@ function PuzzleBoard({
     <div className="flex flex-col lg:flex-row w-full h-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
 
       {/* ── Board ── */}
-      <div className="flex-1 min-w-0 min-h-0 bg-[#09090f] flex items-center justify-center">
+      <div className="flex-1 min-w-0 min-h-0 bg-[var(--bg)] flex items-center justify-center">
         <div
           style={{
             height: "100%",
@@ -463,12 +463,12 @@ function PuzzleBoard({
       </div>
 
       {/* ── Sidebar ── */}
-      <div className="flex flex-col bg-[#0e0d16] lg:w-[300px] w-full flex-shrink-0 h-full">
+      <div className="flex flex-col bg-[var(--bg-overlay,#0e0d16)] lg:w-[300px] w-full flex-shrink-0 h-full">
 
         {/* Header */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#13121c]">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--bg-card)]">
           {username ? (
-            <Link href={`/player/${username}`} className="text-[#524f68] hover:text-[#9896b4] transition-colors flex-shrink-0">
+            <Link href={`/player/${username}`} className="text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors flex-shrink-0">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5M12 5l-7 7 7 7"/>
               </svg>
@@ -483,14 +483,14 @@ function PuzzleBoard({
             {onModeChange && (
               <button
                 onClick={() => onModeChange(mode)} // page intercepts this to go back to picker
-                className="text-[10px] text-[#2e2c44] hover:text-[#524f68] transition-colors flex-shrink-0 underline underline-offset-2"
+                className="text-[10px] text-[var(--text-4)] hover:text-[var(--text-3)] transition-colors flex-shrink-0 underline underline-offset-2"
               >
                 change
               </button>
             )}
           </div>
 
-          <span className="text-xs text-[#2e2c44] flex-shrink-0">{puzzleIndex + 1}/{totalPuzzles}</span>
+          <span className="text-xs text-[var(--text-4)] flex-shrink-0">{puzzleIndex + 1}/{totalPuzzles}</span>
         </div>
 
         {/* Content — scrollable if needed */}
@@ -498,13 +498,13 @@ function PuzzleBoard({
 
           {/* Status bubble */}
           <div className={`rounded-xl p-4 transition-colors duration-300 ${
-            phase === "solved" ? "bg-[#1e3a12]" :
-            phase === "done" ? "bg-[#1a2a10]" :
-            "bg-[#13121c]"
+            phase === "solved" ? "bg-[var(--win)]/10" :
+            phase === "done" ? "bg-[var(--win)]/8" :
+            "bg-[var(--bg-card)]"
           }`}>
             <div className="flex items-center gap-2.5 mb-1.5">
               <div className={`w-4 h-4 rounded-sm border flex-shrink-0 ${
-                orientation === "white" ? "bg-white border-[#aaa]" : "bg-[#0e0d16] border-[#555]"
+                orientation === "white" ? "bg-white border-[#aaa]" : "bg-[var(--bg-overlay,#0e0d16)] border-[#555]"
               }`} />
               <span className="text-base font-bold text-white">{statusLine.heading}</span>
             </div>
@@ -524,17 +524,17 @@ function PuzzleBoard({
           <div className="space-y-2">
             {puzzle.rating && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#524f68]">Rating</span>
+                <span className="text-[var(--text-3)]">Rating</span>
                 <span className="font-bold text-white">{puzzle.rating}</span>
               </div>
             )}
             <div className="flex justify-between text-sm">
-              <span className="text-[#524f68]">Source</span>
+              <span className="text-[var(--text-3)]">Source</span>
               <span className="text-[#f0ede4] text-xs">{puzzle.sourceLabel}</span>
             </div>
             {themeLabel && (
               <div className="flex justify-between text-sm items-center">
-                <span className="text-[#524f68]">Theme</span>
+                <span className="text-[var(--text-3)]">Theme</span>
                 <span
                   className="text-xs font-bold text-white px-2.5 py-0.5 rounded-full"
                   style={{ backgroundColor: themeColor }}
@@ -546,8 +546,8 @@ function PuzzleBoard({
           </div>
 
           {/* Rating */}
-          <div className="border-t border-[#13121c] pt-4">
-              <p className="text-xs font-bold text-[#2e2c44] uppercase tracking-wider mb-3">Puzzle Rating</p>
+          <div className="border-t border-[var(--bg-card)] pt-4">
+              <p className="text-xs font-bold text-[var(--text-4)] uppercase tracking-wider mb-3">Puzzle Rating</p>
               <div className="flex items-end gap-3">
                 <span className="text-4xl font-black text-white tabular-nums leading-none">
                   {playerRating.toLocaleString()}
@@ -560,7 +560,7 @@ function PuzzleBoard({
               </div>
               {puzzle.rating && (
                 <div className="mt-3">
-                  <div className="flex justify-between text-[11px] text-[#524f68] mb-1">
+                  <div className="flex justify-between text-[11px] text-[var(--text-3)] mb-1">
                     <span>Puzzle difficulty</span>
                     <span>{puzzle.rating}</span>
                   </div>
@@ -580,15 +580,15 @@ function PuzzleBoard({
             </div>
 
           {/* Session stats */}
-          <div className="border-t border-[#13121c] pt-4 space-y-2.5">
-            <p className="text-xs font-bold text-[#2e2c44] uppercase tracking-wider">Session</p>
+          <div className="border-t border-[var(--bg-card)] pt-4 space-y-2.5">
+            <p className="text-xs font-bold text-[var(--text-4)] uppercase tracking-wider">Session</p>
             {[
               ["Solved", `${sessionSolved} / ${sessionTotal}`],
               ["Streak", streak > 0 ? `🔥 ${streak}` : "0"],
               ["Accuracy", sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—"],
             ].map(([label, value]) => (
               <div key={label as string} className="flex justify-between text-sm">
-                <span className="text-[#524f68]">{label}</span>
+                <span className="text-[var(--text-3)]">{label}</span>
                 <span className="font-bold text-white">{value}</span>
               </div>
             ))}
@@ -596,13 +596,13 @@ function PuzzleBoard({
 
           {/* Weaknesses breakdown + theme filter */}
           {weaknesses && weaknesses.length > 0 && onThemeClick && (
-            <div className="border-t border-[#13121c] pt-4">
+            <div className="border-t border-[var(--bg-card)] pt-4">
               <div className="flex items-center justify-between mb-2.5">
-                <p className="text-xs font-bold text-[#2e2c44] uppercase tracking-wider">Your Weaknesses</p>
+                <p className="text-xs font-bold text-[var(--text-4)] uppercase tracking-wider">Your Weaknesses</p>
                 {activeTheme && (
                   <button
                     onClick={() => onThemeClick(null)}
-                    className="text-[10px] text-[#524f68] hover:text-[#9896b4] transition-colors"
+                    className="text-[10px] text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors"
                   >
                     Clear filter
                   </button>
@@ -623,7 +623,7 @@ function PuzzleBoard({
                         <span className={`text-xs font-semibold ${isActive ? "text-white" : "text-[#9896b4] group-hover:text-white"} transition-colors`}>
                           {label}
                         </span>
-                        <span className="text-[11px] text-[#524f68] font-mono">{w.percentage}%</span>
+                        <span className="text-[11px] text-[var(--text-3)] font-mono">{w.percentage}%</span>
                       </div>
                       <div className="h-1.5 bg-[#13121c] rounded-full overflow-hidden">
                         <div
@@ -639,7 +639,7 @@ function PuzzleBoard({
           )}
 
           {/* Timer */}
-          <div className="flex items-center gap-2 text-[#524f68] text-sm">
+          <div className="flex items-center gap-2 text-[var(--text-3)] text-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
@@ -648,7 +648,7 @@ function PuzzleBoard({
         </div>
 
         {/* Footer — action buttons always at bottom */}
-        <div className="px-5 py-4 border-t border-[#13121c] flex flex-col gap-2">
+        <div className="px-5 py-4 border-t border-[var(--bg-card)] flex flex-col gap-2">
           {isDone ? (
             <button
               onClick={onNext}
@@ -674,14 +674,14 @@ function PuzzleBoard({
                   className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
                     hintUsed
                       ? "bg-[#13121c] hover:bg-[#222136] text-[#9896b4]"
-                      : "bg-[#0e0d16] text-[#222136] cursor-not-allowed"
+                      : "bg-[var(--bg-overlay,#0e0d16)] text-[#222136] cursor-not-allowed"
                   }`}
                 >
                   Solution
                 </button>
                 <button
                   onClick={onSkip}
-                  className="flex-1 py-2.5 bg-[#13121c] hover:bg-[#222136] text-[#524f68] rounded-lg text-xs font-semibold transition-colors"
+                  className="flex-1 py-2.5 bg-[#13121c] hover:bg-[#222136] text-[var(--text-3)] rounded-lg text-xs font-semibold transition-colors"
                 >
                   Skip
                 </button>

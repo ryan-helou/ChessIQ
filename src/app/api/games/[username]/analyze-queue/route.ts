@@ -3,6 +3,7 @@ export const maxDuration = 30;
 import { NextRequest, NextResponse } from "next/server";
 import { getAllGames } from "@/lib/chess-com-api";
 import { query } from "@/lib/db";
+import { ensureDbInit } from "@/lib/db-init";
 
 function usernameToUserId(username: string): string {
   let h = 0;
@@ -30,6 +31,9 @@ export async function POST(
     const rawCount = body.gameCount ?? 20;
     const months = Math.max(1, Math.min(12, Number(rawMonths) || 1));
     const gameCount = rawCount === "all" ? "all" : Math.max(1, Math.min(200, Number(rawCount) || 20));
+
+    // Ensure schema columns exist before inserting
+    await ensureDbInit().catch(() => {});
 
     // Fetch games from Chess.com
     const chesscomGames = await getAllGames(username, months);
@@ -70,20 +74,56 @@ export async function POST(
     }
 
     // ── Batch upsert all pending games in one query ──
-    const cols = 5;
+    // Extract opening name from PGN headers inline (no chess.js needed)
+    const getOpening = (pgn: string): string => {
+      const m = pgn.match(/\[ECOUrl\s+"([^"]+)"\]/);
+      if (!m) return "Unknown Opening";
+      const parts = m[1].split("/openings/");
+      return parts[1]
+        ? parts[1].split("?")[0].replace(/-/g, " ").replace(/\.\.\./g, "").trim()
+        : "Unknown Opening";
+    };
+    const getResult = (g: typeof toQueue[0]): string => {
+      const wr = g.white.result; const br = g.black.result;
+      if (wr === "win") return "1-0";
+      if (br === "win") return "0-1";
+      return "1/2-1/2";
+    };
+
+    const cols = 12;
     const placeholders = toQueue.map((_, i) =>
-      `($${i * cols + 1}, $${i * cols + 2}, $${i * cols + 3}, $${i * cols + 4}, $${i * cols + 5}, 'pending')`
+      `($${i * cols + 1},$${i * cols + 2},$${i * cols + 3},$${i * cols + 4},$${i * cols + 5},$${i * cols + 6},$${i * cols + 7},$${i * cols + 8},$${i * cols + 9},$${i * cols + 10},$${i * cols + 11},$${i * cols + 12},'pending')`
     ).join(",");
-    const flat = toQueue.flatMap((g) => [userId, g.chessComId, g.pgn, g.white.username, g.black.username]);
+    const flat = toQueue.flatMap((g) => [
+      userId,
+      g.chessComId,
+      g.pgn,
+      g.white.username,
+      g.black.username,
+      g.white.rating ?? null,
+      g.black.rating ?? null,
+      g.time_class ?? null,
+      g.eco ?? null,
+      getOpening(g.pgn),
+      g.end_time ? new Date(g.end_time * 1000).toISOString() : null,
+      getResult(g),
+    ]);
 
     try {
       await query(
-        `INSERT INTO games (user_id, chess_com_id, pgn, white_username, black_username, analysis_status)
+        `INSERT INTO games (user_id, chess_com_id, pgn, white_username, black_username, white_elo, black_elo, time_class, eco, opening, played_at, result, analysis_status)
          VALUES ${placeholders}
          ON CONFLICT (chess_com_id) DO UPDATE SET
            user_id = EXCLUDED.user_id,
            analysis_status = CASE WHEN games.analysis_status = 'complete' THEN 'complete' ELSE 'pending' END,
-           pgn = EXCLUDED.pgn`,
+           pgn = EXCLUDED.pgn,
+           white_elo = COALESCE(EXCLUDED.white_elo, games.white_elo),
+           black_elo = COALESCE(EXCLUDED.black_elo, games.black_elo),
+           time_class = COALESCE(EXCLUDED.time_class, games.time_class),
+           eco = COALESCE(EXCLUDED.eco, games.eco),
+           opening = COALESCE(EXCLUDED.opening, games.opening),
+           played_at = COALESCE(EXCLUDED.played_at, games.played_at),
+           result = COALESCE(EXCLUDED.result, games.result)`,
         flat
       );
     } catch (err) {

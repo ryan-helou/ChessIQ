@@ -3,6 +3,7 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeGame, type GameAnalysis } from "@/modules/game-review/analyzer";
 import { query } from "@/lib/db";
+import { ensureDbInit } from "@/lib/db-init";
 
 /**
  * POST /api/game-review
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Ensure analysis_cache column exists (idempotent)
+    await ensureDbInit().catch(() => {});
 
     // Check DB cache if we have a game ID
     if (chessComId) {
