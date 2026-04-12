@@ -312,7 +312,7 @@ export default function PuzzlesPage() {
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-[var(--gold)]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--gold)]/30 transition-colors">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#81b64c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d4a84b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
                     </svg>
                   </div>
@@ -333,11 +333,11 @@ export default function PuzzlesPage() {
               {/* Weak Spots */}
               <button
                 onClick={() => handleSelectMode("weakness")}
-                className="group text-left bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border)] hover:border-[#e28c28] rounded-2xl p-6 transition-all"
+                className="group text-left bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border)] hover:border-[#e07a40] rounded-2xl p-6 transition-all"
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-[#e28c28]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#e28c28]/30 transition-colors">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e28c28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e07a40" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                     </svg>
                   </div>
@@ -358,11 +358,11 @@ export default function PuzzlesPage() {
               {hasBlunders && (
                 <button
                   onClick={() => handleSelectMode("blunders")}
-                  className="group text-left bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border)] hover:border-[#ca3431] rounded-2xl p-6 transition-all"
+                  className="group text-left bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border)] hover:border-[var(--loss)] rounded-2xl p-6 transition-all"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-xl bg-[var(--loss)]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--loss)]/30 transition-colors">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ca3431" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e05555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                       </svg>
                     </div>

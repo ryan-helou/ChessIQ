@@ -91,7 +91,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           {!mini && (
             <Tooltip
               contentStyle={{
-                backgroundColor: "#1a1916",
+                backgroundColor: "#09090f",
                 border: "1px solid #222136",
                 borderRadius: "6px",
                 color: "#f0ede4",

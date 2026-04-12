@@ -73,7 +73,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
             <Tooltip
               cursor={{ fill: "rgba(255,255,255,0.05)" }}
               contentStyle={{
-                backgroundColor: "#1a1916",
+                backgroundColor: "#09090f",
                 border: "1px solid #222136",
                 borderRadius: "8px",
                 fontSize: "12px",

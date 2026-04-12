@@ -37,14 +37,14 @@ interface ClassInfo {
 const CLASSIFICATIONS: { key: MoveClassification; info: ClassInfo }[] = [
   { key: "brilliant",  info: { label: "Brilliant",  color: "text-[#26c9c3]", bg: "#26c9c3", icon: "!!", img: "/Chess Symbols/brilliant.gif" } },
   { key: "great",      info: { label: "Great",      color: "text-[#5b8bb4]", bg: "#5b8bb4", icon: "!",  img: "/Chess Symbols/great.png" } },
-  { key: "best",       info: { label: "Best",       color: "text-[#96bc4b]", bg: "#96bc4b", icon: "★",  img: "/Chess Symbols/best.gif" } },
+  { key: "best",       info: { label: "Best",       color: "text-[var(--win)]", bg: "#52c07a", icon: "★",  img: "/Chess Symbols/best.gif" } },
   { key: "excellent",  info: { label: "Excellent",  color: "text-[#5eba3a]", bg: "#5eba3a", icon: "👍", img: "/Chess Symbols/excellent.gif" } },
   { key: "good",       info: { label: "Good",       color: "text-[#88bf40]", bg: "#88bf40", icon: "✓",  img: "/Chess Symbols/good.gif" } },
   { key: "book",       info: { label: "Book",       color: "text-[#b09860]", bg: "#b09860", icon: "📖", img: "/Chess Symbols/book.jpeg" } },
   { key: "inaccuracy", info: { label: "Inaccuracy", color: "text-[#dbac18]", bg: "#dbac18", icon: "?!", img: "/Chess Symbols/inacuracy.png" } },
   { key: "mistake",    info: { label: "Mistake",    color: "text-[#e28c28]", bg: "#e28c28", icon: "?",  img: "/Chess Symbols/mistake.png" } },
   { key: "miss",       info: { label: "Miss",       color: "text-[#e26b50]", bg: "#e26b50", icon: "✕",  img: "/Chess Symbols/miss.png" } },
-  { key: "blunder",    info: { label: "Blunder",    color: "text-[#ca3431]", bg: "#ca3431", icon: "??", img: "/Chess Symbols/blunder.png" } },
+  { key: "blunder",    info: { label: "Blunder",    color: "text-[var(--loss)]", bg: "#e05555", icon: "??", img: "/Chess Symbols/blunder.png" } },
   { key: "forced",     info: { label: "Forced",     color: "text-[var(--text-2)]", bg: "#888888", icon: "→" } },
 ];
 
@@ -117,7 +117,7 @@ function PhaseIcon({ acc }: { acc: number | null }) {
   return (
     <span
       className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold"
-      style={{ backgroundColor: color === "text-green-400" ? "#56a333" : color === "text-green-500" ? "#81b64c" : "#c9a967" }}
+      style={{ backgroundColor: color === "text-green-400" ? "#3da861" : color === "text-green-500" ? "#d4a84b" : "#d4a84b" }}
     >
       {icon === "👍" ? "✓" : icon}
     </span>
@@ -372,23 +372,23 @@ function ReviewPanel({
 // ─── Accuracy color helper ───
 
 function getAccuracyColor(accuracy: number): string {
-  if (accuracy >= 90) return "#56a333";
-  if (accuracy >= 75) return "#81b64c";
-  if (accuracy >= 60) return "#c9a967";
+  if (accuracy >= 90) return "#52c07a";
+  if (accuracy >= 75) return "#d4a84b";
+  if (accuracy >= 60) return "#d4a84b";
   if (accuracy >= 40) return "#e08a20";
-  return "#ca3431";
+  return "#e05555";
 }
 
 // ─── Analysis Progress ───
 
 function AnalysisProgress() {
   return (
-    <div className="bg-[#262522] rounded-xl p-6 flex flex-col items-center justify-center h-full min-h-[400px]">
+    <div className="bg-[var(--bg-card)] rounded-xl p-6 flex flex-col items-center justify-center h-full min-h-[400px]">
       <div className="text-4xl mb-4 animate-pulse">♟</div>
       <h3 className="text-lg font-bold text-white mb-2">Analyzing with Stockfish...</h3>
-      <div className="w-48 h-1.5 bg-[#3a3835] rounded-full overflow-hidden mb-3">
+      <div className="w-48 h-1.5 bg-[var(--border)] rounded-full overflow-hidden mb-3">
         <div
-          className="h-full bg-[#81b64c] rounded-full animate-pulse"
+          className="h-full bg-[var(--gold)] rounded-full animate-pulse"
           style={{ width: "100%" }}
         />
       </div>
@@ -631,7 +631,7 @@ export default function GameReviewPage() {
             <p className="text-[var(--text-2)]">{error}</p>
             <a
               href={`/player/${username}`}
-              className="inline-block mt-4 px-4 py-2 bg-[#3a3835] text-[var(--text-2)] rounded-lg hover:bg-[#3a3835] transition-colors"
+              className="inline-block mt-4 px-4 py-2 bg-[var(--border)] text-[var(--text-2)] rounded-lg hover:bg-[var(--border)] transition-colors"
             >
               Back to Dashboard
             </a>

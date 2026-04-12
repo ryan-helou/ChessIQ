@@ -100,25 +100,26 @@ export const THEME_LABELS: Record<string, string> = {
 };
 
 export const THEME_COLORS: Record<string, string> = {
-  fork: "#e28c28",
-  pin: "#5b8bb4",
-  skewer: "#96bc4b",
-  discoveredAttack: "#26c9c3",
-  backRankMate: "#ca3431",
-  hangingPiece: "#dbac18",
-  trappedPiece: "#e26b50",
-  doubleCheck: "#8b5cf6",
-  sacrifice: "#26c9c3",
-  promotion: "#88bf40",
-  mate: "#ca3431",
-  materialGain: "#96bc4b",
-  positional: "#706e6b",
-  exposedKing: "#ca3431",
-  weakKingSafety: "#e26b50",
-  inactivePieces: "#5b8bb4",
-  pawnStructure: "#96bc4b",
-  poorPawnStructure: "#dbac18",
-  overextension: "#e28c28",
+  fork:            "#d4a84b",  // gold
+  pin:             "#5b9cf6",  // blue
+  skewer:          "#52c07a",  // win green
+  discoveredAttack:"#26c9c3",  // teal
+  backRankMate:    "#e05555",  // loss red
+  hangingPiece:    "#d4a84b",  // gold
+  trappedPiece:    "#e07a40",  // orange
+  doubleCheck:     "#8b7cf6",  // purple
+  sacrifice:       "#26c9c3",  // teal
+  promotion:       "#52c07a",  // win green
+  mate:            "#e05555",  // loss red
+  materialGain:    "#52c07a",  // win green
+  positional:      "#8b8aae",  // draw/neutral
+  exposedKing:     "#e05555",  // loss red
+  weakKingSafety:  "#e07a40",  // orange
+  inactivePieces:  "#5b9cf6",  // blue
+  pawnStructure:   "#52c07a",  // win green
+  poorPawnStructure:"#d4a84b", // gold
+  overextension:   "#e07a40",  // orange
+  deflection:      "#26c9c3",  // teal
 };
 
 // ─────────────────────────────────────────────────────────────

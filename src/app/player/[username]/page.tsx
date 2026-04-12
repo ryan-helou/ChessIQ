@@ -41,19 +41,19 @@ interface DashboardData {
 
 function StatCardSkeleton() {
   return (
-    <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 animate-pulse">
-      <div className="h-3 bg-[#3a3835] rounded w-1/2 mb-3" />
-      <div className="h-7 bg-[#3a3835] rounded w-3/4 mb-2" />
-      <div className="h-2 bg-[#3a3835] rounded w-1/3" />
+    <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-5 animate-pulse">
+      <div className="h-3 bg-[var(--border)] rounded w-1/2 mb-3" />
+      <div className="h-7 bg-[var(--border)] rounded w-3/4 mb-2" />
+      <div className="h-2 bg-[var(--border)] rounded w-1/3" />
     </div>
   );
 }
 
 function ChartSkeleton({ height = "h-[350px]" }: { height?: string }) {
   return (
-    <div className={`${height} bg-[#262522] border border-[#3a3835] rounded-xl p-6 animate-pulse`}>
-      <div className="h-4 bg-[#3a3835] rounded w-40 mb-6" />
-      <div className="h-full bg-[#3a3835]/50 rounded-lg" />
+    <div className={`${height} bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-6 animate-pulse`}>
+      <div className="h-4 bg-[var(--border)] rounded w-40 mb-6" />
+      <div className="h-full bg-[var(--border)]/50 rounded-lg" />
     </div>
   );
 }
