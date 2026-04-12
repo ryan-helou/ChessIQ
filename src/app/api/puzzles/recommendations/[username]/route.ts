@@ -208,56 +208,38 @@ export async function GET(
         percentage: totalBlunders > 0 ? Math.round((count / totalBlunders) * 100) : 0,
       }));
 
-    // Fetch weakness-targeted puzzles and random puzzles in parallel
+    // Fetch puzzles + stats all in parallel
     let puzzles: Puzzle[] = [];
     let randomPuzzles: Puzzle[] = [];
+    let stats: PuzzleStats = { totalAttempted: 0, totalSolved: 0, solveRate: 0, byTheme: [] };
+
     try {
       const topThemes = weaknesses.map((w) => w.theme);
-      [puzzles, randomPuzzles] = await Promise.all([
+      const [p, rp, statsResult] = await Promise.all([
         topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating, username) : Promise.resolve([]),
         fetchDbPuzzles(null, limit, rating, username),
+        query(
+          `SELECT COUNT(*) as total_attempted, SUM(CASE WHEN solved THEN 1 ELSE 0 END) as total_solved
+           FROM puzzle_attempts WHERE username = $1`,
+          [username]
+        ).catch(() => ({ rows: [] as any[] })),
       ]);
-    } catch (err) {
-      console.error("Error fetching puzzles:", err);
-    }
+      puzzles = p;
+      randomPuzzles = rp;
 
-    // Get user's puzzle attempt stats
-    let stats: PuzzleStats = {
-      totalAttempted: 0,
-      totalSolved: 0,
-      solveRate: 0,
-      byTheme: [],
-    };
-
-    try {
-      const statsResult = await query(
-        `
-        SELECT
-          COUNT(*) as total_attempted,
-          SUM(CASE WHEN solved THEN 1 ELSE 0 END) as total_solved
-        FROM puzzle_attempts
-        WHERE username = $1
-        `,
-        [username]
-      );
-
-      if (statsResult.rows.length > 0 && statsResult.rows[0].total_attempted) {
+      const row = statsResult.rows[0];
+      if (row?.total_attempted) {
+        const attempted = parseInt(row.total_attempted ?? "0");
+        const solved = parseInt(row.total_solved ?? "0");
         stats = {
-          totalAttempted: parseInt(statsResult.rows[0].total_attempted ?? "0"),
-          totalSolved: parseInt(statsResult.rows[0].total_solved ?? "0"),
-          solveRate:
-            statsResult.rows[0].total_attempted > 0
-              ? Math.round(
-                  (parseInt(statsResult.rows[0].total_solved) /
-                    parseInt(statsResult.rows[0].total_attempted)) *
-                    100
-                )
-              : 0,
+          totalAttempted: attempted,
+          totalSolved: solved,
+          solveRate: attempted > 0 ? Math.round((solved / attempted) * 100) : 0,
           byTheme: [],
         };
       }
     } catch (err) {
-      console.error("Error fetching puzzle stats:", err);
+      console.error("Error fetching puzzles/stats:", err);
     }
 
     const recommendation: PuzzleRecommendation = {

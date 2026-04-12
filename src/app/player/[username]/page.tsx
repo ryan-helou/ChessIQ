@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Header from "@/components/Header";
 import ChessLoader from "@/components/ChessLoader";
@@ -102,24 +102,22 @@ export default function PlayerPage() {
     setMonths(m);
   };
 
-  // Compute stats
-  const totalGames = data?.games.length ?? 0;
-  const wins = data?.games.filter((g) => g.result === "win").length ?? 0;
-  const losses = data?.games.filter((g) => g.result === "loss").length ?? 0;
-  const draws = data?.games.filter((g) => g.result === "draw").length ?? 0;
-  const winRate = totalGames > 0 ? (wins / totalGames) * 100 : 0;
-  const accuracies = (data?.games ?? [])
-    .map((g) => g.accuracy)
-    .filter((a): a is number => a !== null);
-  const avgAccuracy =
-    accuracies.length > 0
-      ? accuracies.reduce((a, b) => a + b, 0) / accuracies.length
-      : null;
-  const ratings = (data?.timeControlStats ?? []).map((tc) => ({
-    timeClass: tc.timeClass,
-    current: tc.currentRating,
-    best: tc.bestRating,
-  }));
+  // Memoized derived stats — only recompute when data changes
+  const { totalGames, wins, losses, draws, winRate, avgAccuracy, ratings } = useMemo(() => {
+    const games = data?.games ?? [];
+    const total = games.length;
+    const w = games.filter((g) => g.result === "win").length;
+    const l = games.filter((g) => g.result === "loss").length;
+    const d = games.filter((g) => g.result === "draw").length;
+    const accs = games.map((g) => g.accuracy).filter((a): a is number => a !== null);
+    const avg = accs.length > 0 ? accs.reduce((a, b) => a + b, 0) / accs.length : null;
+    const r = (data?.timeControlStats ?? []).map((tc) => ({
+      timeClass: tc.timeClass,
+      current: tc.currentRating,
+      best: tc.bestRating,
+    }));
+    return { totalGames: total, wins: w, losses: l, draws: d, winRate: total > 0 ? (w / total) * 100 : 0, avgAccuracy: avg, ratings: r };
+  }, [data]);
 
   const rangeLabel = months === 0 ? "All time" : months === 1 ? "Last month" : `Last ${months} months`;
 

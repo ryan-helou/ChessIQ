@@ -18,7 +18,11 @@ import { query } from "@/lib/db";
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    if (rawBody.length > 200_000) {
+      return NextResponse.json({ error: "PGN too large" }, { status: 413 });
+    }
+    const body = JSON.parse(rawBody);
     const { pgn, depth = 14, chessComId } = body;
 
     if (!pgn || typeof pgn !== "string") {
@@ -60,7 +64,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(analysis);
+    return NextResponse.json(analysis, {
+      headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[GAME REVIEW API] Error analyzing game:", errorMessage);

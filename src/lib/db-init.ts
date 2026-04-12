@@ -35,10 +35,13 @@ async function _init(): Promise<void> {
     )
   `, []);
 
-  await query(`
-    CREATE INDEX IF NOT EXISTS idx_puzzle_attempts_user_puzzle
-    ON puzzle_attempts(username, puzzle_id)
-  `, []).catch(() => {
-    // puzzle_attempts table may not exist yet — ignore
-  });
+  // Indexes — all wrapped in catch so a missing table never blocks startup
+  const idx = (sql: string) => query(sql, []).catch(() => {});
+
+  await idx(`CREATE INDEX IF NOT EXISTS idx_puzzle_attempts_user_puzzle ON puzzle_attempts(username, puzzle_id)`);
+  await idx(`CREATE INDEX IF NOT EXISTS idx_games_white_username ON games(white_username)`);
+  await idx(`CREATE INDEX IF NOT EXISTS idx_games_black_username ON games(black_username)`);
+  await idx(`CREATE INDEX IF NOT EXISTS idx_games_user_status ON games(user_id, analysis_status)`);
+  await idx(`CREATE INDEX IF NOT EXISTS idx_analyzed_moves_game_move ON analyzed_moves(game_id, move_number)`);
+  await idx(`CREATE INDEX IF NOT EXISTS idx_blunders_game_id ON blunders(game_id)`);
 }

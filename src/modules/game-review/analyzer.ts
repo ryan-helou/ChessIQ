@@ -54,21 +54,37 @@ export async function analyzeGame(
     throw new Error("No moves in PGN");
   }
 
-  // Call Railway backend for game analysis
+  // Call Railway backend for game analysis, with exponential backoff retry
   const RAILWAY_BACKEND_URL = "https://chessiq-production.up.railway.app";
-  const response = await fetch(`${RAILWAY_BACKEND_URL}/api/analyze/game`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pgn, depth }),
-    signal: signal ?? AbortSignal.timeout(55_000),
-  });
+  const MAX_ATTEMPTS = 3;
+  let lastError: Error = new Error("Unknown error");
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Analysis engine returned ${response.status}${body ? `: ${body}` : ""}`);
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1))); // 1s, 2s
+    }
+    try {
+      const response = await fetch(`${RAILWAY_BACKEND_URL}/api/analyze/game`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pgn, depth }),
+        signal: signal ?? AbortSignal.timeout(55_000),
+      });
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        lastError = new Error(`Analysis engine returned ${response.status}${body ? `: ${body}` : ""}`);
+        // Don't retry on 4xx (client errors)
+        if (response.status >= 400 && response.status < 500) throw lastError;
+        continue;
+      }
+      return await response.json();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      // Don't retry if signal was aborted
+      if (signal?.aborted) throw lastError;
+    }
   }
-
-  return await response.json();
+  throw lastError;
 }
 
 /**

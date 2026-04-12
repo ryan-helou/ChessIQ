@@ -13,6 +13,10 @@ import {
   getRatingHistoryByTimeClass,
 } from "@/lib/game-analysis";
 
+// Module-level in-memory cache (persists across requests in same serverless instance)
+const responseCache = new Map<string, { data: unknown; ts: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ username: string }> }
@@ -20,6 +24,13 @@ export async function GET(
   const { username } = await params;
   const searchParams = request.nextUrl.searchParams;
   const months = parseInt(searchParams.get("months") ?? "6", 10);
+
+  // Cache hit
+  const cacheKey = `${username}:${months}`;
+  const hit = responseCache.get(cacheKey);
+  if (hit && Date.now() - hit.ts < CACHE_TTL) {
+    return NextResponse.json(hit.data);
+  }
 
   try {
     const [profile, stats, rawGames] = await Promise.all([
@@ -37,7 +48,7 @@ export async function GET(
     const colorStats = getColorStats(games);
     const ratingHistoryByTimeClass = getRatingHistoryByTimeClass(games);
 
-    return NextResponse.json({
+    const result = {
       profile,
       stats,
       games,
@@ -49,7 +60,9 @@ export async function GET(
       ratingHistoryByTimeClass,
       streaks,
       totalGames: games.length,
-    });
+    };
+    responseCache.set(cacheKey, { data: result, ts: Date.now() });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(

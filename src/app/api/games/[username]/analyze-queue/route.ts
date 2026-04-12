@@ -25,7 +25,11 @@ export async function POST(
   try {
     const { username } = await params;
     const body = await request.json();
-    const { months = 1, gameCount = 20 } = body;
+    // Validate inputs
+    const rawMonths = body.months ?? 1;
+    const rawCount = body.gameCount ?? 20;
+    const months = Math.max(1, Math.min(12, Number(rawMonths) || 1));
+    const gameCount = rawCount === "all" ? "all" : Math.max(1, Math.min(200, Number(rawCount) || 20));
 
     // Fetch games from Chess.com
     const chesscomGames = await getAllGames(username, months);
@@ -35,57 +39,62 @@ export async function POST(
 
     const gamesToProcess = gameCount === "all"
       ? chesscomGames
-      : chesscomGames.slice(-gameCount as number);
+      : chesscomGames.slice(-(gameCount as number));
 
     const userId = usernameToUserId(username);
-    let queued = 0;
-    let alreadyDone = 0;
-    let errors = 0;
-    let lastError: string | null = null;
 
-    for (const game of gamesToProcess) {
-      const chessComId = game.url.split("/").pop() ?? "";
-      if (!chessComId || !game.pgn) continue;
+    // Filter to games that have a valid ID and PGN
+    const validGames = gamesToProcess
+      .map((g) => ({ ...g, chessComId: g.url.split("/").pop() ?? "" }))
+      .filter((g) => g.chessComId && g.pgn);
 
-      try {
-        // Check if already analyzed
-        const existing = await query(
-          `SELECT analysis_status FROM games WHERE chess_com_id = $1`,
-          [chessComId]
-        );
-
-        if (existing.rows.length > 0 && existing.rows[0].analysis_status === "complete") {
-          alreadyDone++;
-          continue;
-        }
-
-        // Upsert as pending (always update user_id so analyze-next can find it)
-        await query(
-          `
-          INSERT INTO games (user_id, chess_com_id, pgn, white_username, black_username, analysis_status)
-          VALUES ($1, $2, $3, $4, $5, 'pending')
-          ON CONFLICT (chess_com_id) DO UPDATE SET
-            user_id = EXCLUDED.user_id,
-            analysis_status = CASE WHEN games.analysis_status = 'complete' THEN 'complete' ELSE 'pending' END,
-            pgn = EXCLUDED.pgn
-          `,
-          [userId, chessComId, game.pgn, game.white.username, game.black.username]
-        );
-        queued++;
-      } catch (err) {
-        errors++;
-        lastError = err instanceof Error ? err.message : String(err);
-        console.error(`[analyze-queue] Failed to queue game ${chessComId}:`, err);
-      }
+    if (validGames.length === 0) {
+      return NextResponse.json({ queued: 0, alreadyDone: 0, total: 0 });
     }
 
-    if (errors > 0 && queued === 0 && alreadyDone === 0) {
+    // ── Single batch SELECT to find already-complete games ──
+    const ids = validGames.map((g) => g.chessComId);
+    const existingResult = await query(
+      `SELECT chess_com_id, analysis_status FROM games WHERE chess_com_id = ANY($1::TEXT[])`,
+      [ids]
+    );
+    const existingMap = new Map<string, string>(
+      existingResult.rows.map((r: { chess_com_id: string; analysis_status: string }) => [r.chess_com_id, r.analysis_status])
+    );
+
+    const toQueue = validGames.filter((g) => existingMap.get(g.chessComId) !== "complete");
+    const alreadyDone = validGames.length - toQueue.length;
+
+    if (toQueue.length === 0) {
+      return NextResponse.json({ queued: 0, alreadyDone, total: alreadyDone });
+    }
+
+    // ── Batch upsert all pending games in one query ──
+    const cols = 5;
+    const placeholders = toQueue.map((_, i) =>
+      `($${i * cols + 1}, $${i * cols + 2}, $${i * cols + 3}, $${i * cols + 4}, $${i * cols + 5}, 'pending')`
+    ).join(",");
+    const flat = toQueue.flatMap((g) => [userId, g.chessComId, g.pgn, g.white.username, g.black.username]);
+
+    try {
+      await query(
+        `INSERT INTO games (user_id, chess_com_id, pgn, white_username, black_username, analysis_status)
+         VALUES ${placeholders}
+         ON CONFLICT (chess_com_id) DO UPDATE SET
+           user_id = EXCLUDED.user_id,
+           analysis_status = CASE WHEN games.analysis_status = 'complete' THEN 'complete' ELSE 'pending' END,
+           pgn = EXCLUDED.pgn`,
+        flat
+      );
+    } catch (err) {
+      console.error("[analyze-queue] Batch upsert failed:", err);
       return NextResponse.json(
-        { error: `Database error: ${lastError ?? "unknown"}. Please try again.` },
+        { error: `Database error: ${err instanceof Error ? err.message : "unknown"}. Please try again.` },
         { status: 500 }
       );
     }
 
+    const queued = toQueue.length;
     return NextResponse.json({ queued, alreadyDone, total: queued + alreadyDone });
   } catch (error) {
     console.error("[analyze-queue] Error:", error);

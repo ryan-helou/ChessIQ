@@ -26,34 +26,49 @@ async function persistGameAnalysis(
             (m.color === "black" && username.toLowerCase() === blackUsername.toLowerCase())
   );
 
-  // Save analyzed moves
+  // ── Batch INSERT analyzed_moves (single query instead of N queries) ──
   await query(`DELETE FROM analyzed_moves WHERE game_id = $1`, [gameId]).catch(() => {});
-  for (const m of moves) {
+  if (moves.length > 0) {
+    const cols = 11;
+    const placeholders = moves.map((_, i) =>
+      `($${i * cols + 1},$${i * cols + 2},$${i * cols + 3},$${i * cols + 4},$${i * cols + 5},$${i * cols + 6},$${i * cols + 7},$${i * cols + 8},$${i * cols + 9},$${i * cols + 10},$${i * cols + 11})`
+    ).join(",");
+    const flat = moves.flatMap((m) => [
+      gameId, m.moveNumber, m.fen, m.move, m.san, m.bestMove,
+      m.engineEval, m.accuracy,
+      m.classification === "blunder",
+      m.classification === "mistake",
+      m.classification === "inaccuracy",
+    ]);
     await query(
       `INSERT INTO analyzed_moves
         (game_id, move_number, fen, move, san, best_move, evaluation_cp, accuracy, is_blunder, is_mistake, is_inaccuracy)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       VALUES ${placeholders}
        ON CONFLICT DO NOTHING`,
-      [gameId, m.moveNumber, m.fen, m.move, m.san, m.bestMove,
-       m.engineEval, m.accuracy,
-       m.classification === "blunder",
-       m.classification === "mistake",
-       m.classification === "inaccuracy"]
+      flat
     ).catch(() => {});
   }
 
-  // Save blunders and mistakes for this player
+  // ── Batch INSERT blunders (single query instead of N queries) ──
   await query(`DELETE FROM blunders WHERE game_id = $1`, [gameId]).catch(() => {});
   const badMoves = userMoves.filter(
     (m) => m.classification === "blunder" || m.classification === "mistake"
   );
-  for (const m of badMoves) {
-    const missedTactic = detectMissedTactic(m.fenBefore ?? m.fen, m.bestMove);
+  if (badMoves.length > 0) {
+    const tactics = badMoves.map((m) => detectMissedTactic(m.fenBefore ?? m.fen, m.bestMove));
+    const cols = 9;
+    const placeholders = badMoves.map((_, i) =>
+      `($${i * cols + 1},$${i * cols + 2},$${i * cols + 3},$${i * cols + 4},$${i * cols + 5},$${i * cols + 6},$${i * cols + 7},$${i * cols + 8},$${i * cols + 9})`
+    ).join(",");
+    const flat = badMoves.flatMap((m, i) => [
+      gameId, m.moveNumber, m.move, m.bestMove, m.evalBefore, m.engineEval,
+      m.classification, tactics[i], m.fenBefore ?? null,
+    ]);
     await query(
       `INSERT INTO blunders (game_id, move_number, player_move, best_move, eval_before_cp, eval_after_cp, severity, missed_tactic, fen_before)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       VALUES ${placeholders}
        ON CONFLICT (game_id, move_number) DO UPDATE SET fen_before = EXCLUDED.fen_before`,
-      [gameId, m.moveNumber, m.move, m.bestMove, m.evalBefore, m.engineEval, m.classification, missedTactic, m.fenBefore ?? null]
+      flat
     ).catch(() => {});
   }
 
@@ -75,13 +90,24 @@ export async function POST(
     const depth = body.depth ?? 14;
     const userId = usernameToUserId(username);
 
-    // Find next pending game for this user
+    // Atomically claim next pending game (or stale 'analyzing' job > 5 min old).
+    // FOR UPDATE SKIP LOCKED prevents two concurrent requests from grabbing the same game.
     const nextResult = await query(
-      `SELECT id, chess_com_id, pgn, white_username, black_username
-       FROM games
-       WHERE user_id = $1 AND analysis_status = 'pending' AND pgn IS NOT NULL
-       ORDER BY created_at ASC
-       LIMIT 1`,
+      `UPDATE games
+       SET analysis_status = 'analyzing', analysis_started_at = NOW()
+       WHERE id = (
+         SELECT id FROM games
+         WHERE user_id = $1
+           AND pgn IS NOT NULL
+           AND (
+             analysis_status = 'pending'
+             OR (analysis_status = 'analyzing' AND analysis_started_at < NOW() - INTERVAL '5 minutes')
+           )
+         ORDER BY created_at ASC
+         LIMIT 1
+         FOR UPDATE SKIP LOCKED
+       )
+       RETURNING id, chess_com_id, pgn, white_username, black_username`,
       [userId]
     );
 
@@ -101,14 +127,9 @@ export async function POST(
 
     const game = nextResult.rows[0];
 
-    // Mark as in-progress to prevent duplicate processing
-    await query(
-      `UPDATE games SET analysis_status = 'analyzing', analysis_started_at = NOW() WHERE id = $1`,
-      [game.id]
-    );
-
     try {
-      const analysis = await analyzeGame(game.pgn, depth, AbortSignal.timeout(45_000));
+      // Let the Railway backend's own 55s timeout handle it — avoids mid-flight abort mismatch
+      const analysis = await analyzeGame(game.pgn, depth);
       const blundersFound = await persistGameAnalysis(
         game.id, username, game.white_username, game.black_username, analysis.moves
       );

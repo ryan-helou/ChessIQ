@@ -11,9 +11,10 @@ export function getPool(): Pool {
 
     pool = new Pool({
       connectionString: databaseUrl,
-      ssl: {
-        rejectUnauthorized: false, // Required for Railway
-      },
+      ssl: { rejectUnauthorized: false }, // Required for Railway
+      max: 10,                            // Cap concurrent connections
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
     });
 
     pool.on("error", (err) => {
@@ -24,13 +25,9 @@ export function getPool(): Pool {
   return pool;
 }
 
+// Use pool.query() directly — avoids explicit client checkout/release overhead
 export async function query(text: string, params?: any[]) {
-  const client = await getPool().connect();
-  try {
-    return await client.query(text, params);
-  } finally {
-    client.release();
-  }
+  return getPool().query(text, params);
 }
 
 export async function closePool() {

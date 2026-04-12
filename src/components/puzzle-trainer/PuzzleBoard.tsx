@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Chess } from "chess.js";
@@ -80,7 +80,7 @@ function applyUci(chess: Chess, uci: string) {
   });
 }
 
-export default function PuzzleBoard({
+function PuzzleBoard({
   puzzle,
   sessionSolved,
   sessionTotal,
@@ -185,10 +185,12 @@ export default function PuzzleBoard({
       ? (() => { const c = new Chess(puzzle.fen); c.move(puzzle.opponentMoves[0]); return c.fen(); })()
       : puzzle.fen;
 
+    const controller = new AbortController();
     fetch("/api/puzzles/evaluate-move", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fen: precomputeFen }),
+      signal: controller.signal,
     })
       .then((r) => r.json())
       .then(({ goodMoves }) => {
@@ -209,7 +211,7 @@ export default function PuzzleBoard({
     } else {
       setPhase("idle");
     }
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [puzzle, doMove]);
 
   const elapsed = () => Math.round((Date.now() - startTimeRef.current) / 1000);
@@ -691,3 +693,5 @@ export default function PuzzleBoard({
     </div>
   );
 }
+
+export default memo(PuzzleBoard);
