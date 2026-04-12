@@ -147,8 +147,8 @@ export async function POST(
         `UPDATE games SET
            analysis_status = 'complete',
            analysis_completed_at = NOW(),
-           accuracy_white = $2,
-           accuracy_black = $3
+           accuracy_white = COALESCE($2, accuracy_white),
+           accuracy_black = COALESCE($3, accuracy_black)
          WHERE id = $1`,
         [
           game.id,

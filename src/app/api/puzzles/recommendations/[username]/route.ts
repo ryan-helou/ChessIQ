@@ -118,14 +118,17 @@ export async function GET(
     // Get all blunders for this player (white or black)
     let blundersResult;
     try {
+      // Use UNION ALL instead of OR so each indexed column gets its own index scan
       blundersResult = await query(
-        `
-        SELECT b.*, g.white_username, g.black_username
-        FROM blunders b
-        JOIN games g ON b.game_id = g.id
-        WHERE g.white_username = $1 OR g.black_username = $1
-        ORDER BY b.move_number DESC
-        `,
+        `SELECT b.*, g.white_username, g.black_username
+         FROM blunders b
+         JOIN games g ON b.game_id = g.id
+         WHERE g.white_username = $1
+         UNION ALL
+         SELECT b.*, g.white_username, g.black_username
+         FROM blunders b
+         JOIN games g ON b.game_id = g.id
+         WHERE g.black_username = $1`,
         [username]
       );
     } catch (dbError) {
