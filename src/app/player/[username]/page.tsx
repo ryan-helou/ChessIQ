@@ -122,67 +122,69 @@ export default function PlayerPage() {
   const rangeLabel = months === 0 ? "All time" : months === 1 ? "Last month" : `Last ${months} months`;
 
   return (
-    <div className="min-h-screen bg-[#302e2b] text-[#e8e6e1]">
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-1)" }}>
       <Header username={username} />
 
       {/* Error state */}
       {error && !data && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="bg-[#e62929]/10 border border-[#e62929]/30 rounded-xl p-8 max-w-md mx-auto text-center">
-            <div className="text-4xl mb-4">&#9812;</div>
-            <h2 className="text-[#e62929] font-semibold text-lg mb-2">Player Not Found</h2>
-            <p className="text-[#989795]">{error}</p>
+          <div style={{ background: "var(--loss-dim)", border: "1px solid rgba(224,85,85,0.25)", borderRadius: "12px", padding: "32px", maxWidth: "420px", margin: "0 auto", textAlign: "center" }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>♚</div>
+            <h2 style={{ color: "var(--loss)", fontWeight: 600, marginBottom: "8px" }}>Player Not Found</h2>
+            <p style={{ color: "var(--text-3)" }}>{error}</p>
           </div>
         </div>
       )}
 
-      {/* Loading state */}
       {loading && !data && <ChessLoader username={username} />}
 
-      {/* Dashboard */}
       {data && (
         <>
           <SectionNav username={username} />
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Profile Header + Date Range */}
-            <div id="overview" className="scroll-mt-28 mb-10">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-                <div className="flex items-center gap-5">
+
+            {/* Profile Header */}
+            <div id="overview" className="scroll-mt-28" style={{ marginBottom: "36px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: "20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
                   {data.profile.avatar && (
                     <img
                       src={data.profile.avatar}
                       alt={data.profile.username}
-                      className="w-20 h-20 rounded-full border-2 border-[#3a3835] shadow-lg shadow-black/30"
+                      style={{ width: "72px", height: "72px", borderRadius: "50%", border: "1px solid var(--border-strong)", boxShadow: "0 0 0 3px var(--gold-dim)" }}
                     />
                   )}
                   <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                    <h1 className="font-display" style={{ fontSize: "clamp(22px, 4vw, 32px)", fontWeight: 600, letterSpacing: "-0.01em", lineHeight: 1.1, color: "var(--text-1)" }}>
                       {data.profile.name || data.profile.username}
                     </h1>
-                    <p className="text-[#989795]">@{data.profile.username}</p>
+                    <p style={{ fontSize: "13px", fontFamily: "var(--font-mono)", color: "var(--text-3)", letterSpacing: "0.05em", marginTop: "4px" }}>
+                      @{data.profile.username}
+                    </p>
                     {data.profile.league && (
-                      <span className="inline-block mt-1.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-[#e6a117]/15 text-[#e6a117] border border-[#e6a117]/20">
+                      <span style={{ display: "inline-block", marginTop: "8px", fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 10px", borderRadius: "100px", background: "var(--gold-dim)", color: "var(--gold)", border: "1px solid var(--gold-line)" }}>
                         {data.profile.league}
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col gap-3 sm:items-end">
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "flex-end" }}>
                   <DateRangePicker value={months} onChange={handleMonthsChange} loading={loading} />
                   <button
                     onClick={() => setShowAnalysisDialog(true)}
                     disabled={loading}
-                    className="px-4 py-2 bg-[#81b64c] hover:bg-[#96bc4b] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors text-sm whitespace-nowrap"
+                    className="btn-gold"
+                    style={{ padding: "8px 18px", borderRadius: "8px", fontSize: "13px", border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.5 : 1 }}
                   >
-                    ⚙️ Analyze Games
+                    Analyze Games
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Stats Cards */}
-            <div className={`mb-10 transition-opacity duration-300 ${loading ? "opacity-50" : "opacity-100"}`}>
+            <div style={{ marginBottom: "36px", opacity: loading ? 0.5 : 1, transition: "opacity 0.3s" }}>
               <StatsCards
                 totalGames={totalGames}
                 winRate={winRate}
@@ -195,87 +197,83 @@ export default function PlayerPage() {
               />
             </div>
 
-            {/* Rating Chart + WLD */}
-            <div id="ratings" className="scroll-mt-28 grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              <div className="lg:col-span-2 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                  <h2 className="text-lg font-semibold">Rating Progression</h2>
-                  <select
-                    value={ratingFilter}
-                    onChange={(e) => setRatingFilter(e.target.value)}
-                    className="px-3 py-1.5 bg-[#3a3835] border border-[#3a3835] text-[#989795] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#81b64c]/40 w-full sm:w-auto"
-                  >
-                    <option value="all">All Time Classes</option>
-                    <option value="bullet">Bullet</option>
-                    <option value="blitz">Blitz</option>
-                    <option value="rapid">Rapid</option>
-                    <option value="daily">Daily</option>
-                  </select>
+            {/* Rating + Results */}
+            <div id="ratings" className="scroll-mt-28" style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px", marginBottom: "12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)", gap: "12px", flexWrap: "wrap" }}>
+                <div className="card" style={{ padding: "22px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
+                    <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)" }}>Rating Progression</h2>
+                    <select
+                      value={ratingFilter}
+                      onChange={(e) => setRatingFilter(e.target.value)}
+                      style={{ padding: "5px 10px", background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-2)", borderRadius: "6px", fontSize: "12px", fontFamily: "var(--font-mono)", cursor: "pointer", outline: "none" }}
+                    >
+                      <option value="all">All formats</option>
+                      <option value="bullet">Bullet</option>
+                      <option value="blitz">Blitz</option>
+                      <option value="rapid">Rapid</option>
+                      <option value="daily">Daily</option>
+                    </select>
+                  </div>
+                  <RatingChart data={data.ratingHistory} filter={ratingFilter} />
                 </div>
-                <RatingChart data={data.ratingHistory} filter={ratingFilter} />
-              </div>
 
-              <div id="results" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
-                <h2 className="text-lg font-semibold mb-4">Results</h2>
-                <WinLossDrawChart wins={wins} losses={losses} draws={draws} />
-                <div className="mt-4 space-y-2.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-[#989795]">Total Games</span>
-                    <span className="font-semibold">{totalGames}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#989795]">Win Rate</span>
-                    <span className={`font-semibold ${winRate >= 50 ? "text-[#81b64c]" : "text-[#e62929]"}`}>
-                      {winRate.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#989795]">Period</span>
-                    <span className="text-[#989795] text-xs">{rangeLabel}</span>
+                <div id="results" className="scroll-mt-28 card" style={{ padding: "22px" }}>
+                  <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)", marginBottom: "16px" }}>Results</h2>
+                  <WinLossDrawChart wins={wins} losses={losses} draws={draws} />
+                  <div style={{ marginTop: "18px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {[
+                      { label: "Total Games", value: totalGames.toLocaleString(), accent: undefined },
+                      { label: "Win Rate", value: `${winRate.toFixed(1)}%`, accent: winRate >= 50 ? "var(--win)" : "var(--loss)" },
+                      { label: "Period", value: rangeLabel, accent: "var(--text-3)" },
+                    ].map((row) => (
+                      <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>{row.label}</span>
+                        <span style={{ fontSize: "13px", fontFamily: "var(--font-mono)", color: row.accent || "var(--text-1)", fontWeight: 600 }}>{row.value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* How Games End + Accuracy Trend */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
-                <h2 className="text-lg font-semibold mb-4">How Games End</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "12px", marginBottom: "12px" }}>
+              <div className="card" style={{ padding: "22px" }}>
+                <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)", marginBottom: "16px" }}>How Games End</h2>
                 <ResultBreakdownChart data={data.resultBreakdown} />
               </div>
-
-              <div id="accuracy" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6">
-                <h2 className="text-lg font-semibold mb-4">Accuracy Trend</h2>
+              <div id="accuracy" className="scroll-mt-28 card" style={{ padding: "22px" }}>
+                <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)", marginBottom: "16px" }}>Accuracy Trend</h2>
                 <AccuracyOverTime games={data.games} />
               </div>
             </div>
 
             {/* Accuracy vs Rating */}
-            <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-8">
-              <h2 className="text-lg font-semibold mb-4">Accuracy vs Opponent Rating</h2>
+            <div className="card" style={{ padding: "22px", marginBottom: "12px" }}>
+              <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)", marginBottom: "16px" }}>Accuracy vs Opponent Rating</h2>
               <AccuracyVsRating games={data.games} />
             </div>
 
-            {/* Accuracy by Game Phase */}
-            <div className="bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-8">
-              <h2 className="text-lg font-semibold mb-4">Accuracy by Game Phase</h2>
+            {/* Accuracy by Phase */}
+            <div className="card" style={{ padding: "22px", marginBottom: "12px" }}>
+              <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)", marginBottom: "16px" }}>Accuracy by Game Phase</h2>
               <AccuracyByPhase games={data.games} />
             </div>
 
             {/* Openings */}
-            <div id="openings" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-8">
-              <h2 className="text-lg font-semibold mb-4">Opening Statistics</h2>
+            <div id="openings" className="scroll-mt-28 card" style={{ padding: "22px", marginBottom: "12px" }}>
+              <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)", marginBottom: "16px" }}>Opening Statistics</h2>
               <OpeningTable openings={data.openings} games={data.games} />
             </div>
 
-            {/* Recent Games */}
-            <div id="games" className="scroll-mt-28 bg-[#262522] border border-[#3a3835] rounded-xl p-5 sm:p-6 mb-16">
-              <h2 className="text-lg font-semibold mb-4">Game History</h2>
+            {/* Games */}
+            <div id="games" className="scroll-mt-28 card" style={{ padding: "22px", marginBottom: "48px" }}>
+              <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 500, letterSpacing: "0.02em", color: "var(--text-2)", marginBottom: "16px" }}>Game History</h2>
               <GamesList games={data.games} username={username} />
             </div>
           </div>
 
-          {/* Analysis Dialog */}
           <AnalysisDialog
             username={username}
             months={months}

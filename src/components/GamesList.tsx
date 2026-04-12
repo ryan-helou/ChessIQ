@@ -13,161 +13,225 @@ export default function GamesList({ games, username }: Props) {
   const [page, setPage] = useState(0);
   const perPage = 20;
 
-  const filtered =
-    filter === "all" ? games : games.filter((g) => g.result === filter);
+  const filtered = filter === "all" ? games : games.filter((g) => g.result === filter);
   const reversed = [...filtered].reverse();
   const pageGames = reversed.slice(page * perPage, (page + 1) * perPage);
   const totalPages = Math.ceil(reversed.length / perPage);
 
-  const resultIcon = (result: string) => {
-    if (result === "win") return "W";
-    if (result === "loss") return "L";
-    return "D";
+  const resultConfig = {
+    win:  { letter: "W", color: "var(--win)",  bg: "var(--win-dim)" },
+    loss: { letter: "L", color: "var(--loss)", bg: "var(--loss-dim)" },
+    draw: { letter: "D", color: "var(--draw)", bg: "var(--draw-dim)" },
   };
 
-  const resultColor = (result: string) => {
-    if (result === "win") return "bg-[#81b64c]/20 text-[#81b64c] border-[#81b64c]/30";
-    if (result === "loss") return "bg-[#e62929]/20 text-[#e62929] border-[#e62929]/30";
-    return "bg-[#989795]/20 text-[#989795] border-[#989795]/30";
+  const tcColor: Record<string, string> = {
+    bullet: "var(--loss)",
+    blitz:  "var(--gold)",
+    rapid:  "var(--win)",
+    daily:  "var(--blue)",
   };
 
-  const timeClassBadge = (tc: string) => {
-    const colors: Record<string, string> = {
-      bullet: "bg-[#e62929]/15 text-[#e62929]",
-      blitz: "bg-[#e6a117]/15 text-[#e6a117]",
-      rapid: "bg-[#81b64c]/15 text-[#81b64c]",
-      daily: "bg-[#8b5cf6]/15 text-[#8b5cf6]",
-    };
-    return colors[tc] ?? "bg-[#989795]/15 text-[#989795]";
+  const filterCounts = {
+    all:  games.length,
+    win:  games.filter((g) => g.result === "win").length,
+    loss: games.filter((g) => g.result === "loss").length,
+    draw: games.filter((g) => g.result === "draw").length,
   };
 
   return (
     <div>
       {/* Filters */}
-      <div className="flex gap-2 mb-4">
-        {(["all", "win", "loss", "draw"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => {
-              setFilter(f);
-              setPage(0);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filter === f
-                ? "bg-[#81b64c] text-white"
-                : "bg-[#3a3835] text-[#989795] hover:text-white"
-            }`}
-          >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-            <span className="ml-1.5 text-xs opacity-70">
-              {f === "all"
-                ? games.length
-                : games.filter((g) => g.result === f).length}
-            </span>
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: "6px", marginBottom: "14px", flexWrap: "wrap" }}>
+        {(["all", "win", "loss", "draw"] as const).map((f) => {
+          const isActive = filter === f;
+          const accent = f === "all" ? "var(--gold)" : resultConfig[f].color;
+          return (
+            <button
+              key={f}
+              onClick={() => { setFilter(f); setPage(0); }}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                fontSize: "12px",
+                fontFamily: "var(--font-mono)",
+                letterSpacing: "0.05em",
+                border: `1px solid ${isActive ? accent : "var(--border)"}`,
+                background: isActive ? `${accent}18` : "var(--bg-card)",
+                color: isActive ? accent : "var(--text-3)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              {f.toUpperCase()}
+              <span style={{ marginLeft: "6px", opacity: 0.6 }}>{filterCounts[f]}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Games list */}
-      <div className="space-y-2">
-        {pageGames.map((g) => (
-          <a
-            key={g.id}
-            href={username ? `/player/${username}/review/${g.id}` : g.url}
-            target={username ? undefined : "_blank"}
-            rel={username ? undefined : "noopener noreferrer"}
-            onClick={() => {
-              if (username) {
-                // Cache game data so the review page loads instantly
-                try {
-                  sessionStorage.setItem(`game_${g.id}`, JSON.stringify({
-                    white: g.playerColor === "white" ? username : g.opponentName,
-                    black: g.playerColor === "black" ? username : g.opponentName,
-                    whiteElo: String(g.playerColor === "white" ? g.playerRating : g.opponentRating),
-                    blackElo: String(g.playerColor === "black" ? g.playerRating : g.opponentRating),
-                    result: g.result === "win"
-                      ? g.playerColor === "white" ? "1-0" : "0-1"
-                      : g.result === "loss"
-                      ? g.playerColor === "white" ? "0-1" : "1-0"
-                      : "½-½",
-                    date: g.date instanceof Date ? g.date.toLocaleDateString() : new Date(g.date).toLocaleDateString(),
-                    opening: g.opening,
-                    playerColor: g.playerColor,
-                    pgn: g.pgn,
-                  }));
-                } catch {}
-              }
-            }}
-            className="flex items-center gap-3 p-3 rounded-lg bg-[#262522] border border-[#3a3835] hover:bg-[#3a3835] transition-colors group"
-          >
-            {/* Result badge */}
-            <div
-              className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm border ${resultColor(
-                g.result
-              )}`}
+      {/* Games */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+        {pageGames.map((g, idx) => {
+          const rc = resultConfig[g.result as keyof typeof resultConfig] ?? resultConfig.draw;
+          const dateStr = g.date instanceof Date
+            ? g.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            : new Date(g.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+          return (
+            <a
+              key={g.id}
+              href={username ? `/player/${username}/review/${g.id}` : g.url}
+              target={username ? undefined : "_blank"}
+              rel={username ? undefined : "noopener noreferrer"}
+              onClick={() => {
+                if (username) {
+                  try {
+                    sessionStorage.setItem(`game_${g.id}`, JSON.stringify({
+                      white: g.playerColor === "white" ? username : g.opponentName,
+                      black: g.playerColor === "black" ? username : g.opponentName,
+                      whiteElo: String(g.playerColor === "white" ? g.playerRating : g.opponentRating),
+                      blackElo: String(g.playerColor === "black" ? g.playerRating : g.opponentRating),
+                      result: g.result === "win"
+                        ? g.playerColor === "white" ? "1-0" : "0-1"
+                        : g.result === "loss"
+                        ? g.playerColor === "white" ? "0-1" : "1-0"
+                        : "½-½",
+                      date: dateStr,
+                      opening: g.opening,
+                      playerColor: g.playerColor,
+                      pgn: g.pgn,
+                    }));
+                  } catch {}
+                }
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                textDecoration: "none",
+                color: "inherit",
+                transition: "background 0.15s, border-color 0.15s",
+                animation: "fadeIn 0.3s ease both",
+                animationDelay: `${idx * 0.02}s`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--bg-card-hover)";
+                e.currentTarget.style.borderColor = "var(--border-strong)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--bg-card)";
+                e.currentTarget.style.borderColor = "var(--border)";
+              }}
             >
-              {resultIcon(g.result)}
-            </div>
+              {/* Result badge */}
+              <div style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: rc.bg,
+                border: `1px solid ${rc.color}40`,
+                color: rc.color,
+                fontSize: "12px",
+                fontWeight: 700,
+                fontFamily: "var(--font-mono)",
+                flexShrink: 0,
+              }}>
+                {rc.letter}
+              </div>
 
-            {/* Game info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-white truncate">
-                  vs {g.opponentName}
-                </span>
-                <span className="text-xs text-[#706e6b]">({g.opponentRating})</span>
-                <span
-                  className={`text-xs px-1.5 py-0.5 rounded ${timeClassBadge(
-                    g.timeClass
-                  )}`}
-                >
-                  {g.timeClass}
-                </span>
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px" }}>
+                  <span style={{ fontSize: "13.5px", fontWeight: 500, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    vs {g.opponentName}
+                  </span>
+                  <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>
+                    ({g.opponentRating})
+                  </span>
+                  <span style={{
+                    fontSize: "10px",
+                    fontFamily: "var(--font-mono)",
+                    letterSpacing: "0.06em",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                    background: `${tcColor[g.timeClass] ?? "var(--text-3)"}18`,
+                    color: tcColor[g.timeClass] ?? "var(--text-3)",
+                    border: `1px solid ${tcColor[g.timeClass] ?? "var(--text-3)"}30`,
+                    textTransform: "uppercase",
+                  }}>
+                    {g.timeClass}
+                  </span>
+                </div>
+                <div style={{ fontSize: "11.5px", color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {g.opening}
+                </div>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-[#706e6b]">{g.opening}</span>
-              </div>
-            </div>
 
-            {/* Right side */}
-            <div className="text-right shrink-0">
-              <div className="text-sm text-[#e8e6e1]">{g.playerRating}</div>
-              <div className="text-xs text-[#706e6b]">
-                {g.accuracy !== null ? `${g.accuracy.toFixed(1)}% acc` : ""}{" "}
-                · {g.resultDetail}
+              {/* Right */}
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontSize: "13px", fontFamily: "var(--font-mono)", color: "var(--text-2)", fontWeight: 600 }}>
+                  {g.playerRating}
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+                  {g.accuracy !== null ? `${g.accuracy.toFixed(1)}%` : "—"}
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--text-3)" }}>{dateStr}</div>
               </div>
-              <div className="text-xs text-[#706e6b]">
-                {g.date instanceof Date ? g.date.toLocaleDateString() : new Date(g.date).toLocaleDateString()}
-              </div>
-            </div>
 
-            {/* External link indicator */}
-            <div className="text-[#706e6b] group-hover:text-[#989795] transition-colors">
-              ↗
-            </div>
-          </a>
-        ))}
+              <div style={{ color: "var(--text-3)", fontSize: "12px", flexShrink: 0 }}>↗</div>
+            </a>
+          );
+        })}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginTop: "16px" }}>
           <button
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="px-3 py-1.5 rounded text-sm bg-[#3a3835] text-[#989795] disabled:opacity-30 hover:text-white transition-colors"
+            style={{
+              padding: "5px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontFamily: "var(--font-mono)",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--text-2)",
+              cursor: page === 0 ? "not-allowed" : "pointer",
+              opacity: page === 0 ? 0.3 : 1,
+              transition: "all 0.15s",
+            }}
           >
-            Prev
+            ← prev
           </button>
-          <span className="text-sm text-[#706e6b]">
+          <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-3)", letterSpacing: "0.06em" }}>
             {page + 1} / {totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 rounded text-sm bg-[#3a3835] text-[#989795] disabled:opacity-30 hover:text-white transition-colors"
+            style={{
+              padding: "5px 14px",
+              borderRadius: "6px",
+              fontSize: "12px",
+              fontFamily: "var(--font-mono)",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--text-2)",
+              cursor: page >= totalPages - 1 ? "not-allowed" : "pointer",
+              opacity: page >= totalPages - 1 ? 0.3 : 1,
+              transition: "all 0.15s",
+            }}
           >
-            Next
+            next →
           </button>
         </div>
       )}
