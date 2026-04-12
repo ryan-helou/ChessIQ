@@ -1,21 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Chess } from "chess.js";
 import { query } from "@/lib/db";
+import { ensureDbInit } from "@/lib/db-init";
 
 const RAILWAY_BACKEND_URL = "https://chessiq-production.up.railway.app";
 const ACCEPTABLE = new Set(["brilliant", "great", "best", "excellent", "good"]);
-
-// ── Position cache ────────────────────────────────────────────────────────────
-
-async function ensureCacheTable() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS position_good_moves (
-      fen TEXT PRIMARY KEY,
-      good_moves TEXT[] NOT NULL DEFAULT '{}',
-      cached_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `, []);
-}
 
 async function getCachedGoodMoves(fen: string): Promise<string[] | null> {
   try {
@@ -100,7 +89,7 @@ export async function PUT(request: NextRequest) {
     const { fen } = await request.json();
     if (!fen) return NextResponse.json({ error: "Missing fen" }, { status: 400 });
 
-    await ensureCacheTable();
+    await ensureDbInit().catch(() => {});
 
     // ── Cache hit ──
     const cached = await getCachedGoodMoves(fen);

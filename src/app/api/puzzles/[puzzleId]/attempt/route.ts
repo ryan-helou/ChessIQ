@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { ensureDbInit } from "@/lib/db-init";
 
 /**
  * Chess.com-style puzzle rating gain — always positive, first try = big bonus.
  *
  * First try:        75–125 pts  (scales with puzzle difficulty vs player rating)
  * Wrong then right:  5–15 pts
- * Gave up:            2 pts  (minimum — still earn something)
+ * View solution:     0 pts
  */
 function calcRatingGain(playerRating: number, puzzleRating: number, solved: boolean, attempts: number): number {
   if (!solved) return 0;
@@ -21,17 +22,6 @@ function calcRatingGain(playerRating: number, puzzleRating: number, solved: bool
 
   // Base 10, ±5 based on difficulty → range 5–15
   return Math.round(10 + (diff / 400) * 5);
-}
-
-async function ensureRatingTable() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS user_puzzle_ratings (
-      username TEXT PRIMARY KEY,
-      rating INTEGER NOT NULL DEFAULT 1200,
-      games_played INTEGER NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `, []);
 }
 
 async function getUserRating(username: string): Promise<number> {
@@ -70,7 +60,7 @@ export async function POST(
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    await ensureRatingTable();
+    await ensureDbInit().catch(() => {});
 
     // Record attempt
     await query(
@@ -115,7 +105,7 @@ export async function GET(
     const username = request.nextUrl.searchParams.get("username");
     if (!username) return NextResponse.json({ rating: 1200 });
 
-    await ensureRatingTable();
+    await ensureDbInit().catch(() => {});
     const rating = await getUserRating(username);
     return NextResponse.json({ rating });
   } catch {

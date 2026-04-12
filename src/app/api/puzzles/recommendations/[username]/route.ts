@@ -1,49 +1,82 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { ensureDbInit } from "@/lib/db-init";
 
 async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number, username?: string): Promise<any[]> {
   try {
-    // Use TABLESAMPLE BERNOULLI for fast random selection (avoids full-table ORDER BY RANDOM() sort)
-    // Falls back to ORDER BY RANDOM() only if sample returns too few rows
-    const exclusion = username
-      ? `AND id NOT IN (SELECT puzzle_id FROM puzzle_attempts WHERE username = '${username.replace(/'/g, "''")}')`
-      : "";
+    // Use parameterized queries throughout — no string interpolation of user input.
+    // TABLESAMPLE BERNOULLI for fast random selection; falls back to ORDER BY RANDOM()
+    // only when the sample returns too few rows.
+    const hasUser = !!username;
 
     const result = themes && themes.length > 0
-      ? await query(
-          `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-           FROM puzzles TABLESAMPLE BERNOULLI(10)
-           WHERE themes && $1::TEXT[]
-             ${exclusion}
-           LIMIT $2`,
-          [themes, count]
-        ).then(async (r) =>
-          r.rows.length >= count ? r :
-          query(
+      ? hasUser
+        ? await query(
             `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-             FROM puzzles
+             FROM puzzles TABLESAMPLE BERNOULLI(10)
              WHERE themes && $1::TEXT[]
-               ${exclusion}
-             ORDER BY RANDOM() LIMIT $2`,
-            [themes, count]
+               AND id NOT IN (SELECT puzzle_id FROM puzzle_attempts WHERE username = $2)
+             LIMIT $3`,
+            [themes, username, count]
+          ).then(async (r) =>
+            r.rows.length >= count ? r :
+            query(
+              `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+               FROM puzzles
+               WHERE themes && $1::TEXT[]
+                 AND id NOT IN (SELECT puzzle_id FROM puzzle_attempts WHERE username = $2)
+               ORDER BY RANDOM() LIMIT $3`,
+              [themes, username, count]
+            )
           )
-        )
-      : await query(
-          `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-           FROM puzzles TABLESAMPLE BERNOULLI(1)
-           WHERE TRUE ${exclusion}
-           LIMIT $1`,
-          [count]
-        ).then(async (r) =>
-          r.rows.length >= count ? r :
-          query(
+        : await query(
             `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-             FROM puzzles
-             WHERE TRUE ${exclusion}
-             ORDER BY RANDOM() LIMIT $1`,
-            [count]
+             FROM puzzles TABLESAMPLE BERNOULLI(10)
+             WHERE themes && $1::TEXT[]
+             LIMIT $2`,
+            [themes, count]
+          ).then(async (r) =>
+            r.rows.length >= count ? r :
+            query(
+              `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+               FROM puzzles
+               WHERE themes && $1::TEXT[]
+               ORDER BY RANDOM() LIMIT $2`,
+              [themes, count]
+            )
           )
-        );
+      : hasUser
+        ? await query(
+            `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+             FROM puzzles TABLESAMPLE BERNOULLI(1)
+             WHERE id NOT IN (SELECT puzzle_id FROM puzzle_attempts WHERE username = $1)
+             LIMIT $2`,
+            [username, count]
+          ).then(async (r) =>
+            r.rows.length >= count ? r :
+            query(
+              `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+               FROM puzzles
+               WHERE id NOT IN (SELECT puzzle_id FROM puzzle_attempts WHERE username = $1)
+               ORDER BY RANDOM() LIMIT $2`,
+              [username, count]
+            )
+          )
+        : await query(
+            `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+             FROM puzzles TABLESAMPLE BERNOULLI(1)
+             LIMIT $1`,
+            [count]
+          ).then(async (r) =>
+            r.rows.length >= count ? r :
+            query(
+              `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+               FROM puzzles
+               ORDER BY RANDOM() LIMIT $1`,
+              [count]
+            )
+          );
+
     return result.rows.map((p: any) => ({
       id: p.id,
       fen: p.fen,
@@ -80,11 +113,7 @@ export async function GET(
     const rating = parseInt(searchParams.get("rating") ?? "1200", 10);
     const limit = parseInt(searchParams.get("limit") ?? "20", 10);
 
-    // Ensure index exists for fast puzzle deduplication queries
-    await query(
-      `CREATE INDEX IF NOT EXISTS idx_puzzle_attempts_user_puzzle ON puzzle_attempts(username, puzzle_id)`,
-      []
-    ).catch(() => {});
+    await ensureDbInit().catch(() => {});
 
     // Get all blunders for this player (white or black)
     let blundersResult;

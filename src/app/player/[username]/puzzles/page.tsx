@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
+import { Chess } from "chess.js";
 import Header from "@/components/Header";
 import PuzzleBoard from "@/components/puzzle-trainer/PuzzleBoard";
 import {
@@ -16,6 +17,32 @@ import {
 } from "@/lib/puzzle-api";
 
 const PREFETCH_THRESHOLD = 5; // fetch more when this many puzzles remain
+const GOOD_MOVES_PREFETCH = 3; // warm cache for this many upcoming puzzles
+
+/** Returns the FEN after the setup (opponent) move is applied — the position the player will face. */
+function getPuzzleActiveFen(puzzle: TrainerPuzzle): string | null {
+  try {
+    if (puzzle.source === "own-blunder") return puzzle.fen; // no setup move
+    const setupMove = puzzle.opponentMoves[0];
+    if (!setupMove) return puzzle.fen;
+    const chess = new Chess(puzzle.fen);
+    const from = setupMove.slice(0, 2);
+    const to = setupMove.slice(2, 4);
+    const promo = setupMove[4] as "q" | "r" | "b" | "n" | undefined;
+    chess.move({ from, to, ...(promo ? { promotion: promo } : {}) });
+    return chess.fen();
+  } catch {
+    return null;
+  }
+}
+
+function warmGoodMovesCache(fen: string) {
+  fetch("/api/puzzles/evaluate-move", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fen }),
+  }).catch(() => {});
+}
 
 export default function PuzzlesPage() {
   const params = useParams();
@@ -131,6 +158,15 @@ export default function PuzzlesPage() {
       fetchMore();
     }
   }, [currentIndex, puzzleQueue.length, fetchMore]);
+
+  // Warm the good-moves cache for the next few puzzles in the background
+  useEffect(() => {
+    if (puzzleQueue.length === 0) return;
+    for (let i = currentIndex + 1; i <= currentIndex + GOOD_MOVES_PREFETCH && i < puzzleQueue.length; i++) {
+      const fen = getPuzzleActiveFen(puzzleQueue[i]);
+      if (fen) warmGoodMovesCache(fen);
+    }
+  }, [currentIndex, puzzleQueue]);
 
   const handleThemeFilter = useCallback((theme: string | null) => {
     activeThemeRef.current = theme;
