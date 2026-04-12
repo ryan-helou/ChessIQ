@@ -127,37 +127,31 @@ type SortKey = "games" | "winRate" | "avgAccuracy" | "name";
 
 function WinRateBar({ wins, losses, draws, games }: { wins: number; losses: number; draws: number; games: number }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex gap-1 items-center">
-        <span className="text-[#81b64c] font-semibold">{wins}</span>
-        <span className="text-[#706e6b]">/</span>
-        <span className="text-[#e62929] font-semibold">{losses}</span>
-        <span className="text-[#706e6b]">/</span>
-        <span className="text-[#989795]">{draws}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <div style={{ display: "flex", gap: "4px", alignItems: "center", fontFamily: "var(--font-mono)", fontSize: "12px" }}>
+        <span style={{ color: "var(--win)", fontWeight: 600 }}>{wins}</span>
+        <span style={{ color: "var(--text-3)" }}>/</span>
+        <span style={{ color: "var(--loss)", fontWeight: 600 }}>{losses}</span>
+        <span style={{ color: "var(--text-3)" }}>/</span>
+        <span style={{ color: "var(--draw)" }}>{draws}</span>
       </div>
-      <div className="flex-1 flex h-2 rounded-full overflow-hidden bg-[#3a3835] min-w-[60px]">
-        <div className="bg-[#81b64c]" style={{ width: `${(wins / games) * 100}%` }} />
-        <div className="bg-[#989795]" style={{ width: `${(draws / games) * 100}%` }} />
-        <div className="bg-[#e62929]" style={{ width: `${(losses / games) * 100}%` }} />
+      <div style={{ flex: 1, display: "flex", height: "6px", borderRadius: "3px", overflow: "hidden", background: "var(--border)", minWidth: "60px" }}>
+        <div style={{ background: "var(--win)", width: `${(wins / games) * 100}%` }} />
+        <div style={{ background: "var(--draw)", width: `${(draws / games) * 100}%` }} />
+        <div style={{ background: "var(--loss)", width: `${(losses / games) * 100}%` }} />
       </div>
     </div>
   );
 }
 
-function winRateColor(rate: number) {
-  if (rate >= 60) return "text-[#81b64c]";
-  if (rate >= 50) return "text-[#e8e6e1]";
-  if (rate >= 40) return "text-[#e6a117]";
-  return "text-[#e62929]";
+function winRateColor(rate: number): string {
+  if (rate >= 60) return "var(--win)";
+  if (rate >= 50) return "var(--text-1)";
+  if (rate >= 40) return "var(--gold)";
+  return "var(--loss)";
 }
 
-function OpeningFamilyTable({
-  families,
-  label,
-}: {
-  families: OpeningFamily[];
-  label: string;
-}) {
+function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
   const [sortBy, setSortBy] = useState<SortKey>("games");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [minGames, setMinGames] = useState(2);
@@ -178,52 +172,59 @@ function OpeningFamilyTable({
     else { setSortBy(key); setSortDir("desc"); }
   };
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortBy !== col) return <span className="text-[#706e6b] ml-1">↕</span>;
-    return <span className="ml-1">{sortDir === "desc" ? "↓" : "↑"}</span>;
-  };
-
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <label className="text-sm text-[#989795]">Min games:</label>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
+        <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>Min games:</span>
         <input
           type="range"
           min={1}
           max={20}
           value={minGames}
           onChange={(e) => setMinGames(parseInt(e.target.value))}
-          className="w-24 accent-[#81b64c]"
+          style={{ width: "80px", accentColor: "var(--gold)" }}
         />
-        <span className="text-sm text-[#989795] w-6">{minGames}</span>
-        <span className="text-sm text-[#706e6b] ml-auto">
+        <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)", width: "18px" }}>{minGames}</span>
+        <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginLeft: "auto" }}>
           {filtered.length} openings
         </span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr className="text-[#989795] text-sm border-b border-[#3a3835]">
-              <th className="w-8 py-3 px-2" />
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <th style={{ width: "28px", padding: "10px 8px" }} />
               {(
                 [
                   ["name", "Opening"],
                   ["games", "Games"],
-                  ["winRate", "Win Rate"],
+                  ["winRate", "Win %"],
                   ["avgAccuracy", "Accuracy"],
                 ] as [SortKey, string][]
               ).map(([key, label]) => (
                 <th
                   key={key}
-                  className="text-left py-3 px-3 cursor-pointer hover:text-[#e8e6e1] transition-colors whitespace-nowrap"
+                  style={{
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    fontSize: "11px",
+                    fontFamily: "var(--font-mono)",
+                    letterSpacing: "0.08em",
+                    color: sortBy === key ? "var(--gold)" : "var(--text-3)",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    userSelect: "none",
+                    transition: "color 0.15s",
+                  }}
                   onClick={() => toggleSort(key)}
+                  onMouseEnter={(e) => { if (sortBy !== key) e.currentTarget.style.color = "var(--text-2)"; }}
+                  onMouseLeave={(e) => { if (sortBy !== key) e.currentTarget.style.color = "var(--text-3)"; }}
                 >
-                  {label}
-                  <SortIcon col={key} />
+                  {label} {sortBy === key ? (sortDir === "desc" ? "↓" : "↑") : <span style={{ opacity: 0.3 }}>↕</span>}
                 </th>
               ))}
-              <th className="text-left py-3 px-3">W / L / D</th>
+              <th style={{ textAlign: "left", padding: "10px 12px", fontSize: "11px", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", color: "var(--text-3)" }}>W / L / D</th>
             </tr>
           </thead>
           <tbody>
@@ -234,78 +235,67 @@ function OpeningFamilyTable({
               return (
                 <Fragment key={family.name}>
                   <tr
-                    className={`border-b transition-colors ${
-                      isExpanded
-                        ? "bg-[#3a3835]/40 border-[#3a3835]"
-                        : "border-[#3a3835]/50 hover:bg-[#262522]/60"
-                    } ${hasLines ? "cursor-pointer" : ""}`}
+                    style={{
+                      borderBottom: "1px solid var(--border-subtle)",
+                      background: isExpanded ? "var(--bg-card)" : "transparent",
+                      cursor: hasLines ? "pointer" : "default",
+                      transition: "background 0.15s",
+                    }}
                     onClick={() => hasLines && setExpanded(isExpanded ? null : family.name)}
+                    onMouseEnter={(e) => { if (!isExpanded) (e.currentTarget as HTMLElement).style.background = "var(--bg-card)"; }}
+                    onMouseLeave={(e) => { if (!isExpanded) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                   >
-                    <td className="py-3.5 px-2 text-center">
+                    <td style={{ padding: "12px 8px", textAlign: "center" }}>
                       {hasLines && (
-                        <span
-                          className={`inline-block text-[#706e6b] text-xs transition-transform duration-200 ${
-                            isExpanded ? "rotate-90" : ""
-                          }`}
-                        >
-                          ▶
-                        </span>
+                        <span style={{
+                          display: "inline-block",
+                          color: "var(--text-3)",
+                          fontSize: "9px",
+                          transition: "transform 0.2s",
+                          transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                        }}>▶</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-3">
-                      <div className="font-semibold text-white text-base">{family.name}</div>
-                      <div className="text-sm text-[#706e6b] mt-0.5">
+                    <td style={{ padding: "12px" }}>
+                      <div style={{ fontWeight: 500, color: "var(--text-1)", fontSize: "13.5px" }}>{family.name}</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>
                         {family.lines.length} variation{family.lines.length !== 1 ? "s" : ""}
                       </div>
                     </td>
-                    <td className="py-3.5 px-3 text-[#e8e6e1] font-semibold text-base">{family.games}</td>
-                    <td className={`py-3.5 px-3 font-bold text-base ${winRateColor(family.winRate)}`}>
+                    <td style={{ padding: "12px", fontFamily: "var(--font-mono)", color: "var(--text-2)", fontWeight: 600 }}>{family.games}</td>
+                    <td style={{ padding: "12px", fontFamily: "var(--font-mono)", fontWeight: 700, color: winRateColor(family.winRate) }}>
                       {family.winRate.toFixed(1)}%
                     </td>
-                    <td className="py-3.5 px-3 text-[#989795] text-base">
+                    <td style={{ padding: "12px", fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>
                       {family.avgAccuracy ? `${family.avgAccuracy.toFixed(1)}%` : "—"}
                     </td>
-                    <td className="py-3.5 px-3 min-w-[180px]">
-                      <WinRateBar
-                        wins={family.wins}
-                        losses={family.losses}
-                        draws={family.draws}
-                        games={family.games}
-                      />
+                    <td style={{ padding: "12px", minWidth: "180px" }}>
+                      <WinRateBar wins={family.wins} losses={family.losses} draws={family.draws} games={family.games} />
                     </td>
                   </tr>
 
-                  {isExpanded &&
-                    family.lines.map((line) => (
-                      <tr
-                        key={line.name}
-                        className="border-b border-[#3a3835]/30 bg-[#262522]/60"
-                      >
-                        <td className="py-2.5 px-2" />
-                        <td className="py-2.5 px-3 pl-8">
-                          <div className="text-[#989795] text-sm">
-                            <span className="text-[#706e6b] mr-1.5">└</span>
-                            {line.name}
-                          </div>
-                          <div className="text-xs text-[#706e6b] pl-4 mt-0.5">{line.eco}</div>
-                        </td>
-                        <td className="py-2.5 px-3 text-[#989795] text-sm">{line.games}</td>
-                        <td className={`py-2.5 px-3 text-sm font-semibold ${winRateColor(line.winRate)}`}>
-                          {line.winRate.toFixed(1)}%
-                        </td>
-                        <td className="py-2.5 px-3 text-[#989795] text-sm">
-                          {line.avgAccuracy ? `${line.avgAccuracy.toFixed(1)}%` : "—"}
-                        </td>
-                        <td className="py-2.5 px-3 min-w-[180px]">
-                          <WinRateBar
-                            wins={line.wins}
-                            losses={line.losses}
-                            draws={line.draws}
-                            games={line.games}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                  {isExpanded && family.lines.map((line) => (
+                    <tr key={line.name} style={{ borderBottom: "1px solid var(--border-subtle)", background: "var(--bg-surface)" }}>
+                      <td style={{ padding: "10px 8px" }} />
+                      <td style={{ padding: "10px 12px", paddingLeft: "28px" }}>
+                        <div style={{ fontSize: "12px", color: "var(--text-3)" }}>
+                          <span style={{ color: "var(--text-4)", marginRight: "6px" }}>└</span>
+                          {line.name}
+                        </div>
+                        <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", color: "var(--text-4)", marginTop: "2px", paddingLeft: "14px" }}>{line.eco}</div>
+                      </td>
+                      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "var(--text-3)", fontSize: "12px" }}>{line.games}</td>
+                      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", fontSize: "12px", fontWeight: 600, color: winRateColor(line.winRate) }}>
+                        {line.winRate.toFixed(1)}%
+                      </td>
+                      <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "var(--text-3)", fontSize: "12px" }}>
+                        {line.avgAccuracy ? `${line.avgAccuracy.toFixed(1)}%` : "—"}
+                      </td>
+                      <td style={{ padding: "10px 12px", minWidth: "180px" }}>
+                        <WinRateBar wins={line.wins} losses={line.losses} draws={line.draws} games={line.games} />
+                      </td>
+                    </tr>
+                  ))}
                 </Fragment>
               );
             })}
@@ -327,13 +317,10 @@ export default function OpeningTable({ openings, games }: Props) {
     const whiteGames = games.filter((g) => g.playerColor === "white");
     const blackGames = games.filter((g) => g.playerColor === "black");
 
-    const whiteOpenings = buildOpeningStatsFromGames(whiteGames);
-    const blackOpenings = buildOpeningStatsFromGames(blackGames);
-
     return {
       allFamilies,
-      whiteFamilies: groupOpenings(whiteOpenings),
-      blackFamilies: groupOpenings(blackOpenings),
+      whiteFamilies: groupOpenings(buildOpeningStatsFromGames(whiteGames)),
+      blackFamilies: groupOpenings(buildOpeningStatsFromGames(blackGames)),
     };
   }, [openings, games]);
 
@@ -345,37 +332,49 @@ export default function OpeningTable({ openings, games }: Props) {
 
   return (
     <div>
-      {/* Color tabs */}
       {games && (
-        <div className="flex gap-2 mb-6">
+        <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
           {([
             { key: "all" as const, label: "All", count: games.length },
             { key: "white" as const, label: "White", count: whiteCount },
             { key: "black" as const, label: "Black", count: blackCount },
-          ]).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setColorTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                colorTab === tab.key
-                  ? "bg-[#81b64c] text-white"
-                  : "bg-[#3a3835] text-[#989795] hover:text-[#e8e6e1] hover:bg-[#3a3835]"
-              }`}
-            >
-              {tab.key === "white" && (
-                <span className="w-3 h-3 rounded-sm bg-white border border-[#989795] inline-block" />
-              )}
-              {tab.key === "black" && (
-                <span className="w-3 h-3 rounded-sm bg-[#1a1916] border border-[#706e6b] inline-block" />
-              )}
-              {tab.label}
-              <span className="text-xs opacity-70">{tab.count}</span>
-            </button>
-          ))}
+          ]).map((tab) => {
+            const isActive = colorTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setColorTab(tab.key)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "6px 14px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.05em",
+                  border: `1px solid ${isActive ? "var(--gold-line)" : "var(--border)"}`,
+                  background: isActive ? "var(--gold-dim)" : "var(--bg-card)",
+                  color: isActive ? "var(--gold)" : "var(--text-3)",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {tab.key === "white" && (
+                  <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "#e8e6e1", border: "1px solid var(--border)", display: "inline-block" }} />
+                )}
+                {tab.key === "black" && (
+                  <span style={{ width: "10px", height: "10px", borderRadius: "2px", background: "var(--bg)", border: "1px solid var(--border-strong)", display: "inline-block" }} />
+                )}
+                {tab.label}
+                <span style={{ opacity: 0.6 }}>{tab.count}</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      <OpeningFamilyTable families={activeFamilies} label={colorTab} />
+      <OpeningFamilyTable families={activeFamilies} />
     </div>
   );
 }

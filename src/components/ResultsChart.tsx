@@ -15,18 +15,20 @@ import {
 } from "recharts";
 import type { ResultBreakdown } from "@/lib/game-analysis";
 
+const C = { bg: "#09090f", border: "#222136", text2: "#9896b4", text3: "#524f68" };
+
 const RESULT_COLORS: Record<string, string> = {
-  Checkmate: "#81b64c",
-  Resigned: "#e62929",
-  Timeout: "#e6a117",
-  Checkmated: "#c92a2a",
-  Stalemate: "#989795",
-  "Draw Agreed": "#706e6b",
-  Repetition: "#8b5cf6",
-  Abandoned: "#e67e22",
-  "Insufficient Material": "#6366f1",
-  "Timeout vs Insufficient": "#a78bfa",
-  "50-Move Rule": "#989795",
+  Checkmate:                 "#52c07a",
+  Resigned:                  "#e05555",
+  Timeout:                   "#d4a84b",
+  Checkmated:                "#c03434",
+  Stalemate:                 "#8b8aae",
+  "Draw Agreed":             "#524f68",
+  Repetition:                "#5b9cf6",
+  Abandoned:                 "#d4a84b",
+  "Insufficient Material":   "#5b9cf6",
+  "Timeout vs Insufficient": "#8b8aae",
+  "50-Move Rule":            "#524f68",
 };
 
 interface WinLossDrawProps {
@@ -37,11 +39,11 @@ interface WinLossDrawProps {
 
 export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
   const data = [
-    { name: "Wins", value: wins },
+    { name: "Wins",   value: wins },
     { name: "Losses", value: losses },
-    { name: "Draws", value: draws },
+    { name: "Draws",  value: draws },
   ];
-  const colors = ["#81b64c", "#e62929", "#989795"];
+  const colors = ["#52c07a", "#e05555", "#8b8aae"];
 
   return (
     <div className="w-full h-[250px]">
@@ -58,7 +60,7 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
             label={({ name, percent }) =>
               `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
             }
-            labelLine={{ stroke: "#706e6b" }}
+            labelLine={{ stroke: C.text3 }}
           >
             {data.map((_, index) => (
               <Cell key={index} fill={colors[index]} />
@@ -66,10 +68,12 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
           </Pie>
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1a1916",
-              border: "1px solid #3a3835",
+              backgroundColor: C.bg,
+              border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: "#f0ede4",
+              fontSize: "12px",
+              fontFamily: "monospace",
             }}
           />
         </PieChart>
@@ -87,27 +91,29 @@ export function ResultBreakdownChart({ data }: Props) {
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data} layout="vertical">
-          <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
-          <XAxis type="number" tick={{ fill: "#989795", fontSize: 11 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+          <XAxis type="number" tick={{ fill: C.text3, fontSize: 11 }} />
           <YAxis
             dataKey="type"
             type="category"
-            tick={{ fill: "#989795", fontSize: 11 }}
+            tick={{ fill: C.text3, fontSize: 11 }}
             width={150}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1a1916",
-              border: "1px solid #3a3835",
+              backgroundColor: C.bg,
+              border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: "#f0ede4",
+              fontSize: "12px",
+              fontFamily: "monospace",
             }}
           />
           <Bar dataKey="count" radius={[0, 4, 4, 0]}>
             {data.map((entry, index) => (
               <Cell
                 key={index}
-                fill={RESULT_COLORS[entry.type] ?? "#989795"}
+                fill={RESULT_COLORS[entry.type] ?? C.text2}
               />
             ))}
           </Bar>

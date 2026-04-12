@@ -67,6 +67,12 @@ export default function PuzzlesPage() {
   const activeThemeRef = useRef<string | null>(null);
   const modeRef = useRef<PuzzleMode>("random");
 
+  // Pre-partitioned indexes: theme → TrainerPuzzle[] for O(1) filter lookups
+  const themePartitions = useRef<Map<string, TrainerPuzzle[]>>(new Map());
+  const allPuzzlesRef = useRef<{ weakness: TrainerPuzzle[]; random: TrainerPuzzle[]; blunders: TrainerPuzzle[] }>({
+    weakness: [], random: [], blunders: [],
+  });
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -78,7 +84,25 @@ export default function PuzzlesPage() {
         ]);
         setRecommendation(data);
         setPlayerRating(rating);
-        const defaultMode: PuzzleMode = data.ownBlunderPuzzles.length > 0 ? "blunders" : "random";
+
+        // Pre-convert all puzzles once and partition by theme for O(1) filter
+        const weaknessPuzzles = data.puzzles.map(lichessPuzzleToTrainer);
+        const randomPuzzles = (data.randomPuzzles ?? []).map(lichessPuzzleToTrainer);
+        const blunderPuzzles = data.ownBlunderPuzzles.map(blunderPuzzleToTrainer);
+
+        allPuzzlesRef.current = { weakness: weaknessPuzzles, random: randomPuzzles, blunders: blunderPuzzles };
+
+        // Build theme → puzzle index for weakness + random (most commonly filtered)
+        const partitions = new Map<string, TrainerPuzzle[]>();
+        for (const tp of [...weaknessPuzzles, ...randomPuzzles]) {
+          for (const theme of tp.themes) {
+            if (!partitions.has(theme)) partitions.set(theme, []);
+            partitions.get(theme)!.push(tp);
+          }
+        }
+        themePartitions.current = partitions;
+
+        const defaultMode: PuzzleMode = blunderPuzzles.length > 0 ? "blunders" : "random";
         setMode(defaultMode);
         modeRef.current = defaultMode;
         buildQueue(data, null, defaultMode);
@@ -98,29 +122,32 @@ export default function PuzzlesPage() {
     puzzleMode: PuzzleMode,
   ) => {
     seenIds.current.clear();
-    const queue: TrainerPuzzle[] = [];
+    let queue: TrainerPuzzle[];
+
     if (puzzleMode === "blunders") {
-      for (const bp of data.ownBlunderPuzzles) {
-        if (themeFilter && bp.theme !== themeFilter) continue;
-        const tp = blunderPuzzleToTrainer(bp);
-        queue.push(tp);
-        seenIds.current.add(tp.id);
-      }
-    } else if (puzzleMode === "weakness") {
-      for (const p of data.puzzles) {
-        if (themeFilter && !p.themes.includes(themeFilter)) continue;
-        const tp = lichessPuzzleToTrainer(p);
-        queue.push(tp);
-        seenIds.current.add(tp.id);
-      }
+      // Blunder puzzles are small — filter inline
+      const all = allPuzzlesRef.current.blunders.length > 0
+        ? allPuzzlesRef.current.blunders
+        : data.ownBlunderPuzzles.map(blunderPuzzleToTrainer);
+      queue = themeFilter
+        ? all.filter((tp) => tp.themes.includes(themeFilter))
+        : all;
+    } else if (themeFilter) {
+      // O(1) lookup from pre-partitioned index
+      const modeSource = puzzleMode === "weakness" ? "weakness" : "random";
+      const partitioned = themePartitions.current.get(themeFilter) ?? [];
+      // Filter to only the correct mode's puzzles
+      const modeIds = new Set(allPuzzlesRef.current[modeSource].map((tp) => tp.id));
+      queue = partitioned.filter((tp) => modeIds.has(tp.id));
     } else {
-      for (const p of data.randomPuzzles ?? []) {
-        if (themeFilter && !p.themes.includes(themeFilter)) continue;
-        const tp = lichessPuzzleToTrainer(p);
-        queue.push(tp);
-        seenIds.current.add(tp.id);
-      }
+      // No theme filter — use full pre-converted array
+      const modeSource = puzzleMode === "weakness" ? "weakness" : "random";
+      queue = allPuzzlesRef.current[modeSource].length > 0
+        ? allPuzzlesRef.current[modeSource]
+        : (puzzleMode === "weakness" ? data.puzzles : (data.randomPuzzles ?? [])).map(lichessPuzzleToTrainer);
     }
+
+    for (const tp of queue) seenIds.current.add(tp.id);
     setPuzzleQueue(queue);
     setCurrentIndex(0);
     setSessionSolved(0);
@@ -229,12 +256,12 @@ export default function PuzzlesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
         <div className="flex items-center justify-center min-h-[80vh]">
           <div className="text-center">
-            <div className="w-10 h-10 border-2 border-[#81b64c] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[#989795]">Loading your puzzle recommendations…</p>
+            <div className="w-10 h-10 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[var(--text-2)]">Loading your puzzle recommendations…</p>
           </div>
         </div>
       </div>
@@ -243,10 +270,10 @@ export default function PuzzlesPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
         <div className="flex items-center justify-center min-h-[80vh]">
-          <p className="text-[#ca3431]">{error}</p>
+          <p className="text-[var(--loss)]">{error}</p>
         </div>
       </div>
     );
@@ -254,12 +281,12 @@ export default function PuzzlesPage() {
 
   if (puzzleQueue.length === 0) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
         <div className="flex items-center justify-center min-h-[80vh]">
           <div className="text-center">
-            <p className="text-[#989795] text-lg mb-1">No puzzles available yet</p>
-            <p className="text-sm text-[#706e6b]">Analyze some games first to generate personalized puzzles.</p>
+            <p className="text-[var(--text-2)] text-lg mb-1">No puzzles available yet</p>
+            <p className="text-sm text-[var(--text-3)]">Analyze some games first to generate personalized puzzles.</p>
           </div>
         </div>
       </div>
@@ -270,21 +297,21 @@ export default function PuzzlesPage() {
 
   if (!modeSelected) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
         <div className="flex items-center justify-center min-h-[80vh] px-4">
           <div className="w-full max-w-2xl">
             <h1 className="text-2xl font-black text-white text-center mb-2">Puzzle Training</h1>
-            <p className="text-[#706e6b] text-center text-sm mb-10">Choose how you want to train</p>
+            <p className="text-[var(--text-3)] text-center text-sm mb-10">Choose how you want to train</p>
             <div className="grid grid-cols-1 gap-4">
 
               {/* Random */}
               <button
                 onClick={() => handleSelectMode("random")}
-                className="group text-left bg-[#262522] hover:bg-[#2e2b28] border border-[#3a3835] hover:border-[#81b64c] rounded-2xl p-6 transition-all"
+                className="group text-left bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border)] hover:border-[var(--gold)] rounded-2xl p-6 transition-all"
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#81b64c]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#81b64c]/30 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-[var(--gold)]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--gold)]/30 transition-colors">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#81b64c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>
                     </svg>
@@ -292,13 +319,13 @@ export default function PuzzlesPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="text-lg font-bold text-white">Random Puzzles</h2>
-                      <span className="text-[10px] font-bold text-[#81b64c] bg-[#81b64c]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
+                      <span className="text-[10px] font-bold text-[var(--gold)] bg-[var(--gold)]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
                     </div>
-                    <p className="text-sm text-[#706e6b]">Classic puzzle training. Solve random positions and build your rating.</p>
+                    <p className="text-sm text-[var(--text-3)]">Classic puzzle training. Solve random positions and build your rating.</p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="text-2xl font-black text-white">{playerRating.toLocaleString()}</div>
-                    <div className="text-[11px] text-[#706e6b]">your rating</div>
+                    <div className="text-[11px] text-[var(--text-3)]">your rating</div>
                   </div>
                 </div>
               </button>
@@ -306,7 +333,7 @@ export default function PuzzlesPage() {
               {/* Weak Spots */}
               <button
                 onClick={() => handleSelectMode("weakness")}
-                className="group text-left bg-[#262522] hover:bg-[#2e2b28] border border-[#3a3835] hover:border-[#e28c28] rounded-2xl p-6 transition-all"
+                className="group text-left bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border)] hover:border-[#e28c28] rounded-2xl p-6 transition-all"
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-[#e28c28]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#e28c28]/30 transition-colors">
@@ -319,7 +346,7 @@ export default function PuzzlesPage() {
                       <h2 className="text-lg font-bold text-white">Weak Spots</h2>
                       <span className="text-[10px] font-bold text-[#e28c28] bg-[#e28c28]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
                     </div>
-                    <p className="text-sm text-[#706e6b]">Puzzles matched to the tactical patterns you miss most in your games.</p>
+                    <p className="text-sm text-[var(--text-3)]">Puzzles matched to the tactical patterns you miss most in your games.</p>
                     {recommendation?.weaknesses?.[0] && (
                       <p className="text-xs text-[#e28c28] mt-1.5">Top weakness: {recommendation.weaknesses[0].theme} ({recommendation.weaknesses[0].percentage}%)</p>
                     )}
@@ -331,10 +358,10 @@ export default function PuzzlesPage() {
               {hasBlunders && (
                 <button
                   onClick={() => handleSelectMode("blunders")}
-                  className="group text-left bg-[#262522] hover:bg-[#2e2b28] border border-[#3a3835] hover:border-[#ca3431] rounded-2xl p-6 transition-all"
+                  className="group text-left bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] border border-[var(--border)] hover:border-[#ca3431] rounded-2xl p-6 transition-all"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-[#ca3431]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#ca3431]/30 transition-colors">
+                    <div className="w-12 h-12 rounded-xl bg-[var(--loss)]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[var(--loss)]/30 transition-colors">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ca3431" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                       </svg>
@@ -342,10 +369,10 @@ export default function PuzzlesPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h2 className="text-lg font-bold text-white">My Blunders</h2>
-                        <span className="text-[10px] font-bold text-[#ca3431] bg-[#ca3431]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
+                        <span className="text-[10px] font-bold text-[var(--loss)] bg-[var(--loss)]/15 px-2 py-0.5 rounded-full uppercase tracking-wide">Rated</span>
                       </div>
-                      <p className="text-sm text-[#706e6b]">Replay the exact positions from your own games where you made a mistake.</p>
-                      <p className="text-xs text-[#ca3431] mt-1.5">{recommendation?.ownBlunderPuzzles?.length} positions from your games</p>
+                      <p className="text-sm text-[var(--text-3)]">Replay the exact positions from your own games where you made a mistake.</p>
+                      <p className="text-xs text-[var(--loss)] mt-1.5">{recommendation?.ownBlunderPuzzles?.length} positions from your games</p>
                     </div>
                   </div>
                 </button>
@@ -358,7 +385,7 @@ export default function PuzzlesPage() {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-[#312e2b] text-[#e8e6e1] overflow-hidden">
+    <div className="h-dvh flex flex-col bg-[var(--bg)] text-[var(--text-1)] overflow-hidden">
       <Header username={username} />
       <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto px-4 py-4 flex flex-col">
         {currentPuzzle && (

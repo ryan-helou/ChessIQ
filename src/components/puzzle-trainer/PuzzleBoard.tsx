@@ -31,7 +31,7 @@ const THEME_DESCRIPTIONS: Record<string, string> = {
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
-  { ssr: false, loading: () => <div className="w-full aspect-square bg-[#3a3835]/40 animate-pulse rounded" /> }
+  { ssr: false, loading: () => <div className="w-full aspect-square bg-[#222136]/40 animate-pulse rounded" /> }
 );
 
 type Phase =
@@ -409,7 +409,7 @@ function PuzzleBoard({
   const revealed = phase === "solved" || phase === "failed" || phase === "solution" || phase === "done";
   const mainTheme = puzzle.themes[0] ?? null;
   const themeLabel = mainTheme ? (THEME_LABELS[mainTheme] ?? mainTheme) : null;
-  const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#706e6b") : "#706e6b";
+  const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#524f68") : "#524f68";
   const themeDesc = mainTheme ? (THEME_DESCRIPTIONS[mainTheme] ?? null) : null;
   const canInteract = phase === "idle" || phase === "wrong";
   const isDone = phase === "solved" || phase === "failed" || phase === "done";
@@ -430,7 +430,7 @@ function PuzzleBoard({
     <div className="flex flex-col lg:flex-row w-full h-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
 
       {/* ── Board ── */}
-      <div className="flex-1 min-w-0 min-h-0 bg-[#312e2b] flex items-center justify-center">
+      <div className="flex-1 min-w-0 min-h-0 bg-[#09090f] flex items-center justify-center">
         <div
           style={{
             height: "100%",
@@ -463,12 +463,12 @@ function PuzzleBoard({
       </div>
 
       {/* ── Sidebar ── */}
-      <div className="flex flex-col bg-[#1e1c1a] lg:w-[300px] w-full flex-shrink-0 h-full">
+      <div className="flex flex-col bg-[#0e0d16] lg:w-[300px] w-full flex-shrink-0 h-full">
 
         {/* Header */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#2a2826]">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#13121c]">
           {username ? (
-            <Link href={`/player/${username}`} className="text-[#706e6b] hover:text-[#989795] transition-colors flex-shrink-0">
+            <Link href={`/player/${username}`} className="text-[#524f68] hover:text-[#9896b4] transition-colors flex-shrink-0">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5M12 5l-7 7 7 7"/>
               </svg>
@@ -483,14 +483,14 @@ function PuzzleBoard({
             {onModeChange && (
               <button
                 onClick={() => onModeChange(mode)} // page intercepts this to go back to picker
-                className="text-[10px] text-[#4a4845] hover:text-[#706e6b] transition-colors flex-shrink-0 underline underline-offset-2"
+                className="text-[10px] text-[#2e2c44] hover:text-[#524f68] transition-colors flex-shrink-0 underline underline-offset-2"
               >
                 change
               </button>
             )}
           </div>
 
-          <span className="text-xs text-[#4a4845] flex-shrink-0">{puzzleIndex + 1}/{totalPuzzles}</span>
+          <span className="text-xs text-[#2e2c44] flex-shrink-0">{puzzleIndex + 1}/{totalPuzzles}</span>
         </div>
 
         {/* Content — scrollable if needed */}
@@ -500,21 +500,21 @@ function PuzzleBoard({
           <div className={`rounded-xl p-4 transition-colors duration-300 ${
             phase === "solved" ? "bg-[#1e3a12]" :
             phase === "done" ? "bg-[#1a2a10]" :
-            "bg-[#262522]"
+            "bg-[#13121c]"
           }`}>
             <div className="flex items-center gap-2.5 mb-1.5">
               <div className={`w-4 h-4 rounded-sm border flex-shrink-0 ${
-                orientation === "white" ? "bg-white border-[#aaa]" : "bg-[#1e1c1a] border-[#555]"
+                orientation === "white" ? "bg-white border-[#aaa]" : "bg-[#0e0d16] border-[#555]"
               }`} />
               <span className="text-base font-bold text-white">{statusLine.heading}</span>
             </div>
             {statusLine.sub && (
-              <p className="text-sm text-[#989795] ml-6.5">{statusLine.sub}</p>
+              <p className="text-sm text-[#9896b4] ml-6.5">{statusLine.sub}</p>
             )}
             {attempts > 0 && !revealed && (
               <div className="flex items-center gap-1.5 mt-2.5 ml-6.5">
                 {Array.from({ length: attempts }).map((_, i) => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-[#ca3431]" />
+                  <div key={i} className="w-2 h-2 rounded-full bg-[#e05555]" />
                 ))}
               </div>
             )}
@@ -524,17 +524,17 @@ function PuzzleBoard({
           <div className="space-y-2">
             {puzzle.rating && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#706e6b]">Rating</span>
+                <span className="text-[#524f68]">Rating</span>
                 <span className="font-bold text-white">{puzzle.rating}</span>
               </div>
             )}
             <div className="flex justify-between text-sm">
-              <span className="text-[#706e6b]">Source</span>
-              <span className="text-[#e8e6e1] text-xs">{puzzle.sourceLabel}</span>
+              <span className="text-[#524f68]">Source</span>
+              <span className="text-[#f0ede4] text-xs">{puzzle.sourceLabel}</span>
             </div>
             {themeLabel && (
               <div className="flex justify-between text-sm items-center">
-                <span className="text-[#706e6b]">Theme</span>
+                <span className="text-[#524f68]">Theme</span>
                 <span
                   className="text-xs font-bold text-white px-2.5 py-0.5 rounded-full"
                   style={{ backgroundColor: themeColor }}
@@ -546,32 +546,32 @@ function PuzzleBoard({
           </div>
 
           {/* Rating */}
-          <div className="border-t border-[#2a2826] pt-4">
-              <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider mb-3">Puzzle Rating</p>
+          <div className="border-t border-[#13121c] pt-4">
+              <p className="text-xs font-bold text-[#2e2c44] uppercase tracking-wider mb-3">Puzzle Rating</p>
               <div className="flex items-end gap-3">
                 <span className="text-4xl font-black text-white tabular-nums leading-none">
                   {playerRating.toLocaleString()}
                 </span>
                 {ratingChange !== null && ratingChange !== 0 && (
-                  <span className={`text-sm font-bold pb-0.5 ${ratingChange >= 0 ? "text-[#81b64c]" : "text-[#ca3431]"}`}>
+                  <span className={`text-sm font-bold pb-0.5 ${ratingChange >= 0 ? "text-[#d4a84b]" : "text-[#e05555]"}`}>
                     {ratingChange >= 0 ? `+${ratingChange}` : ratingChange}
                   </span>
                 )}
               </div>
               {puzzle.rating && (
                 <div className="mt-3">
-                  <div className="flex justify-between text-[11px] text-[#706e6b] mb-1">
+                  <div className="flex justify-between text-[11px] text-[#524f68] mb-1">
                     <span>Puzzle difficulty</span>
                     <span>{puzzle.rating}</span>
                   </div>
-                  <div className="h-1.5 bg-[#2a2826] rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-[#13121c] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${Math.min(100, Math.max(5, 50 + (puzzle.rating - playerRating) / 20))}%`,
-                        backgroundColor: puzzle.rating > playerRating + 200 ? "#ca3431"
+                        backgroundColor: puzzle.rating > playerRating + 200 ? "#e05555"
                           : puzzle.rating > playerRating ? "#dbac18"
-                          : "#81b64c",
+                          : "#d4a84b",
                       }}
                     />
                   </div>
@@ -580,15 +580,15 @@ function PuzzleBoard({
             </div>
 
           {/* Session stats */}
-          <div className="border-t border-[#2a2826] pt-4 space-y-2.5">
-            <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider">Session</p>
+          <div className="border-t border-[#13121c] pt-4 space-y-2.5">
+            <p className="text-xs font-bold text-[#2e2c44] uppercase tracking-wider">Session</p>
             {[
               ["Solved", `${sessionSolved} / ${sessionTotal}`],
               ["Streak", streak > 0 ? `🔥 ${streak}` : "0"],
               ["Accuracy", sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—"],
             ].map(([label, value]) => (
               <div key={label as string} className="flex justify-between text-sm">
-                <span className="text-[#706e6b]">{label}</span>
+                <span className="text-[#524f68]">{label}</span>
                 <span className="font-bold text-white">{value}</span>
               </div>
             ))}
@@ -596,13 +596,13 @@ function PuzzleBoard({
 
           {/* Weaknesses breakdown + theme filter */}
           {weaknesses && weaknesses.length > 0 && onThemeClick && (
-            <div className="border-t border-[#2a2826] pt-4">
+            <div className="border-t border-[#13121c] pt-4">
               <div className="flex items-center justify-between mb-2.5">
-                <p className="text-xs font-bold text-[#4a4845] uppercase tracking-wider">Your Weaknesses</p>
+                <p className="text-xs font-bold text-[#2e2c44] uppercase tracking-wider">Your Weaknesses</p>
                 {activeTheme && (
                   <button
                     onClick={() => onThemeClick(null)}
-                    className="text-[10px] text-[#706e6b] hover:text-[#989795] transition-colors"
+                    className="text-[10px] text-[#524f68] hover:text-[#9896b4] transition-colors"
                   >
                     Clear filter
                   </button>
@@ -611,7 +611,7 @@ function PuzzleBoard({
               <div className="space-y-2">
                 {weaknesses.map((w) => {
                   const isActive = activeTheme === w.theme;
-                  const color = THEME_COLORS[w.theme] ?? "#706e6b";
+                  const color = THEME_COLORS[w.theme] ?? "#524f68";
                   const label = THEME_LABELS[w.theme] ?? w.theme;
                   return (
                     <button
@@ -620,15 +620,15 @@ function PuzzleBoard({
                       className={`w-full text-left group transition-opacity ${isActive ? "opacity-100" : activeTheme ? "opacity-50 hover:opacity-80" : "opacity-100"}`}
                     >
                       <div className="flex justify-between items-center mb-0.5">
-                        <span className={`text-xs font-semibold ${isActive ? "text-white" : "text-[#989795] group-hover:text-white"} transition-colors`}>
+                        <span className={`text-xs font-semibold ${isActive ? "text-white" : "text-[#9896b4] group-hover:text-white"} transition-colors`}>
                           {label}
                         </span>
-                        <span className="text-[11px] text-[#706e6b] font-mono">{w.percentage}%</span>
+                        <span className="text-[11px] text-[#524f68] font-mono">{w.percentage}%</span>
                       </div>
-                      <div className="h-1.5 bg-[#2a2826] rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-[#13121c] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-300"
-                          style={{ width: `${w.percentage}%`, backgroundColor: isActive ? color : "#4a4845" }}
+                          style={{ width: `${w.percentage}%`, backgroundColor: isActive ? color : "#2e2c44" }}
                         />
                       </div>
                     </button>
@@ -639,7 +639,7 @@ function PuzzleBoard({
           )}
 
           {/* Timer */}
-          <div className="flex items-center gap-2 text-[#706e6b] text-sm">
+          <div className="flex items-center gap-2 text-[#524f68] text-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
             </svg>
@@ -648,11 +648,11 @@ function PuzzleBoard({
         </div>
 
         {/* Footer — action buttons always at bottom */}
-        <div className="px-5 py-4 border-t border-[#2a2826] flex flex-col gap-2">
+        <div className="px-5 py-4 border-t border-[#13121c] flex flex-col gap-2">
           {isDone ? (
             <button
               onClick={onNext}
-              className="w-full py-3 bg-[#81b64c] hover:bg-[#96bc4b] text-white font-bold rounded-lg transition-colors text-sm"
+              className="w-full py-3 bg-[#d4a84b] hover:bg-[#c49a3d] text-white font-bold rounded-lg transition-colors text-sm"
             >
               Next Puzzle →
             </button>
@@ -660,7 +660,7 @@ function PuzzleBoard({
             <>
               <button
                 onClick={handleHint}
-                className="w-full py-3 bg-[#2a2826] hover:bg-[#3a3835] text-[#e8e6e1] font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                className="w-full py-3 bg-[#13121c] hover:bg-[#222136] text-[#f0ede4] font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -673,15 +673,15 @@ function PuzzleBoard({
                   disabled={!hintUsed}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
                     hintUsed
-                      ? "bg-[#2a2826] hover:bg-[#3a3835] text-[#989795]"
-                      : "bg-[#1e1c1a] text-[#3a3835] cursor-not-allowed"
+                      ? "bg-[#13121c] hover:bg-[#222136] text-[#9896b4]"
+                      : "bg-[#0e0d16] text-[#222136] cursor-not-allowed"
                   }`}
                 >
                   Solution
                 </button>
                 <button
                   onClick={onSkip}
-                  className="flex-1 py-2.5 bg-[#2a2826] hover:bg-[#3a3835] text-[#706e6b] rounded-lg text-xs font-semibold transition-colors"
+                  className="flex-1 py-2.5 bg-[#13121c] hover:bg-[#222136] text-[#524f68] rounded-lg text-xs font-semibold transition-colors"
                 >
                   Skip
                 </button>

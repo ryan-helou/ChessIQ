@@ -54,7 +54,6 @@ export default function AnalysisDialog({
   const abortRef = useRef<AbortController | null>(null);
   const msgRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Reset when closed
   useEffect(() => {
     if (!isOpen) {
       setTimeout(() => {
@@ -70,7 +69,6 @@ export default function AnalysisDialog({
     }
   }, [isOpen]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
@@ -95,7 +93,6 @@ export default function AnalysisDialog({
     }, 2800);
 
     try {
-      // Step 1: Queue all games
       const queueRes = await fetch(`/api/games/${encodeURIComponent(username)}/analyze-queue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -131,7 +128,6 @@ export default function AnalysisDialog({
         return;
       }
 
-      // Step 2: Loop analyze-next until done
       let analyzed = alreadyDone;
       let blunders = 0;
 
@@ -178,119 +174,124 @@ export default function AnalysisDialog({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 z-40" onClick={phase === "select" ? onClose : undefined} />
+      <div
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 40, backdropFilter: "blur(4px)" }}
+        onClick={phase === "select" ? onClose : undefined}
+      />
 
-      <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-        <div className="bg-[#1a1916] border border-[#3a3835] rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
+      <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "16px" }}>
+        <div style={{
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-strong)",
+          borderRadius: "16px",
+          width: "100%",
+          maxWidth: "360px",
+          overflow: "hidden",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+        }}>
 
-          {/* ── PHASE: SELECT ── */}
+          {/* SELECT PHASE */}
           {phase === "select" && (
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">♟</span>
-                <h2 className="text-lg font-bold text-white">Analyze Games</h2>
+            <div style={{ padding: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                <span style={{ fontSize: "22px" }}>♟</span>
+                <h2 className="font-display" style={{ fontSize: "17px", fontWeight: 600, color: "var(--text-1)" }}>Analyze Games</h2>
               </div>
-              <p className="text-sm text-[#989795] mb-6">
-                Choose how many games from the last {months} month{months !== 1 ? "s" : ""} to analyse with Stockfish. Blunders and tactical themes are saved for your puzzle recommendations.
+              <p style={{ fontSize: "13px", color: "var(--text-3)", marginBottom: "20px", lineHeight: 1.5 }}>
+                Choose how many games from the last {months} month{months !== 1 ? "s" : ""} to analyse with Stockfish.
               </p>
 
               {error && (
-                <div className="bg-[#ca3431]/20 border border-[#ca3431] rounded-lg p-3 mb-4 text-sm text-[#ff9999]">
+                <div style={{ background: "var(--loss-dim)", border: "1px solid rgba(224,85,85,0.3)", borderRadius: "8px", padding: "12px", marginBottom: "16px", fontSize: "13px", color: "var(--loss)" }}>
                   {error}
                 </div>
               )}
 
-              <div className="space-y-2 mb-4">
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "16px" }}>
                 {GAME_COUNTS.map(({ count, label }) => (
                   <button
                     key={count}
                     onClick={() => handleAnalyze(count)}
-                    className="w-full px-4 py-3 bg-[#262522] hover:bg-[#2f2d2a] text-left text-white rounded-xl transition-colors border border-[#3a3835] hover:border-[#81b64c]/40 group"
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "10px",
+                      textAlign: "left",
+                      color: "var(--text-1)",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = "var(--gold-line)";
+                      e.currentTarget.style.background = "var(--bg-card-hover)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "var(--border)";
+                      e.currentTarget.style.background = "var(--bg-card)";
+                    }}
                   >
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">{label}</span>
-                    </div>
+                    {label}
                   </button>
                 ))}
               </div>
 
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 text-[#706e6b] hover:text-[#989795] text-sm transition-colors"
+                style={{ width: "100%", padding: "8px", color: "var(--text-3)", background: "none", border: "none", cursor: "pointer", fontSize: "13px", transition: "color 0.15s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-2)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-3)"; }}
               >
                 Cancel
               </button>
             </div>
           )}
 
-          {/* ── PHASE: ANALYZING ── */}
+          {/* ANALYZING PHASE */}
           {phase === "analyzing" && (
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-6">
-                <span className="text-2xl animate-bounce">♟</span>
+            <div style={{ padding: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+                <span style={{ fontSize: "22px", animation: "scaleIn 0.5s ease infinite alternate" }}>♟</span>
                 <div>
-                  <h2 className="text-base font-bold text-white">Analysing your games</h2>
-                  <p className="text-xs text-[#706e6b]">This may take a few minutes — hang tight</p>
+                  <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-1)" }}>Analysing your games</h2>
+                  <p style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>This may take a few minutes</p>
                 </div>
               </div>
 
-              {/* Progress bar */}
-              <div className="mb-4">
-                <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-sm text-[#989795]">
-                    {gamesTotal > 0
-                      ? `Game ${gamesAnalyzed} of ${gamesTotal}`
-                      : "Queuing games..."}
+              <div style={{ marginBottom: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+                    {gamesTotal > 0 ? `Game ${gamesAnalyzed} of ${gamesTotal}` : "Queuing games..."}
                   </span>
-                  <span className="text-sm font-bold text-[#81b64c]">{progress}%</span>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--gold)", fontFamily: "var(--font-mono)" }}>{progress}%</span>
                 </div>
 
-                {/* Chess-board track */}
-                <div className="relative h-8 rounded-lg overflow-hidden" style={{
-                  background: "repeating-linear-gradient(90deg, #2a2825 0px, #2a2825 20px, #232120 20px, #232120 40px)"
-                }}>
-                  {/* Green fill */}
-                  <div
-                    className="absolute inset-y-0 left-0 transition-all duration-300 rounded-lg"
-                    style={{
-                      width: `${progress}%`,
-                      background: "linear-gradient(90deg, #5a8a2c, #81b64c)",
-                    }}
-                  />
-                  {/* Pawn at leading edge */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-lg leading-none transition-all duration-300 drop-shadow-lg select-none"
-                    style={{ left: `${Math.max(progress, 2)}%` }}
-                  >
-                    ♙
-                  </div>
-                  {/* Rank markers */}
-                  {[1,2,3,4,5,6,7].map((i) => (
-                    <div
-                      key={i}
-                      className="absolute inset-y-0 w-px bg-white/5"
-                      style={{ left: `${i * 12.5}%` }}
-                    />
-                  ))}
+                <div style={{ height: "6px", background: "var(--border)", borderRadius: "3px", overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%",
+                    background: "linear-gradient(to right, var(--gold-muted), var(--gold))",
+                    width: `${progress}%`,
+                    borderRadius: "3px",
+                    transition: "width 0.3s ease-out",
+                  }} />
                 </div>
               </div>
 
-              {/* Animated message */}
-              <div className="flex items-center gap-2 text-sm text-[#989795] h-5">
-                <span className="text-[#81b64c] text-xs">●</span>
-                <span className="truncate">{MESSAGES[msgIdx]}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)", height: "16px" }}>
+                <span style={{ color: "var(--gold)", fontSize: "8px" }}>●</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{MESSAGES[msgIdx]}</span>
               </div>
 
-              {/* Chess decoration */}
-              <div className="mt-6 flex justify-center gap-3 text-[#3a3835] text-2xl select-none">
+              <div style={{ marginTop: "24px", display: "flex", justifyContent: "center", gap: "10px", fontSize: "20px", userSelect: "none" }}>
                 {["♜","♞","♝","♛","♚","♝","♞","♜"].map((p, i) => (
                   <span
                     key={i}
-                    className="transition-colors"
                     style={{
-                      color: i < Math.round((progress / 100) * 8) ? "#4a6a2a" : "#3a3835",
-                      transitionDelay: `${i * 80}ms`,
+                      color: i < Math.round((progress / 100) * 8) ? "var(--gold-muted)" : "var(--border-strong)",
+                      transition: `color 0.4s ${i * 80}ms`,
                     }}
                   >
                     {p}
@@ -300,17 +301,16 @@ export default function AnalysisDialog({
             </div>
           )}
 
-          {/* ── PHASE: DONE ── */}
+          {/* DONE PHASE */}
           {phase === "done" && (
-            <div className="p-6">
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-5">
-                <span className="text-2xl">♔</span>
+            <div style={{ padding: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                <span style={{ fontSize: "22px" }}>♔</span>
                 <div>
-                  <h2 className="text-base font-bold text-white">
+                  <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-1)" }}>
                     {alreadyUpToDate ? "Already up to date" : "Analysis complete"}
                   </h2>
-                  <p className="text-xs text-[#706e6b]">
+                  <p style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
                     {alreadyUpToDate
                       ? `${gamesAnalyzed} game${gamesAnalyzed !== 1 ? "s" : ""} already analyzed`
                       : `${gamesAnalyzed} game${gamesAnalyzed !== 1 ? "s" : ""} analysed`}
@@ -318,33 +318,31 @@ export default function AnalysisDialog({
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className={`grid gap-3 mb-5 ${alreadyUpToDate ? "grid-cols-1" : "grid-cols-2"}`}>
-                <div className="bg-[#262522] rounded-xl p-3 text-center">
-                  <div className="text-2xl font-bold text-[#81b64c]">{gamesAnalyzed}</div>
-                  <div className="text-xs text-[#706e6b] mt-0.5">Games analysed</div>
+              <div style={{ display: "grid", gridTemplateColumns: alreadyUpToDate ? "1fr" : "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", textAlign: "center" }}>
+                  <div className="font-display" style={{ fontSize: "28px", fontWeight: 700, color: "var(--win)" }}>{gamesAnalyzed}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>Games analysed</div>
                 </div>
                 {!alreadyUpToDate && (
-                  <div className="bg-[#262522] rounded-xl p-3 text-center">
-                    <div className="text-2xl font-bold text-[#ca3431]">{totalBlunders}</div>
-                    <div className="text-xs text-[#706e6b] mt-0.5">Blunders found</div>
+                  <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", textAlign: "center" }}>
+                    <div className="font-display" style={{ fontSize: "28px", fontWeight: 700, color: "var(--loss)" }}>{totalBlunders}</div>
+                    <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>Blunders found</div>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    onClose();
-                    if (totalBlunders > 0) {
-                      router.push(`/player/${encodeURIComponent(username)}/puzzles`);
-                    }
-                  }}
-                  className="w-full px-4 py-2.5 bg-[#262522] hover:bg-[#2f2d2a] text-white rounded-xl transition-colors text-sm border border-[#3a3835]"
-                >
-                  {totalBlunders > 0 ? "View Puzzle Recommendations →" : "Done"}
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  if (totalBlunders > 0) {
+                    router.push(`/player/${encodeURIComponent(username)}/puzzles`);
+                  }
+                }}
+                className="btn-gold"
+                style={{ width: "100%", padding: "11px 16px", borderRadius: "10px", fontSize: "13px", border: "none", cursor: "pointer" }}
+              >
+                {totalBlunders > 0 ? "View Puzzle Recommendations →" : "Done"}
+              </button>
             </div>
           )}
 

@@ -14,6 +14,8 @@ import {
 } from "recharts";
 import type { ParsedGame } from "@/lib/game-analysis";
 
+const C = { bg: "#09090f", border: "#222136", text2: "#9896b4", text3: "#524f68" };
+
 interface Props {
   games: ParsedGame[];
 }
@@ -30,7 +32,6 @@ export function AccuracyOverTime({ games }: Props) {
       opening: g.opening,
     }));
 
-  // Rolling average (20-game window)
   const windowSize = 20;
   const rollingData = withAccuracy.map((d, i) => {
     const start = Math.max(0, i - windowSize + 1);
@@ -43,10 +44,10 @@ export function AccuracyOverTime({ games }: Props) {
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <LineChart data={rollingData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
+          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
           <XAxis
             dataKey="date"
-            tick={{ fill: "#989795", fontSize: 11 }}
+            tick={{ fill: C.text3, fontSize: 11 }}
             interval="preserveStartEnd"
             minTickGap={60}
             tickFormatter={(v) => {
@@ -54,27 +55,32 @@ export function AccuracyOverTime({ games }: Props) {
               return `${d.toLocaleString("default", { month: "short" })} ${d.getDate()}`;
             }}
           />
-          <YAxis
-            tick={{ fill: "#989795", fontSize: 11 }}
-            domain={[40, 100]}
-          />
+          <YAxis tick={{ fill: C.text3, fontSize: 11 }} domain={[40, 100]} />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1a1916",
-              border: "1px solid #3a3835",
+              backgroundColor: C.bg,
+              border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: "#f0ede4",
+              fontSize: "12px",
+              fontFamily: "monospace",
             }}
             formatter={(value, name) => [
               `${Number(value).toFixed(1)}%`,
               name === "rollingAvg" ? "Rolling Avg" : "Accuracy",
             ]}
           />
-          <Legend />
+          <Legend
+            formatter={(value) => (
+              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "monospace" }}>
+                {value}
+              </span>
+            )}
+          />
           <Line
             type="monotone"
             dataKey="accuracy"
-            stroke="rgba(129, 182, 76, 0.4)"
+            stroke="rgba(212,168,75,0.25)"
             dot={false}
             strokeWidth={1}
             name="Game Accuracy"
@@ -82,7 +88,7 @@ export function AccuracyOverTime({ games }: Props) {
           <Line
             type="monotone"
             dataKey="rollingAvg"
-            stroke="#81b64c"
+            stroke="#d4a84b"
             dot={false}
             strokeWidth={2.5}
             name="20-Game Rolling Avg"
@@ -102,57 +108,56 @@ export function AccuracyVsRating({ games }: Props) {
       result: g.result,
     }));
 
-  // Remove outliers: filter to within 2 standard deviations of mean opponent rating
   const ratings = raw.map((d) => d.opponentRating);
   const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
   const std = Math.sqrt(ratings.reduce((s, r) => s + (r - mean) ** 2, 0) / ratings.length);
   const data = raw.filter((d) => Math.abs(d.opponentRating - mean) <= 2 * std);
 
-  const wins = data.filter((d) => d.result === "win");
+  const wins   = data.filter((d) => d.result === "win");
   const losses = data.filter((d) => d.result === "loss");
-  const draws = data.filter((d) => d.result === "draw");
+  const draws  = data.filter((d) => d.result === "draw");
 
   return (
     <div className="w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <ScatterChart margin={{ bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
+          <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
           <XAxis
             dataKey="opponentRating"
             type="number"
-            tick={{ fill: "#989795", fontSize: 11 }}
+            tick={{ fill: C.text3, fontSize: 11 }}
             name="Opponent Rating"
             domain={["auto", "auto"]}
           />
           <YAxis
             dataKey="accuracy"
-            tick={{ fill: "#989795", fontSize: 11 }}
+            tick={{ fill: C.text3, fontSize: 11 }}
             name="Accuracy"
             domain={[40, 100]}
-            label={{
-              value: "Accuracy %",
-              angle: -90,
-              position: "insideLeft",
-              fill: "#706e6b",
-              fontSize: 11,
-            }}
+            label={{ value: "Accuracy %", angle: -90, position: "insideLeft", fill: C.text3, fontSize: 11 }}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1a1916",
-              border: "1px solid #3a3835",
+              backgroundColor: C.bg,
+              border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: "#f0ede4",
+              fontSize: "12px",
+              fontFamily: "monospace",
             }}
             formatter={(value, name) => [
               name === "accuracy" ? `${Number(value).toFixed(1)}%` : value,
               name === "accuracy" ? "Accuracy" : "Opp Rating",
             ]}
           />
-          <Legend />
-          <Scatter name="Wins" data={wins} fill="#81b64c" opacity={0.6} />
-          <Scatter name="Losses" data={losses} fill="#e62929" opacity={0.6} />
-          <Scatter name="Draws" data={draws} fill="#989795" opacity={0.6} />
+          <Legend
+            formatter={(value) => (
+              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "monospace" }}>{value}</span>
+            )}
+          />
+          <Scatter name="Wins"   data={wins}   fill="#52c07a" opacity={0.55} />
+          <Scatter name="Losses" data={losses} fill="#e05555" opacity={0.55} />
+          <Scatter name="Draws"  data={draws}  fill="#8b8aae" opacity={0.55} />
         </ScatterChart>
       </ResponsiveContainer>
     </div>

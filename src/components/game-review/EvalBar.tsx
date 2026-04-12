@@ -31,19 +31,19 @@ export default function EvalBar({ eval_, mate }: Props) {
     <div className="flex flex-col w-full h-full rounded-sm overflow-hidden select-none relative">
       {/* Black portion (top) */}
       <div
-        className="w-full bg-[#3a3835] transition-all duration-500 ease-out"
+        className="w-full bg-[#222136] transition-all duration-500 ease-out"
         style={{ height: `${100 - whitePercent}%` }}
       />
       {/* White portion (bottom) */}
       <div
-        className="w-full bg-[#e8e6e1] transition-all duration-500 ease-out"
+        className="w-full bg-[#f0ede4] transition-all duration-500 ease-out"
         style={{ height: `${whitePercent}%` }}
       />
       {/* Eval text: top of bar when black leads, bottom when white leads */}
       <span
         className={`absolute left-0 right-0 text-center text-[9px] font-bold leading-none ${
           isWhiteAdvantage
-            ? "bottom-0.5 text-[#3a3835]"
+            ? "bottom-0.5 text-[#222136]"
             : "top-0.5 text-[#b0aea8]"
         }`}
       >

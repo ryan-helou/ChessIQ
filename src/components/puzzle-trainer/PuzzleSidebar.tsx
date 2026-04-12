@@ -28,108 +28,129 @@ export default function PuzzleSidebar({
 }: Props) {
   const mainTheme = puzzle?.themes[0] ?? null;
   const themeLabel = mainTheme ? THEME_LABELS[mainTheme] ?? mainTheme : "—";
-  const themeColor = mainTheme ? THEME_COLORS[mainTheme] ?? "#989795" : "#989795";
+  const themeColor = mainTheme ? THEME_COLORS[mainTheme] ?? "var(--text-3)" : "var(--text-3)";
 
   return (
-    <div className="bg-[#262522] rounded-xl overflow-hidden flex flex-col h-full">
-      {/* Puzzle info header */}
-      <div className="px-5 py-4 border-b border-[#3a3835]">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-[#989795] uppercase tracking-wider font-bold">
+    <div className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Header */}
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+          <span style={{ fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-3)" }}>
             Puzzle {puzzleIndex + 1} of {totalPuzzles}
           </span>
           {puzzle?.rating && (
-            <span className="text-xs text-[#989795]">
-              Rating: <span className="text-white font-bold">{puzzle.rating}</span>
+            <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>
+              Rated <span style={{ color: "var(--gold)", fontWeight: 700 }}>{puzzle.rating}</span>
             </span>
           )}
         </div>
 
-        {/* Theme badge */}
         {mainTheme && (
-          <div className="flex items-center gap-2 mb-2">
-            <span
-              className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold text-white"
-              style={{ backgroundColor: themeColor }}
-            >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+            <span style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "3px 10px",
+              borderRadius: "100px",
+              fontSize: "11px",
+              fontFamily: "var(--font-mono)",
+              fontWeight: 700,
+              color: "#fff",
+              background: themeColor,
+              letterSpacing: "0.04em",
+            }}>
               {themeLabel}
             </span>
             {puzzle?.themes.slice(1, 3).map((t) => (
-              <span
-                key={t}
-                className="text-xs text-[#989795] bg-[#3a3835] px-2 py-0.5 rounded-full"
-              >
+              <span key={t} style={{
+                fontSize: "10px",
+                fontFamily: "var(--font-mono)",
+                color: "var(--text-3)",
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                padding: "2px 8px",
+                borderRadius: "100px",
+              }}>
                 {THEME_LABELS[t] ?? t}
               </span>
             ))}
           </div>
         )}
 
-        {/* Source */}
-        <div className="text-xs text-[#706e6b]">{puzzle?.sourceLabel ?? "—"}</div>
+        <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginTop: "8px" }}>{puzzle?.sourceLabel ?? "—"}</div>
       </div>
 
       {/* Actions */}
-      <div className="px-5 py-3 flex gap-2 border-b border-[#3a3835]">
+      <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: "8px" }}>
         <button
           onClick={onHint}
-          className="flex-1 px-3 py-2 bg-[#3a3835] hover:bg-[#4a4845] text-[#e8e6e1] text-sm rounded-lg transition-colors"
+          style={{
+            flex: 1,
+            padding: "8px 12px",
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            borderRadius: "8px",
+            color: "var(--text-2)",
+            fontSize: "12px",
+            fontFamily: "var(--font-mono)",
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--gold-line)"; e.currentTarget.style.color = "var(--gold)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-2)"; }}
         >
           Hint
         </button>
         <button
           onClick={onSkip}
-          className="flex-1 px-3 py-2 bg-[#3a3835] hover:bg-[#4a4845] text-[#989795] text-sm rounded-lg transition-colors"
+          style={{
+            flex: 1,
+            padding: "8px 12px",
+            background: "var(--bg)",
+            border: "1px solid var(--border)",
+            borderRadius: "8px",
+            color: "var(--text-3)",
+            fontSize: "12px",
+            fontFamily: "var(--font-mono)",
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-2)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-3)"; }}
         >
           Skip
         </button>
       </div>
 
       {/* Session stats */}
-      <div className="px-5 py-4 flex-1">
-        <h3 className="text-xs text-[#989795] uppercase tracking-wider font-bold mb-3">
-          Session
-        </h3>
-        <div className="space-y-2.5">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-[#989795]">Solved</span>
-            <span className="text-sm font-bold text-white">
-              {sessionSolved} / {sessionTotal}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-[#989795]">Streak</span>
-            <span className={`text-sm font-bold ${streak > 0 ? "text-[#96bc4b]" : "text-white"}`}>
-              {streak}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-[#989795]">Accuracy</span>
-            <span className="text-sm font-bold text-white">
-              {sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—"}
-            </span>
-          </div>
+      <div style={{ padding: "16px 20px", flex: 1 }}>
+        <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-3)", marginBottom: "12px" }}>Session</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {[
+            { label: "Solved", value: `${sessionSolved} / ${sessionTotal}`, accent: undefined },
+            { label: "Streak", value: String(streak), accent: streak > 0 ? "var(--gold)" : undefined },
+            { label: "Accuracy", value: sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—", accent: undefined },
+          ].map((row) => (
+            <div key={row.label} style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>{row.label}</span>
+              <span style={{ fontSize: "13px", fontFamily: "var(--font-mono)", fontWeight: 700, color: row.accent || "var(--text-1)" }}>{row.value}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Overall stats */}
+      {/* All-time stats */}
       {stats && stats.totalAttempted > 0 && (
-        <div className="px-5 py-4 border-t border-[#3a3835]">
-          <h3 className="text-xs text-[#989795] uppercase tracking-wider font-bold mb-3">
-            All Time
-          </h3>
-          <div className="space-y-2.5">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-[#989795]">Puzzles Solved</span>
-              <span className="text-sm font-bold text-white">
-                {stats.totalSolved} / {stats.totalAttempted}
-              </span>
+        <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
+          <div style={{ fontSize: "10px", fontFamily: "var(--font-mono)", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-3)", marginBottom: "12px" }}>All Time</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>Solved</span>
+              <span style={{ fontSize: "13px", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--text-1)" }}>{stats.totalSolved} / {stats.totalAttempted}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-[#989795]">Solve Rate</span>
-              <span className="text-sm font-bold text-[#96bc4b]">
-                {stats.solveRate}%
-              </span>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>Solve Rate</span>
+              <span style={{ fontSize: "13px", fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--win)" }}>{stats.solveRate}%</span>
             </div>
           </div>
         </div>

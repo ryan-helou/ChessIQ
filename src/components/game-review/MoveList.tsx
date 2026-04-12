@@ -45,7 +45,7 @@ const CLASSIFICATION_COLORS: Record<MoveClassification, string> = {
   mistake: "text-[#e28c28] bg-[#e28c28]/10",
   blunder: "text-[#ca3431] bg-[#ca3431]/15",
   miss: "text-[#e26b50] bg-[#e26b50]/10",
-  forced: "text-[#989795] bg-[#706e6b]/10",
+  forced: "text-[#9896b4] bg-[#524f68]/10",
   book: "text-[#b09860] bg-[#b09860]/10",
 };
 
@@ -129,7 +129,7 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
         onClick={() => onMoveClick(index)}
         className={`flex items-center gap-1 px-1.5 py-1 rounded text-sm font-mono transition-all ${colors} ${
           isActive
-            ? "ring-2 ring-[#81b64c] ring-offset-1 ring-offset-[#262522] font-bold"
+            ? "ring-2 ring-[#d4a84b] ring-offset-1 ring-offset-[#13121c] font-bold"
             : "hover:brightness-125"
         }`}
       >

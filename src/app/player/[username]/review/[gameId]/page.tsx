@@ -19,7 +19,7 @@ const Chessboard = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="w-full aspect-square bg-[#3a3835]/40 rounded-lg animate-pulse" />
+      <div className="w-full aspect-square bg-[var(--border)]/40 rounded-lg animate-pulse" />
     ),
   }
 );
@@ -45,7 +45,7 @@ const CLASSIFICATIONS: { key: MoveClassification; info: ClassInfo }[] = [
   { key: "mistake",    info: { label: "Mistake",    color: "text-[#e28c28]", bg: "#e28c28", icon: "?",  img: "/Chess Symbols/mistake.png" } },
   { key: "miss",       info: { label: "Miss",       color: "text-[#e26b50]", bg: "#e26b50", icon: "✕",  img: "/Chess Symbols/miss.png" } },
   { key: "blunder",    info: { label: "Blunder",    color: "text-[#ca3431]", bg: "#ca3431", icon: "??", img: "/Chess Symbols/blunder.png" } },
-  { key: "forced",     info: { label: "Forced",     color: "text-[#989795]", bg: "#888888", icon: "→" } },
+  { key: "forced",     info: { label: "Forced",     color: "text-[var(--text-2)]", bg: "#888888", icon: "→" } },
 ];
 
 const CLASSIFICATION_LABELS: Record<MoveClassification, ClassInfo> = Object.fromEntries(
@@ -82,7 +82,7 @@ function getGamePhaseRating(
 }
 
 function phaseIcon(acc: number | null): { icon: string; color: string } {
-  if (acc === null) return { icon: "-", color: "text-[#706e6b]" };
+  if (acc === null) return { icon: "-", color: "text-[var(--text-3)]" };
   if (acc >= 90) return { icon: "👍", color: "text-green-400" };
   if (acc >= 70) return { icon: "✓", color: "text-green-500" };
   if (acc >= 50) return { icon: "~", color: "text-yellow-400" };
@@ -113,7 +113,7 @@ function ClassCircle({ bg, icon, img, small }: { bg: string; icon: string; img?:
 // ─── Phase icon helper ───
 function PhaseIcon({ acc }: { acc: number | null }) {
   const { icon, color } = phaseIcon(acc);
-  if (icon === "-") return <span className="text-[#706e6b] text-sm">—</span>;
+  if (icon === "-") return <span className="text-[var(--text-3)] text-sm">—</span>;
   return (
     <span
       className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold"
@@ -159,14 +159,14 @@ function GameReviewPanel({
   const blackEnd     = getGamePhaseRating(analysis.moves, "black", "endgame");
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1c1a]">
+    <div className="flex flex-col h-full bg-[var(--bg-card)]">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#3a3835]">
+      <div className="px-4 py-3 border-b border-[var(--border)]">
         <h2 className="text-sm font-bold text-white tracking-wide">⭐ Game Review</h2>
       </div>
 
       {/* Eval graph */}
-      <div className="h-[52px] bg-[#141312] border-b border-[#3a3835]">
+      <div className="h-[52px] bg-[var(--bg-surface)] border-b border-[var(--border)]">
         <EvalGraph
           data={analysis.moves.map((m, i) => ({ move: i + 1, eval: m.engineEval, mate: m.mate ?? null }))}
           currentMove={0}
@@ -176,9 +176,9 @@ function GameReviewPanel({
       </div>
 
       {/* Players + Accuracy — Chess.com row style */}
-      <div className="px-4 py-3 border-b border-[#3a3835]">
+      <div className="px-4 py-3 border-b border-[var(--border)]">
         {/* Player names */}
-        <div className="grid grid-cols-[1fr_80px_1fr] text-xs text-[#989795] mb-2">
+        <div className="grid grid-cols-[1fr_80px_1fr] text-xs text-[var(--text-2)] mb-2">
           <span className="truncate font-medium text-white">{gameInfo.white}</span>
           <span className="text-center">Players</span>
           <span className="truncate font-medium text-white text-right">{gameInfo.black}</span>
@@ -191,7 +191,7 @@ function GameReviewPanel({
           >
             {analysis.whiteAccuracy.toFixed(1)}
           </span>
-          <span className="text-xs text-[#706e6b] text-center">Accuracy</span>
+          <span className="text-xs text-[var(--text-3)] text-center">Accuracy</span>
           <span
             className="text-base font-bold text-right"
             style={{ color: getAccuracyColor(analysis.blackAccuracy) }}
@@ -205,12 +205,12 @@ function GameReviewPanel({
       <div className="flex-1 overflow-y-auto px-4 py-2">
         {CLASSIFICATIONS.map(({ key, info }) => (
           <div key={key} className="grid grid-cols-[80px_28px_20px_28px] items-center py-[3px] gap-1">
-            <span className="text-xs text-[#989795]">{info.label}</span>
-            <span className={`text-sm font-semibold text-right ${whiteCounts[key] > 0 ? "text-white" : "text-[#4a4845]"}`}>
+            <span className="text-xs text-[var(--text-2)]">{info.label}</span>
+            <span className={`text-sm font-semibold text-right ${whiteCounts[key] > 0 ? "text-white" : "text-[var(--text-4)]"}`}>
               {whiteCounts[key]}
             </span>
             <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
-            <span className={`text-sm font-semibold text-left pl-1 ${blackCounts[key] > 0 ? "text-white" : "text-[#4a4845]"}`}>
+            <span className={`text-sm font-semibold text-left pl-1 ${blackCounts[key] > 0 ? "text-white" : "text-[var(--text-4)]"}`}>
               {blackCounts[key]}
             </span>
           </div>
@@ -218,29 +218,29 @@ function GameReviewPanel({
       </div>
 
       {/* Phase + Ratings section */}
-      <div className="px-4 py-3 border-t border-[#3a3835] space-y-1.5">
+      <div className="px-4 py-3 border-t border-[var(--border)] space-y-1.5">
         {/* Ratings */}
         <div className="grid grid-cols-[1fr_80px_1fr] items-center">
           <span className="text-sm font-bold text-white">{gameInfo.whiteElo}</span>
-          <span className="text-xs text-[#706e6b] text-center">Ratings</span>
+          <span className="text-xs text-[var(--text-3)] text-center">Ratings</span>
           <span className="text-sm font-bold text-white text-right">{gameInfo.blackElo}</span>
         </div>
         {/* Opening */}
         <div className="grid grid-cols-[1fr_80px_1fr] items-center">
           <PhaseIcon acc={whiteOpening?.accuracy ?? null} />
-          <span className="text-xs text-[#706e6b] text-center">Opening</span>
+          <span className="text-xs text-[var(--text-3)] text-center">Opening</span>
           <div className="flex justify-end"><PhaseIcon acc={blackOpening?.accuracy ?? null} /></div>
         </div>
         {/* Middlegame */}
         <div className="grid grid-cols-[1fr_80px_1fr] items-center">
           <PhaseIcon acc={whiteMiddle?.accuracy ?? null} />
-          <span className="text-xs text-[#706e6b] text-center">Middlegame</span>
+          <span className="text-xs text-[var(--text-3)] text-center">Middlegame</span>
           <div className="flex justify-end"><PhaseIcon acc={blackMiddle?.accuracy ?? null} /></div>
         </div>
         {/* Endgame */}
         <div className="grid grid-cols-[1fr_80px_1fr] items-center">
           <PhaseIcon acc={whiteEnd?.accuracy ?? null} />
-          <span className="text-xs text-[#706e6b] text-center">Endgame</span>
+          <span className="text-xs text-[var(--text-3)] text-center">Endgame</span>
           <div className="flex justify-end"><PhaseIcon acc={blackEnd?.accuracy ?? null} /></div>
         </div>
       </div>
@@ -249,7 +249,7 @@ function GameReviewPanel({
       <div className="px-4 pb-4 pt-2">
         <button
           onClick={onStartReview}
-          className="w-full py-2.5 rounded-lg bg-[#81b64c] hover:bg-[#6fa33e] text-white font-bold text-sm transition-colors"
+          className="w-full py-2.5 rounded-lg btn-gold font-bold text-sm transition-colors"
         >
           Start Review
         </button>
@@ -287,12 +287,12 @@ function ReviewPanel({
     : false;
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1c1a]">
+    <div className="flex flex-col h-full bg-[var(--bg-card)]">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#3a3835] flex items-center gap-2">
+      <div className="px-4 py-3 border-b border-[var(--border)] flex items-center gap-2">
         <button
           onClick={onBackToSummary}
-          className="text-[#706e6b] hover:text-white transition-colors text-base leading-none"
+          className="text-[var(--text-3)] hover:text-white transition-colors text-base leading-none"
           title="Back to summary"
         >
           ←
@@ -301,7 +301,7 @@ function ReviewPanel({
       </div>
 
       {/* Move annotation card */}
-      <div className="px-4 py-3 border-b border-[#3a3835] min-h-[72px] flex flex-col justify-center">
+      <div className="px-4 py-3 border-b border-[var(--border)] min-h-[72px] flex flex-col justify-center">
         {currentMove && info ? (
           <>
             <div className="flex items-center gap-2">
@@ -309,22 +309,22 @@ function ReviewPanel({
               <span className="font-bold text-white font-mono text-base">{currentMove.san}</span>
               <span className={`text-sm font-semibold ${info.color}`}>{info.label}</span>
               {currentMove.engineEval !== 0 && (
-                <span className="ml-auto text-xs text-[#706e6b] font-mono">
+                <span className="ml-auto text-xs text-[var(--text-3)] font-mono">
                   {currentMove.engineEval > 0 ? "+" : ""}{(currentMove.engineEval / 100).toFixed(2)}
                 </span>
               )}
             </div>
             {isBad && currentMove.bestMoveSan && (
-              <div className="text-xs text-[#989795] mt-1.5 pl-7">
-                Best: <span className="text-[#81b64c] font-semibold font-mono">{currentMove.bestMoveSan}</span>
-                <span className="text-[#706e6b] ml-1.5">
+              <div className="text-xs text-[var(--text-2)] mt-1.5 pl-7">
+                Best: <span className="text-[var(--gold)] font-semibold font-mono">{currentMove.bestMoveSan}</span>
+                <span className="text-[var(--text-3)] ml-1.5">
                   ({currentMove.evalDrop > 0 ? "+" : ""}{(currentMove.evalDrop / 100).toFixed(1)})
                 </span>
               </div>
             )}
           </>
         ) : (
-          <p className="text-xs text-[#706e6b]">Use ← → to navigate moves</p>
+          <p className="text-xs text-[var(--text-3)]">Use ← → to navigate moves</p>
         )}
       </div>
 
@@ -338,7 +338,7 @@ function ReviewPanel({
       </div>
 
       {/* Eval graph — at bottom like Chess.com */}
-      <div className="h-[52px] bg-[#141312] border-t border-[#3a3835]">
+      <div className="h-[52px] bg-[var(--bg-surface)] border-t border-[var(--border)]">
         <EvalGraph
           data={displayMoves.map((m, i) => ({ move: i + 1, eval: m.engineEval, mate: m.mate ?? null }))}
           currentMove={currentMoveIndex + 1}
@@ -348,7 +348,7 @@ function ReviewPanel({
       </div>
 
       {/* Navigation buttons — very bottom like Chess.com */}
-      <div className="grid grid-cols-4 border-t border-[#3a3835]">
+      <div className="grid grid-cols-4 border-t border-[var(--border)]">
         {[
           { label: "⟨⟨", action: () => setCurrentMoveIndex(-1), title: "Start" },
           { label: "⟨",  action: () => setCurrentMoveIndex((p: number) => Math.max(-1, p - 1)), title: "Previous" },
@@ -359,7 +359,7 @@ function ReviewPanel({
             key={title}
             onClick={action}
             title={title}
-            className="py-3 text-[#989795] hover:text-white hover:bg-[#2a2825] transition-colors text-sm font-bold border-r border-[#3a3835] last:border-r-0"
+            className="py-3 text-[var(--text-2)] hover:text-white hover:bg-[#2a2825] transition-colors text-sm font-bold border-r border-[var(--border)] last:border-r-0"
           >
             {label}
           </button>
@@ -392,7 +392,7 @@ function AnalysisProgress() {
           style={{ width: "100%" }}
         />
       </div>
-      <p className="text-xs text-[#e8e6e1]0 text-center">
+      <p className="text-xs text-[var(--text-1)]0 text-center">
         Deep analysis of every move. This typically takes 1-3 minutes.
       </p>
     </div>
@@ -437,40 +437,19 @@ export default function GameReviewPage() {
         }
       } catch {}
 
-      // Slow path: fetch from API (direct URL access, bookmark, etc.)
+      // Slow path: single-game fetch from DB (direct URL, bookmark, etc.)
       try {
-        const res = await fetch(`/api/games/${username}?months=12`);
-        if (!res.ok) throw new Error("Failed to fetch games");
-        const data = await res.json();
-
-        const game = data.games.find((g: { id: string }) => g.id === gameId);
-        if (!game) throw new Error("Game not found");
+        const res = await fetch(`/api/games/${encodeURIComponent(username)}/${encodeURIComponent(gameId)}`);
+        if (!res.ok) throw new Error("Game not found");
+        const game = await res.json();
 
         setGameInfo({
-          white: game.playerColor === "white" ? username : game.opponentName,
-          black: game.playerColor === "black" ? username : game.opponentName,
-          whiteElo:
-            game.playerColor === "white"
-              ? String(game.playerRating)
-              : String(game.opponentRating),
-          blackElo:
-            game.playerColor === "black"
-              ? String(game.playerRating)
-              : String(game.opponentRating),
-          result:
-            game.result === "win"
-              ? game.playerColor === "white"
-                ? "1-0"
-                : "0-1"
-              : game.result === "loss"
-              ? game.playerColor === "white"
-                ? "0-1"
-                : "1-0"
-              : "½-½",
-          date:
-            typeof game.date === "string"
-              ? new Date(game.date).toLocaleDateString()
-              : game.date.toLocaleDateString(),
+          white: game.white,
+          black: game.black,
+          whiteElo: game.whiteElo,
+          blackElo: game.blackElo,
+          result: game.result,
+          date: game.date,
           opening: game.opening,
           playerColor: game.playerColor,
           pgn: game.pgn,
@@ -631,10 +610,10 @@ export default function GameReviewPage() {
   // Loading game data
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
         <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="text-[#e8e6e1]0 text-lg">Loading game...</div>
+          <div className="text-[var(--text-1)]0 text-lg">Loading game...</div>
         </div>
       </div>
     );
@@ -643,16 +622,16 @@ export default function GameReviewPage() {
   // Error
   if (error && !analysis) {
     return (
-      <div className="min-h-screen bg-[#312e2b] text-[#e8e6e1]">
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8">
             <div className="text-4xl mb-4">♟</div>
             <h2 className="text-red-400 font-semibold text-lg mb-2">Analysis Failed</h2>
-            <p className="text-[#989795]">{error}</p>
+            <p className="text-[var(--text-2)]">{error}</p>
             <a
               href={`/player/${username}`}
-              className="inline-block mt-4 px-4 py-2 bg-[#3a3835] text-[#989795] rounded-lg hover:bg-[#3a3835] transition-colors"
+              className="inline-block mt-4 px-4 py-2 bg-[#3a3835] text-[var(--text-2)] rounded-lg hover:bg-[#3a3835] transition-colors"
             >
               Back to Dashboard
             </a>
@@ -667,7 +646,7 @@ export default function GameReviewPage() {
   const boardSizeCSS = "min(calc(100vh - 64px), calc(100vw - 340px))";
 
   return (
-    <div className="h-screen bg-[#312e2b] text-[#e8e6e1] flex flex-col overflow-hidden">
+    <div className="h-screen bg-[var(--bg)] text-[var(--text-1)] flex flex-col overflow-hidden">
       <Header username={username} />
 
       {/* Board + panel centered together as one unit */}
@@ -692,7 +671,7 @@ export default function GameReviewPage() {
           />
         </div>
         {/* Panel — adjacent to the board, fixed width */}
-        <div className="w-[300px] shrink-0 self-stretch border-l border-[#3a3835] flex flex-col overflow-hidden">
+        <div className="w-[300px] shrink-0 self-stretch border-l border-[var(--border)] flex flex-col overflow-hidden">
           {analyzing && !analysis && <AnalysisProgress />}
 
           {analysis && gameInfo && !reviewStarted && (

@@ -70,20 +70,20 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
                 YAxis domain is [-500, 500] so y=0 sits exactly at 50% of the chart height. */}
             <linearGradient id="evalGradient" x1="0" y1="0" x2="0" y2="1">
               {/* White advantage — top half */}
-              <stop offset="0%"   stopColor="#e8e6e1" stopOpacity={0.75} />
-              <stop offset="50%"  stopColor="#e8e6e1" stopOpacity={0.08} />
+              <stop offset="0%"   stopColor="#f0ede4" stopOpacity={0.75} />
+              <stop offset="50%"  stopColor="#f0ede4" stopOpacity={0.08} />
               {/* Black advantage — bottom half */}
-              <stop offset="50%"  stopColor="#706e6b" stopOpacity={0.15} />
-              <stop offset="100%" stopColor="#706e6b" stopOpacity={0.65} />
+              <stop offset="50%"  stopColor="#524f68" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#524f68" stopOpacity={0.65} />
             </linearGradient>
           </defs>
           <XAxis dataKey="move" hide />
           <YAxis domain={[-500, 500]} hide />
-          <ReferenceLine y={0} stroke="#706e6b" strokeWidth={1} />
+          <ReferenceLine y={0} stroke="#524f68" strokeWidth={1} />
           {currentMove > 0 && (
             <ReferenceLine
               x={currentMove}
-              stroke="#81b64c"
+              stroke="#d4a84b"
               strokeWidth={2}
               strokeDasharray="3 3"
             />
@@ -92,9 +92,9 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
             <Tooltip
               contentStyle={{
                 backgroundColor: "#1a1916",
-                border: "1px solid #3a3835",
+                border: "1px solid #222136",
                 borderRadius: "6px",
-                color: "#e8e6e1",
+                color: "#f0ede4",
                 fontSize: 12,
               }}
               formatter={(value: any, _name: any, props: any) => {
@@ -112,7 +112,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           <Area
             type="monotone"
             dataKey="displayEval"
-            stroke="#989795"
+            stroke="#9896b4"
             strokeWidth={mini ? 1 : 1.5}
             fill="url(#evalGradient)"
             fillOpacity={1}

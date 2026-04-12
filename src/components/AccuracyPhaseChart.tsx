@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { ParsedGame } from "@/lib/game-analysis";
 
+const C = { bg: "#09090f", border: "#222136", text3: "#524f68" };
+
 interface AccuracyByPhaseProps {
   games: ParsedGame[];
 }
@@ -16,14 +18,12 @@ interface PhaseAccuracy {
   games: number;
 }
 
-// Determine game phase based on move number
 function getPhase(moveNumber: number, totalMoves: number): GamePhase {
   if (moveNumber <= 12) return "opening";
   if (moveNumber > totalMoves * 0.75 || moveNumber > 30) return "endgame";
   return "middlegame";
 }
 
-// Estimate phase accuracy from overall game accuracy and phase distribution
 function analyzeGamePhases(game: ParsedGame): Record<GamePhase, { moveCount: number; accuracy: number }[]> {
   const totalMoves = game.moveCount;
   const overallAccuracy = game.accuracy ?? 50;
@@ -49,12 +49,15 @@ function analyzeGamePhases(game: ParsedGame): Record<GamePhase, { moveCount: num
   return phaseAccuracies;
 }
 
+// Phase colors from design tokens
+const PHASE_COLORS = ["#52c07a", "#d4a84b", "#5b9cf6"];
+
 export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
   const phaseData = useMemo(() => {
     const phaseStats: Record<GamePhase, { totalAccuracy: number; count: number; gameCount: number }> = {
-      opening: { totalAccuracy: 0, count: 0, gameCount: 0 },
+      opening:    { totalAccuracy: 0, count: 0, gameCount: 0 },
       middlegame: { totalAccuracy: 0, count: 0, gameCount: 0 },
-      endgame: { totalAccuracy: 0, count: 0, gameCount: 0 },
+      endgame:    { totalAccuracy: 0, count: 0, gameCount: 0 },
     };
 
     games.forEach((game) => {
@@ -101,7 +104,7 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
 
   if (phaseData.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-[#989795]">
+      <div style={{ height: "300px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", fontSize: "13px", fontFamily: "var(--font-mono)" }}>
         No games with accuracy data
       </div>
     );
@@ -110,25 +113,31 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={phaseData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#3a3835" />
-        <XAxis dataKey="phase" stroke="#989795" style={{ fontSize: "14px" }} />
-        <YAxis domain={[0, 100]} stroke="#989795" style={{ fontSize: "14px" }} label={{ value: "Accuracy %", angle: -90, position: "insideLeft" }} />
+        <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+        <XAxis dataKey="phase" tick={{ fill: C.text3, fontSize: 13 }} />
+        <YAxis
+          domain={[0, 100]}
+          tick={{ fill: C.text3, fontSize: 13 }}
+          label={{ value: "Accuracy %", angle: -90, position: "insideLeft", fill: C.text3, fontSize: 11 }}
+        />
         <Tooltip
           contentStyle={{
-            backgroundColor: "#1a1916",
-            border: "1px solid #3a3835",
+            backgroundColor: C.bg,
+            border: `1px solid ${C.border}`,
             borderRadius: "8px",
             padding: "8px",
+            color: "#f0ede4",
+            fontSize: "12px",
+            fontFamily: "monospace",
           }}
-          labelStyle={{ color: "#e8e6e1" }}
+          labelStyle={{ color: "#f0ede4" }}
           formatter={(value: any) => `${Number(value).toFixed(1)}%`}
-          cursor={{ fill: "rgba(129, 182, 76, 0.1)" }}
+          cursor={{ fill: "rgba(212,168,75,0.06)" }}
         />
-        <Bar dataKey="accuracy" radius={[8, 8, 0, 0]}>
-          {phaseData.map((entry, index) => {
-            const colors = ["#81b64c", "#e6a117", "#6366f1"];
-            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-          })}
+        <Bar dataKey="accuracy" radius={[6, 6, 0, 0]}>
+          {phaseData.map((_, index) => (
+            <Cell key={`cell-${index}`} fill={PHASE_COLORS[index % PHASE_COLORS.length]} />
+          ))}
         </Bar>
       </BarChart>
     </ResponsiveContainer>

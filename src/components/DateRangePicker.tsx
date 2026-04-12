@@ -16,21 +16,44 @@ interface Props {
 
 export default function DateRangePicker({ value, onChange, loading }: Props) {
   return (
-    <div className="flex items-center gap-1 bg-[#262522] border border-[#3a3835] rounded-lg p-1">
-      {RANGES.map((r) => (
-        <button
-          key={r.value}
-          onClick={() => onChange(r.value)}
-          disabled={loading}
-          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-            value === r.value
-              ? "bg-[#81b64c] text-white shadow-sm shadow-[#81b64c]/20"
-              : "text-[#989795] hover:text-white hover:bg-[#3a3835]"
-          } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-        >
-          {r.label}
-        </button>
-      ))}
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "2px",
+      background: "var(--bg-card)",
+      border: "1px solid var(--border)",
+      borderRadius: "8px",
+      padding: "3px",
+    }}>
+      {RANGES.map((r) => {
+        const isActive = value === r.value;
+        return (
+          <button
+            key={r.value}
+            onClick={() => onChange(r.value)}
+            disabled={loading}
+            style={{
+              padding: "5px 12px",
+              borderRadius: "6px",
+              fontSize: "11px",
+              fontFamily: "var(--font-mono)",
+              letterSpacing: "0.06em",
+              fontWeight: isActive ? 700 : 400,
+              border: "none",
+              background: isActive ? "var(--gold-dim)" : "transparent",
+              color: isActive ? "var(--gold)" : "var(--text-3)",
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.5 : 1,
+              transition: "all 0.15s",
+              outline: isActive ? "1px solid var(--gold-line)" : "none",
+            }}
+            onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--text-2)"; }}
+            onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "var(--text-3)"; }}
+          >
+            {r.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

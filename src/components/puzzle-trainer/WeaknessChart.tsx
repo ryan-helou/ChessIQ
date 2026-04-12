@@ -21,8 +21,8 @@ interface Props {
 export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }: Props) {
   if (weaknesses.length === 0) {
     return (
-      <div className="bg-[#262522] rounded-xl p-6 text-center">
-        <p className="text-[#989795] text-sm">
+      <div className="bg-[#13121c] rounded-xl p-6 text-center">
+        <p className="text-[#9896b4] text-sm">
           No weakness data yet. Analyze some games first to see your tactical patterns.
         </p>
       </div>
@@ -34,19 +34,19 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
     label: THEME_LABELS[w.theme] ?? w.theme,
     count: w.count,
     percentage: w.percentage,
-    color: THEME_COLORS[w.theme] ?? "#989795",
+    color: THEME_COLORS[w.theme] ?? "#9896b4",
   }));
 
   return (
-    <div className="bg-[#262522] rounded-xl p-5">
+    <div className="bg-[#13121c] rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-bold text-[#e8e6e1] uppercase tracking-wider">
+        <h2 className="text-sm font-bold text-[#f0ede4] uppercase tracking-wider">
           Your Tactical Weaknesses
         </h2>
         {activeTheme && (
           <button
             onClick={() => onThemeClick(null)}
-            className="text-xs text-[#989795] hover:text-[#e8e6e1] transition-colors"
+            className="text-xs text-[#9896b4] hover:text-[#f0ede4] transition-colors"
           >
             Show all
           </button>
@@ -58,14 +58,14 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
           <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16 }}>
             <XAxis
               type="number"
-              tick={{ fill: "#706e6b", fontSize: 11 }}
+              tick={{ fill: "#524f68", fontSize: 11 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               type="category"
               dataKey="label"
-              tick={{ fill: "#e8e6e1", fontSize: 12 }}
+              tick={{ fill: "#f0ede4", fontSize: 12 }}
               axisLine={false}
               tickLine={false}
               width={110}
@@ -74,11 +74,11 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
               cursor={{ fill: "rgba(255,255,255,0.05)" }}
               contentStyle={{
                 backgroundColor: "#1a1916",
-                border: "1px solid #3a3835",
+                border: "1px solid #222136",
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
-              labelStyle={{ color: "#e8e6e1" }}
+              labelStyle={{ color: "#f0ede4" }}
               formatter={(value: any, _name: any, entry: any) => [
                 `${value} (${entry.payload.percentage}%)`,
                 "Blunders",
@@ -111,7 +111,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
             className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
               activeTheme === d.theme
                 ? "text-white ring-1 ring-white/30"
-                : "text-[#989795] hover:text-white"
+                : "text-[#9896b4] hover:text-white"
             }`}
             style={{
               backgroundColor: activeTheme === d.theme ? d.color : `${d.color}20`,
