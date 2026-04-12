@@ -3,27 +3,46 @@ import { query } from "@/lib/db";
 
 async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number, username?: string): Promise<any[]> {
   try {
+    // Use TABLESAMPLE BERNOULLI for fast random selection (avoids full-table ORDER BY RANDOM() sort)
+    // Falls back to ORDER BY RANDOM() only if sample returns too few rows
+    const exclusion = username
+      ? `AND id NOT IN (SELECT puzzle_id FROM puzzle_attempts WHERE username = '${username.replace(/'/g, "''")}')`
+      : "";
+
     const result = themes && themes.length > 0
       ? await query(
           `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-           FROM puzzles
+           FROM puzzles TABLESAMPLE BERNOULLI(10)
            WHERE themes && $1::TEXT[]
-             AND ($3::TEXT IS NULL OR id NOT IN (
-               SELECT puzzle_id FROM puzzle_attempts WHERE username = $3
-             ))
-           ORDER BY RANDOM()
+             ${exclusion}
            LIMIT $2`,
-          [themes, count, username ?? null]
+          [themes, count]
+        ).then(async (r) =>
+          r.rows.length >= count ? r :
+          query(
+            `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+             FROM puzzles
+             WHERE themes && $1::TEXT[]
+               ${exclusion}
+             ORDER BY RANDOM() LIMIT $2`,
+            [themes, count]
+          )
         )
       : await query(
           `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-           FROM puzzles
-           WHERE ($2::TEXT IS NULL OR id NOT IN (
-             SELECT puzzle_id FROM puzzle_attempts WHERE username = $2
-           ))
-           ORDER BY RANDOM()
+           FROM puzzles TABLESAMPLE BERNOULLI(1)
+           WHERE TRUE ${exclusion}
            LIMIT $1`,
-          [count, username ?? null]
+          [count]
+        ).then(async (r) =>
+          r.rows.length >= count ? r :
+          query(
+            `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+             FROM puzzles
+             WHERE TRUE ${exclusion}
+             ORDER BY RANDOM() LIMIT $1`,
+            [count]
+          )
         );
     return result.rows.map((p: any) => ({
       id: p.id,
@@ -60,6 +79,12 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams;
     const rating = parseInt(searchParams.get("rating") ?? "1200", 10);
     const limit = parseInt(searchParams.get("limit") ?? "20", 10);
+
+    // Ensure index exists for fast puzzle deduplication queries
+    await query(
+      `CREATE INDEX IF NOT EXISTS idx_puzzle_attempts_user_puzzle ON puzzle_attempts(username, puzzle_id)`,
+      []
+    ).catch(() => {});
 
     // Get all blunders for this player (white or black)
     let blundersResult;

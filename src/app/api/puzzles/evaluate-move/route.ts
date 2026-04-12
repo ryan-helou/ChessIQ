@@ -1,8 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Chess } from "chess.js";
+import { query } from "@/lib/db";
 
 const RAILWAY_BACKEND_URL = "https://chessiq-production.up.railway.app";
 const ACCEPTABLE = new Set(["brilliant", "great", "best", "excellent", "good"]);
+
+// ── Position cache ────────────────────────────────────────────────────────────
+
+async function ensureCacheTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS position_good_moves (
+      fen TEXT PRIMARY KEY,
+      good_moves TEXT[] NOT NULL DEFAULT '{}',
+      cached_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `, []);
+}
+
+async function getCachedGoodMoves(fen: string): Promise<string[] | null> {
+  try {
+    const result = await query(
+      `SELECT good_moves FROM position_good_moves WHERE fen = $1`,
+      [fen]
+    );
+    return result.rows[0]?.good_moves ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function setCachedGoodMoves(fen: string, goodMoves: string[]): Promise<void> {
+  try {
+    await query(
+      `INSERT INTO position_good_moves (fen, good_moves)
+       VALUES ($1, $2)
+       ON CONFLICT (fen) DO NOTHING`,
+      [fen, goodMoves]
+    );
+  } catch { /* silent */ }
+}
+
+// ── Railway evaluation ────────────────────────────────────────────────────────
 
 function classifyMove(fen: string, uci: string): Promise<string> {
   const from = uci.slice(0, 2);
@@ -37,7 +75,7 @@ function classifyMove(fen: string, uci: string): Promise<string> {
 
 /**
  * POST /api/puzzles/evaluate-move
- * Body: { fen: string, move: string } — single move check (fallback)
+ * Single move check (fallback when batch not ready)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -53,19 +91,27 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * POST /api/puzzles/evaluate-move?batch=1
- * Body: { fen: string } — precomputes ALL legal moves in parallel
- * Returns: { goodMoves: string[] } — UCI strings classified as good or better
+ * PUT /api/puzzles/evaluate-move
+ * Batch — returns all good moves for a position.
+ * Checks DB cache first; only calls Railway on a cache miss.
  */
 export async function PUT(request: NextRequest) {
   try {
     const { fen } = await request.json();
     if (!fen) return NextResponse.json({ error: "Missing fen" }, { status: 400 });
 
+    await ensureCacheTable();
+
+    // ── Cache hit ──
+    const cached = await getCachedGoodMoves(fen);
+    if (cached !== null) {
+      return NextResponse.json({ goodMoves: cached, fromCache: true });
+    }
+
+    // ── Cache miss — evaluate via Railway ──
     const chess = new Chess(fen);
     const legal = chess.moves({ verbose: true });
 
-    // Evaluate all legal moves in parallel at depth 12
     const results = await Promise.all(
       legal.map(async (m) => {
         const uci = m.from + m.to + (m.promotion ?? "");
@@ -78,7 +124,10 @@ export async function PUT(request: NextRequest) {
       .filter((r) => ACCEPTABLE.has(r.classification))
       .map((r) => r.uci);
 
-    return NextResponse.json({ goodMoves });
+    // Store in cache for future requests
+    await setCachedGoodMoves(fen, goodMoves);
+
+    return NextResponse.json({ goodMoves, fromCache: false });
   } catch (error) {
     console.error("[evaluate-move batch] error:", error);
     return NextResponse.json({ goodMoves: [] });
