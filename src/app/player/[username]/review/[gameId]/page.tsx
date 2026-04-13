@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
+import ChessLoader from "@/components/ChessLoader";
 import EvalBar from "@/components/game-review/EvalBar";
 import EvalGraph from "@/components/game-review/EvalGraph";
 import MoveList from "@/components/game-review/MoveList";
@@ -634,9 +635,7 @@ export default function GameReviewPage() {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="text-[var(--text-1)]0 text-lg">Loading game...</div>
-        </div>
+        <ChessLoader username={username} variant="review" />
       </div>
     );
   }

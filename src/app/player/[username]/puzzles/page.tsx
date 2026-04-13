@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { Chess } from "chess.js";
 import Header from "@/components/Header";
+import ChessLoader from "@/components/ChessLoader";
 import PuzzleBoard from "@/components/puzzle-trainer/PuzzleBoard";
 import {
   getPuzzleRecommendations,
@@ -258,12 +259,7 @@ export default function PuzzlesPage() {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
         <Header username={username} />
-        <div className="flex items-center justify-center min-h-[80vh]">
-          <div className="text-center">
-            <div className="w-10 h-10 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[var(--text-2)]">Loading your puzzle recommendations…</p>
-          </div>
-        </div>
+        <ChessLoader username={username} variant="puzzle" />
       </div>
     );
   }
