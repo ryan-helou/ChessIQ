@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Chess } from "chess.js";
 import type { TrainerPuzzle, WeaknessProfile, PuzzleMode } from "@/lib/puzzle-api";
 import { THEME_LABELS, THEME_COLORS } from "@/lib/puzzle-api";
+import { playSound, preloadSounds } from "@/lib/chess-sounds";
 
 const THEME_DESCRIPTIONS: Record<string, string> = {
   fork: "Can you find the fork?",
@@ -138,12 +139,14 @@ function PuzzleBoard({
   const playerColor = orientation === "white" ? "w" : "b";
 
   // ── Apply move to board ───────────────────────────────────────────
-  const doMove = useCallback((uci: string) => {
+  const doMove = useCallback((uci: string, silent = false) => {
     try {
+      const isCapture = !!chessRef.current.get(uci.slice(2, 4) as Parameters<typeof chessRef.current.get>[0]);
       applyUci(chessRef.current, uci);
       const newFen = chessRef.current.fen();
       setFen(newFen);
       setLastMove({ from: uci.slice(0, 2), to: uci.slice(2, 4) });
+      if (!silent) playSound(isCapture ? "capture" : "move");
       return true;
     } catch (e) {
       console.error("[puzzle] move failed:", uci, chessRef.current.fen(), e);
@@ -225,7 +228,7 @@ function PuzzleBoard({
     const nextIdx = moveIdxRef.current + 1;
     moveIdxRef.current = nextIdx;
     if (nextIdx >= puzzle.solutionMoves.length) {
-      setTimeout(() => { setFlashSq(null); setPhase("solved"); }, 400);
+      setTimeout(() => { setFlashSq(null); setPhase("solved"); playSound("correct"); }, 400);
       onSolved(attemptsRef.current + 1, Math.round((Date.now() - startTimeRef.current) / 1000));
     } else {
       playOpponent(nextIdx - 1, () => { if (!cancelled.current) setPhase("idle"); });
@@ -242,6 +245,7 @@ function PuzzleBoard({
     if (resetFen) setFen(resetFen); // snap piece back after async-eval drag
     setFlashSq({ sq: to, color: "red" });
     setPhase("wrong");
+    playSound("wrong");
     setTimeout(() => {
       if (!cancelled.current) { setFlashSq(null); setPhase("idle"); }
     }, 280);
@@ -324,6 +328,9 @@ function PuzzleBoard({
     cancelled.current = false;
     return () => { cancelled.current = true; };
   }, [puzzle]);
+
+  // Preload sounds once on mount
+  useEffect(() => { preloadSounds(); }, []);
 
   // ── Square click ──────────────────────────────────────────────────
   const handleSquareClick = useCallback(({ square }: { piece: unknown; square: string }) => {
