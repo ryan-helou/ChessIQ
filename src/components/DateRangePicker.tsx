@@ -40,12 +40,12 @@ export default function DateRangePicker({ value, onChange, loading }: Props) {
               letterSpacing: "0.06em",
               fontWeight: isActive ? 700 : 400,
               border: "none",
-              background: isActive ? "var(--gold-dim)" : "transparent",
-              color: isActive ? "var(--gold)" : "var(--text-3)",
+              background: isActive ? "var(--green-dim)" : "transparent",
+              color: isActive ? "var(--green)" : "var(--text-3)",
               cursor: loading ? "not-allowed" : "pointer",
               opacity: loading ? 0.5 : 1,
               transition: "all 0.15s",
-              outline: isActive ? "1px solid var(--gold-line)" : "none",
+              outline: isActive ? "1px solid var(--green-line)" : "none",
             }}
             onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--text-2)"; }}
             onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = "var(--text-3)"; }}

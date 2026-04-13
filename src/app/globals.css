@@ -1,44 +1,51 @@
 @import "tailwindcss";
 
-/* ─── Design tokens ───────────────────────────────────────────────── */
+/* ─── Design tokens — Chess.com palette ───────────────────────── */
 :root {
-  /* Backgrounds */
-  --bg:           #09090f;
-  --bg-surface:   #0e0d16;
-  --bg-card:      #13121c;
-  --bg-card-hover:#191828;
-  --bg-input:     #0b0a14;
-  --bg-overlay:   rgba(9, 9, 15, 0.92);
+  /* Backgrounds (Chess.com brown-dark theme) */
+  --bg:           #262522;
+  --bg-surface:   #1e1c1a;
+  --bg-card:      #302e2c;
+  --bg-card-hover:#3a3835;
+  --bg-input:     #1e1c1a;
+  --bg-overlay:   rgba(30, 28, 26, 0.95);
 
   /* Borders */
-  --border:       #222136;
-  --border-subtle:#1b1a2c;
-  --border-strong:#2e2c48;
+  --border:       #454340;
+  --border-subtle:#3a3835;
+  --border-strong:#514e4b;
 
-  /* Gold accent */
-  --gold:         #d4a84b;
-  --gold-muted:   #a07e36;
-  --gold-dim:     rgba(212, 168, 75, 0.12);
-  --gold-glow:    rgba(212, 168, 75, 0.06);
-  --gold-line:    rgba(212, 168, 75, 0.25);
+  /* Primary green accent (Chess.com signature green) */
+  --green:        #81b64c;
+  --green-muted:  #5c8434;
+  --green-dim:    rgba(129, 182, 76, 0.12);
+  --green-glow:   rgba(129, 182, 76, 0.06);
+  --green-line:   rgba(129, 182, 76, 0.30);
 
-  /* Blue accent (engine/analysis) */
-  --blue:         #5b9cf6;
-  --blue-dim:     rgba(91, 156, 246, 0.10);
+  /* Gold accent (accuracy / brilliant moves) */
+  --gold:         #f6c700;
+  --gold-muted:   #c9a100;
+  --gold-dim:     rgba(246, 199, 0, 0.12);
+  --gold-glow:    rgba(246, 199, 0, 0.06);
+  --gold-line:    rgba(246, 199, 0, 0.25);
+
+  /* Blue accent (engine/analysis hints) */
+  --blue:         #5d8fbb;
+  --blue-dim:     rgba(93, 143, 187, 0.12);
 
   /* Result colors */
-  --win:          #52c07a;
-  --win-dim:      rgba(82, 192, 122, 0.10);
-  --loss:         #e05555;
-  --loss-dim:     rgba(224, 85, 85, 0.10);
-  --draw:         #8b8aae;
-  --draw-dim:     rgba(139, 138, 174, 0.10);
+  --win:          #81b64c;
+  --win-dim:      rgba(129, 182, 76, 0.12);
+  --loss:         #ca3431;
+  --loss-dim:     rgba(202, 52, 49, 0.12);
+  --draw:         #9e9b98;
+  --draw-dim:     rgba(158, 155, 152, 0.12);
 
   /* Typography */
-  --text-1:       #f0ede4;
-  --text-2:       #9896b4;
-  --text-3:       #524f68;
-  --text-4:       #2e2c44;
+  --text-1:       #e8e6e1;
+  --text-2:       #a0998c;
+  --text-3:       #706e6b;
+  --text-4:       #4d4a47;
 }
 
 @theme inline {
@@ -59,15 +66,10 @@ html {
 body {
   background: var(--bg);
   color: var(--text-1);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans), "Source Sans 3", "Segoe UI", system-ui, sans-serif;
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Display font utility */
-.font-display {
-  font-family: var(--font-display), Georgia, serif;
 }
 
 /* ─── Scrollbar ───────────────────────────────────────────────────── */
@@ -84,13 +86,13 @@ body {
 
 /* ─── Selection ───────────────────────────────────────────────────── */
 ::selection {
-  background: rgba(212, 168, 75, 0.22);
+  background: rgba(129, 182, 76, 0.22);
   color: var(--text-1);
 }
 
 /* ─── Focus ───────────────────────────────────────────────────────── */
 *:focus-visible {
-  outline: 1px solid var(--gold-line);
+  outline: 1px solid var(--green-line);
   outline-offset: 2px;
   border-radius: 3px;
 }
@@ -109,9 +111,9 @@ body {
   background-size: 48px 48px;
 }
 
-/* ─── Gold gradient text ──────────────────────────────────────────── */
+/* ─── Green gradient text ─────────────────────────────────────────── */
 .text-gold-gradient {
-  background: linear-gradient(135deg, #f0d080 0%, #d4a84b 40%, #a07e36 100%);
+  background: linear-gradient(135deg, #a8d96e 0%, #81b64c 40%, #5c8434 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -143,9 +145,9 @@ body {
   100% { background-position: 200% 0; }
 }
 
-@keyframes pulse-gold {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 168, 75, 0); }
-  50%       { box-shadow: 0 0 12px 2px rgba(212, 168, 75, 0.15); }
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(129, 182, 76, 0); }
+  50%       { box-shadow: 0 0 12px 2px rgba(129, 182, 76, 0.15); }
 }
 
 @keyframes float {
@@ -173,7 +175,7 @@ body {
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   transition: border-color 0.2s, background 0.2s;
 }
 
@@ -182,29 +184,34 @@ body {
   background: var(--bg-card-hover);
 }
 
-.card-gold {
-  border-color: var(--gold-line);
+.card-green {
+  border-color: var(--green-line);
 }
 
-/* ─── Gold rule ───────────────────────────────────────────────────── */
+/* Keep old gold card name for compatibility */
+.card-gold {
+  border-color: var(--green-line);
+}
+
+/* ─── Divider rule ────────────────────────────────────────────────── */
 .rule-gold {
   height: 1px;
-  background: linear-gradient(to right, transparent, var(--gold-line), transparent);
+  background: linear-gradient(to right, transparent, var(--border-strong), transparent);
 }
 
-/* ─── Button ──────────────────────────────────────────────────────── */
+/* ─── Primary button (Chess.com green) ───────────────────────────── */
 .btn-gold {
-  background: var(--gold);
-  color: #0a0810;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  transition: all 0.2s;
+  background: var(--green);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: all 0.18s;
 }
 
 .btn-gold:hover {
-  background: #e0b85c;
+  background: #8ec957;
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(212, 168, 75, 0.3);
+  box-shadow: 0 4px 16px rgba(129, 182, 76, 0.35);
 }
 
 .btn-gold:active {
@@ -225,15 +232,15 @@ body {
 
 .input-base:focus {
   outline: none;
-  border-color: var(--gold-line);
-  box-shadow: 0 0 0 3px var(--gold-glow);
+  border-color: var(--green-line);
+  box-shadow: 0 0 0 3px var(--green-glow);
 }
 
 /* ─── Recharts overrides ──────────────────────────────────────────── */
 .recharts-tooltip-wrapper .recharts-default-tooltip {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-strong) !important;
-  border-radius: 8px !important;
+  border-radius: 6px !important;
   font-family: var(--font-sans) !important;
 }
 

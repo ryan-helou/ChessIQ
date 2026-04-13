@@ -20,40 +20,38 @@ export default function Header({ username }: Props) {
   };
 
   return (
-    <header className="sticky top-0 z-50" style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-overlay)", backdropFilter: "blur(20px)" }}>
+    <header className="sticky top-0 z-50" style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-surface)", backdropFilter: "blur(12px)" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 gap-4">
+        <div className="flex items-center justify-between h-[52px] gap-4">
 
           {/* Logo */}
-          <a href="/" className="flex items-center gap-3 shrink-0 group">
-            <div className="relative w-7 h-7 flex items-center justify-center">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                {/* Knight silhouette simplified */}
-                <path d="M10 22V20.5C10 20.5 8 19 8 16C8 13 10 11 10 11L9 9H11L12 7H14L14.5 8.5C16 8 17 8 18 9C19 10 19 11 19 11L17 12L18 14C18 14 19 16 18 18C17 20 16 20.5 16 20.5V22H10Z" fill="var(--gold)" opacity="0.9"/>
-                <path d="M10 22V20.5C10 20.5 8 19 8 16C8 13 10 11 10 11L9 9H11L12 7H14L14.5 8.5C16 8 17 8 18 9C19 10 19 11 19 11L17 12L18 14C18 14 19 16 18 18C17 20 16 20.5 16 20.5V22H10Z" stroke="var(--gold)" strokeWidth="0.75" strokeLinejoin="round" fill="none"/>
-                <rect x="9" y="23" width="10" height="2" rx="1" fill="var(--gold)" opacity="0.7"/>
+          <a href="/" className="flex items-center gap-2.5 shrink-0 group">
+            <div style={{ width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                {/* Chess.com-style knight */}
+                <rect width="32" height="32" rx="6" fill="var(--green)" opacity="0.9"/>
+                <path d="M11 25V23.5C11 23.5 9 22 9 19C9 16 11 14 11 14L10 12H12L13 10H15L15.5 11.5C17 11 18 11 19 12C20 13 20 14 20 14L18 15L19 17C19 17 20 19 19 21C18 23 17 23.5 17 23.5V25H11Z" fill="white" opacity="0.95"/>
+                <rect x="10" y="26" width="12" height="2" rx="1" fill="white" opacity="0.7"/>
               </svg>
             </div>
             <span
-              className="font-display text-xl font-semibold tracking-wide"
-              style={{ color: "var(--text-1)", letterSpacing: "0.04em" }}
+              style={{
+                fontSize: "18px",
+                fontWeight: 700,
+                letterSpacing: "0.01em",
+                color: "var(--text-1)",
+              }}
             >
-              Chess<span style={{ color: "var(--gold)" }}>IQ</span>
+              Chess<span style={{ color: "var(--green)" }}>IQ</span>
             </span>
           </a>
 
           {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-xs">
-            <div
-              className="relative"
-              style={{
-                filter: focused ? `drop-shadow(0 0 8px var(--gold-glow))` : "none",
-                transition: "filter 0.3s",
-              }}
-            >
+          <form onSubmit={handleSearch} className="flex-1 max-w-[280px]">
+            <div className="relative">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
-                style={{ color: focused ? "var(--gold-muted)" : "var(--text-3)", transition: "color 0.2s" }}
+                style={{ color: focused ? "var(--green)" : "var(--text-3)", transition: "color 0.2s" }}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -73,9 +71,9 @@ export default function Header({ username }: Props) {
 
           {/* Active player */}
           {username && (
-            <div className="hidden sm:flex items-center gap-2 text-sm shrink-0" style={{ color: "var(--text-3)" }}>
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--gold)", boxShadow: "0 0 6px var(--gold)" }} />
-              <span style={{ color: "var(--text-2)", fontFamily: "var(--font-mono)", fontSize: "12px", letterSpacing: "0.05em" }}>
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              <div className="w-2 h-2 rounded-full" style={{ background: "var(--green)", boxShadow: "0 0 6px var(--green)" }} />
+              <span style={{ color: "var(--text-2)", fontSize: "13px", letterSpacing: "0.02em", fontWeight: 600 }}>
                 {username}
               </span>
             </div>

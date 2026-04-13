@@ -44,7 +44,7 @@ export default function GamesList({ games, username }: Props) {
       <div style={{ display: "flex", gap: "6px", marginBottom: "14px", flexWrap: "wrap" }}>
         {(["all", "win", "loss", "draw"] as const).map((f) => {
           const isActive = filter === f;
-          const accent = f === "all" ? "var(--gold)" : resultConfig[f].color;
+          const accent = f === "all" ? "var(--green)" : resultConfig[f].color;
           return (
             <button
               key={f}

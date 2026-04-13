@@ -3,7 +3,7 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { ColorStats } from "@/lib/game-analysis";
 
-const C = { bg: "#09090f", border: "#222136" };
+const C = { bg: "#262522", border: "#454340" };
 
 function winColor(rate: number) {
   return rate >= 50 ? "var(--win)" : rate >= 40 ? "var(--gold)" : "var(--loss)";
@@ -57,7 +57,7 @@ export default function ColorStats({ colorStats }: Props) {
 
   const pieData = [
     { name: "White", value: whiteStats?.games ?? 0, fill: "#e8e6e1" },
-    { name: "Black", value: blackStats?.games ?? 0, fill: "#2e2c48" },
+    { name: "Black", value: blackStats?.games ?? 0, fill: "#4d4a47" },
   ].filter((d) => d.value > 0);
 
   return (

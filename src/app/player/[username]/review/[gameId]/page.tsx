@@ -316,7 +316,7 @@ function ReviewPanel({
             </div>
             {isBad && currentMove.bestMoveSan && (
               <div className="text-xs text-[var(--text-2)] mt-1.5 pl-7">
-                Best: <span className="text-[var(--gold)] font-semibold font-mono">{currentMove.bestMoveSan}</span>
+                Best: <span className="text-[var(--green)] font-semibold font-mono">{currentMove.bestMoveSan}</span>
                 <span className="text-[var(--text-3)] ml-1.5">
                   ({currentMove.evalDrop > 0 ? "+" : ""}{(currentMove.evalDrop / 100).toFixed(1)})
                 </span>
@@ -372,11 +372,11 @@ function ReviewPanel({
 // ─── Accuracy color helper ───
 
 function getAccuracyColor(accuracy: number): string {
-  if (accuracy >= 90) return "#52c07a";
-  if (accuracy >= 75) return "#d4a84b";
-  if (accuracy >= 60) return "#d4a84b";
-  if (accuracy >= 40) return "#e08a20";
-  return "#e05555";
+  if (accuracy >= 90) return "#81b64c";
+  if (accuracy >= 75) return "#f6c700";
+  if (accuracy >= 60) return "#f6c700";
+  if (accuracy >= 40) return "#e28c28";
+  return "#ca3431";
 }
 
 // ─── Analysis Progress ───
@@ -388,7 +388,7 @@ function AnalysisProgress() {
       <h3 className="text-lg font-bold text-white mb-2">Analyzing with Stockfish...</h3>
       <div className="w-48 h-1.5 bg-[var(--border)] rounded-full overflow-hidden mb-3">
         <div
-          className="h-full bg-[var(--gold)] rounded-full animate-pulse"
+          className="h-full bg-[var(--green)] rounded-full animate-pulse"
           style={{ width: "100%" }}
         />
       </div>

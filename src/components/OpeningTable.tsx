@@ -182,7 +182,7 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
           max={20}
           value={minGames}
           onChange={(e) => setMinGames(parseInt(e.target.value))}
-          style={{ width: "80px", accentColor: "var(--gold)" }}
+          style={{ width: "80px", accentColor: "var(--green)" }}
         />
         <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)", width: "18px" }}>{minGames}</span>
         <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginLeft: "auto" }}>
@@ -211,7 +211,7 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
                     fontSize: "11px",
                     fontFamily: "var(--font-mono)",
                     letterSpacing: "0.08em",
-                    color: sortBy === key ? "var(--gold)" : "var(--text-3)",
+                    color: sortBy === key ? "var(--green)" : "var(--text-3)",
                     cursor: "pointer",
                     whiteSpace: "nowrap",
                     userSelect: "none",
@@ -353,9 +353,9 @@ export default function OpeningTable({ openings, games }: Props) {
                   fontSize: "12px",
                   fontFamily: "var(--font-mono)",
                   letterSpacing: "0.05em",
-                  border: `1px solid ${isActive ? "var(--gold-line)" : "var(--border)"}`,
-                  background: isActive ? "var(--gold-dim)" : "var(--bg-card)",
-                  color: isActive ? "var(--gold)" : "var(--text-3)",
+                  border: `1px solid ${isActive ? "var(--green-line)" : "var(--border)"}`,
+                  background: isActive ? "var(--green-dim)" : "var(--bg-card)",
+                  color: isActive ? "var(--green)" : "var(--text-3)",
                   cursor: "pointer",
                   transition: "all 0.15s",
                 }}

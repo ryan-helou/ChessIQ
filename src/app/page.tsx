@@ -69,7 +69,7 @@ export default function Home() {
           style={{
             top: "-10%", left: "50%", transform: "translateX(-50%)",
             width: "900px", height: "600px",
-            background: "radial-gradient(ellipse at center, rgba(212,168,75,0.05) 0%, transparent 65%)",
+            background: "radial-gradient(ellipse at center, rgba(129,182,76,0.06) 0%, transparent 65%)",
           }}
         />
         {/* Bottom right ambient */}
@@ -88,7 +88,7 @@ export default function Home() {
             className="absolute select-none"
             style={{
               fontSize: "64px",
-              color: "var(--gold)",
+              color: "var(--green)",
               opacity: 0.04,
               top: `${[12, 35, 60, 20, 75, 45][i]}%`,
               left: `${[8, 85, 5, 90, 78, 92][i]}%`,
@@ -111,24 +111,24 @@ export default function Home() {
           <div
             className="inline-flex items-center gap-2 mb-10 animate-fade-up"
             style={{
-              background: "var(--gold-dim)",
+              background: "var(--green-dim)",
               border: "1px solid var(--gold-line)",
               borderRadius: "100px",
               padding: "5px 14px",
               fontSize: "12px",
               fontFamily: "var(--font-mono)",
               letterSpacing: "0.1em",
-              color: "var(--gold)",
+              color: "var(--green)",
               textTransform: "uppercase",
             }}
           >
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--gold)", display: "inline-block", boxShadow: "0 0 8px var(--gold)" }} />
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--green)", display: "inline-block", boxShadow: "0 0 8px var(--gold)" }} />
             Free · No sign-up
           </div>
 
           {/* Headline */}
           <h1
-            className="font-display animate-fade-up"
+            className="animate-fade-up"
             style={{
               fontSize: "clamp(52px, 9vw, 104px)",
               lineHeight: 1.0,
@@ -169,10 +169,10 @@ export default function Home() {
               style={{
                 display: "flex",
                 background: "var(--bg-input)",
-                border: `1px solid ${focused ? "var(--gold-line)" : "var(--border)"}`,
+                border: `1px solid ${focused ? "var(--green-line)" : "var(--border)"}`,
                 borderRadius: "12px",
                 overflow: "hidden",
-                boxShadow: focused ? "0 0 0 3px var(--gold-glow), 0 8px 40px rgba(212,168,75,0.08)" : "0 4px 24px rgba(0,0,0,0.4)",
+                boxShadow: focused ? "0 0 0 3px var(--gold-glow), 0 8px 40px rgba(129,182,76,0.08)" : "0 4px 24px rgba(0,0,0,0.4)",
                 transition: "border-color 0.2s, box-shadow 0.3s",
               }}
             >
@@ -257,7 +257,7 @@ export default function Home() {
                 <div style={{ position: "absolute", top: 0, left: "32px", right: "32px", height: "1px", background: `linear-gradient(to right, ${f.accent}60, transparent)`, opacity: 0, transition: "opacity 0.2s" }}
                   className="group-hover:opacity-100" />
                 <div
-                  className="font-display"
+                  className=""
                   style={{
                     fontSize: "11px",
                     fontFamily: "var(--font-mono)",
@@ -270,7 +270,7 @@ export default function Home() {
                   {f.label}
                 </div>
                 <h3
-                  className="font-display"
+                  className=""
                   style={{
                     fontSize: "20px",
                     fontWeight: 600,
@@ -297,10 +297,10 @@ export default function Home() {
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}
           >
             <div
-              className="font-display"
+              className=""
               style={{ fontSize: "13px", color: "var(--text-3)", letterSpacing: "0.04em" }}
             >
-              Chess<span style={{ color: "var(--gold-muted)" }}>IQ</span>
+              Chess<span style={{ color: "var(--green-muted)" }}>IQ</span>
               <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
               Powered by Chess.com
             </div>

@@ -195,7 +195,7 @@ export default function AnalysisDialog({
             <div style={{ padding: "24px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                 <span style={{ fontSize: "22px" }}>♟</span>
-                <h2 className="font-display" style={{ fontSize: "17px", fontWeight: 600, color: "var(--text-1)" }}>Analyze Games</h2>
+                <h2 className="" style={{ fontSize: "17px", fontWeight: 600, color: "var(--text-1)" }}>Analyze Games</h2>
               </div>
               <p style={{ fontSize: "13px", color: "var(--text-3)", marginBottom: "20px", lineHeight: 1.5 }}>
                 Choose how many games from the last {months} month{months !== 1 ? "s" : ""} to analyse with Stockfish.
@@ -226,7 +226,7 @@ export default function AnalysisDialog({
                       transition: "all 0.15s",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "var(--gold-line)";
+                      e.currentTarget.style.borderColor = "var(--green-line)";
                       e.currentTarget.style.background = "var(--bg-card-hover)";
                     }}
                     onMouseLeave={(e) => {
@@ -256,7 +256,7 @@ export default function AnalysisDialog({
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
                 <span style={{ fontSize: "22px", animation: "scaleIn 0.5s ease infinite alternate" }}>♟</span>
                 <div>
-                  <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-1)" }}>Analysing your games</h2>
+                  <h2 className="" style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-1)" }}>Analysing your games</h2>
                   <p style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>This may take a few minutes</p>
                 </div>
               </div>
@@ -266,13 +266,13 @@ export default function AnalysisDialog({
                   <span style={{ fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
                     {gamesTotal > 0 ? `Game ${gamesAnalyzed} of ${gamesTotal}` : "Queuing games..."}
                   </span>
-                  <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--gold)", fontFamily: "var(--font-mono)" }}>{progress}%</span>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--green)", fontFamily: "var(--font-mono)" }}>{progress}%</span>
                 </div>
 
                 <div style={{ height: "6px", background: "var(--border)", borderRadius: "3px", overflow: "hidden" }}>
                   <div style={{
                     height: "100%",
-                    background: "linear-gradient(to right, var(--gold-muted), var(--gold))",
+                    background: "linear-gradient(to right, var(--green-muted), var(--green))",
                     width: `${progress}%`,
                     borderRadius: "3px",
                     transition: "width 0.3s ease-out",
@@ -281,7 +281,7 @@ export default function AnalysisDialog({
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "var(--text-3)", fontFamily: "var(--font-mono)", height: "16px" }}>
-                <span style={{ color: "var(--gold)", fontSize: "8px" }}>●</span>
+                <span style={{ color: "var(--green)", fontSize: "8px" }}>●</span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{MESSAGES[msgIdx]}</span>
               </div>
 
@@ -290,7 +290,7 @@ export default function AnalysisDialog({
                   <span
                     key={i}
                     style={{
-                      color: i < Math.round((progress / 100) * 8) ? "var(--gold-muted)" : "var(--border-strong)",
+                      color: i < Math.round((progress / 100) * 8) ? "var(--green-muted)" : "var(--border-strong)",
                       transition: `color 0.4s ${i * 80}ms`,
                     }}
                   >
@@ -307,7 +307,7 @@ export default function AnalysisDialog({
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
                 <span style={{ fontSize: "22px" }}>♔</span>
                 <div>
-                  <h2 className="font-display" style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-1)" }}>
+                  <h2 className="" style={{ fontSize: "15px", fontWeight: 600, color: "var(--text-1)" }}>
                     {alreadyUpToDate ? "Already up to date" : "Analysis complete"}
                   </h2>
                   <p style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
@@ -320,12 +320,12 @@ export default function AnalysisDialog({
 
               <div style={{ display: "grid", gridTemplateColumns: alreadyUpToDate ? "1fr" : "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
                 <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", textAlign: "center" }}>
-                  <div className="font-display" style={{ fontSize: "28px", fontWeight: 700, color: "var(--win)" }}>{gamesAnalyzed}</div>
+                  <div className="" style={{ fontSize: "28px", fontWeight: 700, color: "var(--win)" }}>{gamesAnalyzed}</div>
                   <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>Games analysed</div>
                 </div>
                 {!alreadyUpToDate && (
                   <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", textAlign: "center" }}>
-                    <div className="font-display" style={{ fontSize: "28px", fontWeight: 700, color: "var(--loss)" }}>{totalBlunders}</div>
+                    <div className="" style={{ fontSize: "28px", fontWeight: 700, color: "var(--loss)" }}>{totalBlunders}</div>
                     <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", marginTop: "2px" }}>Blunders found</div>
                   </div>
                 )}

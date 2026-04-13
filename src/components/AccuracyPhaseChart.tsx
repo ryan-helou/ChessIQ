@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import type { ParsedGame } from "@/lib/game-analysis";
 
-const C = { bg: "#09090f", border: "#222136", text3: "#524f68" };
+const C = { bg: "#262522", border: "#454340", text3: "#706e6b" };
 
 interface AccuracyByPhaseProps {
   games: ParsedGame[];
@@ -50,7 +50,7 @@ function analyzeGamePhases(game: ParsedGame): Record<GamePhase, { moveCount: num
 }
 
 // Phase colors from design tokens
-const PHASE_COLORS = ["#52c07a", "#d4a84b", "#5b9cf6"];
+const PHASE_COLORS = ["#81b64c", "#f6c700", "#5d8fbb"];
 
 export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
   const phaseData = useMemo(() => {

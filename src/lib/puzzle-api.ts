@@ -100,25 +100,25 @@ export const THEME_LABELS: Record<string, string> = {
 };
 
 export const THEME_COLORS: Record<string, string> = {
-  fork:            "#d4a84b",  // gold
-  pin:             "#5b9cf6",  // blue
-  skewer:          "#52c07a",  // win green
-  discoveredAttack:"#26c9c3",  // teal
-  backRankMate:    "#e05555",  // loss red
-  hangingPiece:    "#d4a84b",  // gold
-  trappedPiece:    "#e07a40",  // orange
-  doubleCheck:     "#8b7cf6",  // purple
+  fork:            "#f6c700",  // Chess.com yellow
+  pin:             "#5d8fbb",  // Chess.com blue
+  skewer:          "#81b64c",  // Chess.com green
+  discoveredAttack:"#26c9c3",  // teal (brilliant)
+  backRankMate:    "#ca3431",  // Chess.com red
+  hangingPiece:    "#f6c700",  // yellow
+  trappedPiece:    "#e28c28",  // orange
+  doubleCheck:     "#26c9c3",  // teal
   sacrifice:       "#26c9c3",  // teal
-  promotion:       "#52c07a",  // win green
-  mate:            "#e05555",  // loss red
-  materialGain:    "#52c07a",  // win green
-  positional:      "#8b8aae",  // draw/neutral
-  exposedKing:     "#e05555",  // loss red
-  weakKingSafety:  "#e07a40",  // orange
-  inactivePieces:  "#5b9cf6",  // blue
-  pawnStructure:   "#52c07a",  // win green
-  poorPawnStructure:"#d4a84b", // gold
-  overextension:   "#e07a40",  // orange
+  promotion:       "#81b64c",  // green
+  mate:            "#ca3431",  // red
+  materialGain:    "#81b64c",  // green
+  positional:      "#9e9b98",  // muted gray
+  exposedKing:     "#ca3431",  // red
+  weakKingSafety:  "#e28c28",  // orange
+  inactivePieces:  "#5d8fbb",  // blue
+  pawnStructure:   "#81b64c",  // green
+  poorPawnStructure:"#f6c700", // yellow
+  overextension:   "#e28c28",  // orange
   deflection:      "#26c9c3",  // teal
 };
 

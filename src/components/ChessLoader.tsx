@@ -48,7 +48,7 @@ function MiniBoard() {
         const isTrail = trail.includes(i) && !isActive;
 
         let bg = isLight ? "#1e1c2c" : "#141320";
-        if (isActive) bg = "var(--gold)";
+        if (isActive) bg = "var(--green)";
         else if (isTrail) bg = isLight ? "rgba(212,168,75,0.18)" : "rgba(212,168,75,0.12)";
 
         return (
@@ -92,7 +92,7 @@ export default function ChessLoader({ username }: Props) {
       {/* Username */}
       <p style={{ fontSize: "16px", color: "var(--text-2)", marginBottom: "8px", fontFamily: "var(--font-sans)" }}>
         Loading{" "}
-        <span style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
+        <span style={{ color: "var(--green)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
           {username}
         </span>
       </p>
@@ -118,7 +118,7 @@ export default function ChessLoader({ username }: Props) {
         <div
           style={{
             height: "100%",
-            background: "linear-gradient(to right, var(--gold-muted), var(--gold))",
+            background: "linear-gradient(to right, var(--green-muted), var(--green))",
             width: `${Math.min(progress, 95)}%`,
             transition: "width 0.3s ease-out",
           }}

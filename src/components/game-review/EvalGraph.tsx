@@ -83,7 +83,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           {currentMove > 0 && (
             <ReferenceLine
               x={currentMove}
-              stroke="#d4a84b"
+              stroke="#81b64c"
               strokeWidth={2}
               strokeDasharray="3 3"
             />

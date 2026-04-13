@@ -13,13 +13,13 @@ import {
 import type { RatingDataPoint } from "@/lib/game-analysis";
 
 // Match design tokens from globals.css
-const C = { bg: "#09090f", border: "#222136", text2: "#9896b4", text3: "#524f68" };
+const C = { bg: "#262522", border: "#454340", text2: "#a0998c", text3: "#706e6b" };
 
 const TIME_CLASS_COLORS: Record<string, string> = {
-  bullet: "#e05555",
-  blitz:  "#d4a84b",
-  rapid:  "#52c07a",
-  daily:  "#5b9cf6",
+  bullet: "#ca3431",
+  blitz:  "#f6c700",
+  rapid:  "#81b64c",
+  daily:  "#5d8fbb",
 };
 
 interface Props {

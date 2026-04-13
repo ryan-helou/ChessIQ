@@ -1,43 +1,46 @@
 "use client";
 
+const TC_ICON: Record<string, string> = {
+  bullet: "⚡",
+  blitz:  "⏱",
+  rapid:  "🐢",
+  daily:  "📅",
+};
+
+const TC_COLOR: Record<string, string> = {
+  bullet: "#ca3431",
+  blitz:  "#f6c700",
+  rapid:  "#81b64c",
+  daily:  "#5d8fbb",
+};
+
 interface StatCardProps {
   label: string;
   value: string | number;
   sub?: string;
   accent?: string;
-  mono?: boolean;
   delay?: number;
 }
 
-function StatCard({ label, value, sub, accent, mono, delay = 0 }: StatCardProps) {
+function StatCard({ label, value, sub, accent, delay = 0 }: StatCardProps) {
   return (
     <div
-      className="card animate-fade-up"
+      className="animate-fade-up"
       style={{
-        padding: "20px 22px",
-        position: "relative",
-        overflow: "hidden",
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: "8px",
+        padding: "16px 18px",
         animationDelay: `${delay}s`,
       }}
     >
-      {/* Left accent bar */}
       <div
         style={{
-          position: "absolute",
-          left: 0, top: "20%", bottom: "20%",
-          width: "2px",
-          background: accent || "var(--border-strong)",
-          borderRadius: "0 1px 1px 0",
-          opacity: accent ? 0.7 : 0.3,
-        }}
-      />
-      <div
-        style={{
-          fontSize: "10px",
-          letterSpacing: "0.12em",
+          fontSize: "11px",
+          fontWeight: 600,
           textTransform: "uppercase",
+          letterSpacing: "0.08em",
           color: "var(--text-3)",
-          fontFamily: "var(--font-mono)",
           marginBottom: "8px",
         }}
       >
@@ -45,22 +48,60 @@ function StatCard({ label, value, sub, accent, mono, delay = 0 }: StatCardProps)
       </div>
       <div
         style={{
-          fontSize: "26px",
+          fontSize: "28px",
           fontWeight: 700,
           lineHeight: 1,
           color: accent || "var(--text-1)",
-          fontFamily: mono ? "var(--font-mono)" : "var(--font-display)",
-          letterSpacing: mono ? "0.02em" : "-0.01em",
-          marginBottom: sub ? "6px" : 0,
+          marginBottom: sub ? "5px" : 0,
         }}
       >
         {value}
       </div>
       {sub && (
-        <div style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
+        <div style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px" }}>
           {sub}
         </div>
       )}
+    </div>
+  );
+}
+
+interface RatingCardProps {
+  timeClass: string;
+  current: number;
+  best: number;
+  delay?: number;
+}
+
+function RatingCard({ timeClass, current, best, delay = 0 }: RatingCardProps) {
+  const color = TC_COLOR[timeClass] || "var(--text-2)";
+  const icon = TC_ICON[timeClass] || "♟";
+  const label = timeClass.charAt(0).toUpperCase() + timeClass.slice(1);
+
+  return (
+    <div
+      className="animate-fade-up"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: "8px",
+        padding: "16px 18px",
+        animationDelay: `${delay}s`,
+        borderTop: `2px solid ${color}`,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+        <span style={{ fontSize: "14px" }}>{icon}</span>
+        <span style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color }}>
+          {label}
+        </span>
+      </div>
+      <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1, color: "var(--text-1)", marginBottom: "4px" }}>
+        {current}
+      </div>
+      <div style={{ fontSize: "11px", color: "var(--text-3)" }}>
+        Peak {best}
+      </div>
     </div>
   );
 }
@@ -99,41 +140,39 @@ export default function StatsCards({
   const winAccent = winRate >= 50 ? "var(--win)" : "var(--loss)";
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))", gap: "8px" }}>
       <StatCard
-        label="Games"
+        label="Games Played"
         value={totalGames.toLocaleString()}
         sub={periodLabel}
-        mono
         delay={0}
       />
       <StatCard
         label="Win Rate"
         value={`${winRate.toFixed(1)}%`}
         accent={winAccent}
-        delay={0.05}
+        delay={0.04}
       />
       <StatCard
         label="Avg Accuracy"
         value={avgAccuracy ? `${avgAccuracy.toFixed(1)}%` : "—"}
         accent={avgAccuracy ? "var(--gold)" : undefined}
-        delay={0.1}
+        delay={0.08}
       />
       <StatCard
-        label="Streak"
+        label="Current Streak"
         value={streakLabel}
         sub={`Best ${bestWinStreak}W · Worst ${worstLossStreak}L`}
         accent={streakAccent}
-        delay={0.15}
+        delay={0.12}
       />
       {ratings.map((r, i) => (
-        <StatCard
+        <RatingCard
           key={r.timeClass}
-          label={`${r.timeClass.charAt(0).toUpperCase() + r.timeClass.slice(1)}`}
-          value={r.current}
-          sub={`Peak ${r.best}`}
-          mono
-          delay={0.2 + i * 0.05}
+          timeClass={r.timeClass}
+          current={r.current}
+          best={r.best}
+          delay={0.16 + i * 0.04}
         />
       ))}
     </div>

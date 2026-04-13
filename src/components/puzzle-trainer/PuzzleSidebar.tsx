@@ -40,7 +40,7 @@ export default function PuzzleSidebar({
           </span>
           {puzzle?.rating && (
             <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>
-              Rated <span style={{ color: "var(--gold)", fontWeight: 700 }}>{puzzle.rating}</span>
+              Rated <span style={{ color: "var(--green)", fontWeight: 700 }}>{puzzle.rating}</span>
             </span>
           )}
         </div>
@@ -96,7 +96,7 @@ export default function PuzzleSidebar({
             cursor: "pointer",
             transition: "all 0.15s",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--gold-line)"; e.currentTarget.style.color = "var(--gold)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--green-line)"; e.currentTarget.style.color = "var(--green)"; }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-2)"; }}
         >
           Hint
@@ -128,7 +128,7 @@ export default function PuzzleSidebar({
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           {[
             { label: "Solved", value: `${sessionSolved} / ${sessionTotal}`, accent: undefined },
-            { label: "Streak", value: String(streak), accent: streak > 0 ? "var(--gold)" : undefined },
+            { label: "Streak", value: String(streak), accent: streak > 0 ? "var(--green)" : undefined },
             { label: "Accuracy", value: sessionTotal > 0 ? `${Math.round((sessionSolved / sessionTotal) * 100)}%` : "—", accent: undefined },
           ].map((row) => (
             <div key={row.label} style={{ display: "flex", justifyContent: "space-between" }}>

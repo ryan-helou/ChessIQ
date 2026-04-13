@@ -15,20 +15,20 @@ import {
 } from "recharts";
 import type { ResultBreakdown } from "@/lib/game-analysis";
 
-const C = { bg: "#09090f", border: "#222136", text2: "#9896b4", text3: "#524f68" };
+const C = { bg: "#262522", border: "#454340", text2: "#a0998c", text3: "#706e6b" };
 
 const RESULT_COLORS: Record<string, string> = {
-  Checkmate:                 "#52c07a",
-  Resigned:                  "#e05555",
-  Timeout:                   "#d4a84b",
-  Checkmated:                "#c03434",
-  Stalemate:                 "#8b8aae",
-  "Draw Agreed":             "#524f68",
-  Repetition:                "#5b9cf6",
-  Abandoned:                 "#d4a84b",
-  "Insufficient Material":   "#5b9cf6",
-  "Timeout vs Insufficient": "#8b8aae",
-  "50-Move Rule":            "#524f68",
+  Checkmate:                 "#81b64c",
+  Resigned:                  "#ca3431",
+  Timeout:                   "#f6c700",
+  Checkmated:                "#a02828",
+  Stalemate:                 "#9e9b98",
+  "Draw Agreed":             "#706e6b",
+  Repetition:                "#5d8fbb",
+  Abandoned:                 "#f6c700",
+  "Insufficient Material":   "#5d8fbb",
+  "Timeout vs Insufficient": "#9e9b98",
+  "50-Move Rule":            "#706e6b",
 };
 
 interface WinLossDrawProps {
@@ -43,7 +43,7 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
     { name: "Losses", value: losses },
     { name: "Draws",  value: draws },
   ];
-  const colors = ["#52c07a", "#e05555", "#8b8aae"];
+  const colors = ["#81b64c", "#ca3431", "#9e9b98"];
 
   return (
     <div className="w-full h-[250px]">

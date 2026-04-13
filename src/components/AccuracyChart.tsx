@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import type { ParsedGame } from "@/lib/game-analysis";
 
-const C = { bg: "#09090f", border: "#222136", text2: "#9896b4", text3: "#524f68" };
+const C = { bg: "#262522", border: "#454340", text2: "#a0998c", text3: "#706e6b" };
 
 interface Props {
   games: ParsedGame[];
@@ -80,7 +80,7 @@ export function AccuracyOverTime({ games }: Props) {
           <Line
             type="monotone"
             dataKey="accuracy"
-            stroke="rgba(212,168,75,0.25)"
+            stroke="rgba(129,182,76,0.25)"
             dot={false}
             strokeWidth={1}
             name="Game Accuracy"
@@ -88,7 +88,7 @@ export function AccuracyOverTime({ games }: Props) {
           <Line
             type="monotone"
             dataKey="rollingAvg"
-            stroke="#d4a84b"
+            stroke="#81b64c"
             dot={false}
             strokeWidth={2.5}
             name="20-Game Rolling Avg"
@@ -155,9 +155,9 @@ export function AccuracyVsRating({ games }: Props) {
               <span style={{ color: C.text2, fontSize: "11px", fontFamily: "monospace" }}>{value}</span>
             )}
           />
-          <Scatter name="Wins"   data={wins}   fill="#52c07a" opacity={0.55} />
-          <Scatter name="Losses" data={losses} fill="#e05555" opacity={0.55} />
-          <Scatter name="Draws"  data={draws}  fill="#8b8aae" opacity={0.55} />
+          <Scatter name="Wins"   data={wins}   fill="#81b64c" opacity={0.55} />
+          <Scatter name="Losses" data={losses} fill="#ca3431" opacity={0.55} />
+          <Scatter name="Draws"  data={draws}  fill="#9e9b98" opacity={0.55} />
         </ScatterChart>
       </ResponsiveContainer>
     </div>

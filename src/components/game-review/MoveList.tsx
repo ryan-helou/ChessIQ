@@ -129,7 +129,7 @@ export default function MoveList({ moves, currentMoveIndex, onMoveClick }: Props
         onClick={() => onMoveClick(index)}
         className={`flex items-center gap-1 px-1.5 py-1 rounded text-sm font-mono transition-all ${colors} ${
           isActive
-            ? "ring-2 ring-[#d4a84b] ring-offset-1 ring-offset-[#13121c] font-bold"
+            ? "ring-2 ring-[#81b64c] ring-offset-1 ring-offset-[var(--bg-card)] font-bold"
             : "hover:brightness-125"
         }`}
       >
