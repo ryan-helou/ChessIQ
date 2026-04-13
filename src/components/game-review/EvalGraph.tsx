@@ -73,13 +73,13 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
               <stop offset="0%"   stopColor="#f0ede4" stopOpacity={0.75} />
               <stop offset="50%"  stopColor="#f0ede4" stopOpacity={0.08} />
               {/* Black advantage — bottom half */}
-              <stop offset="50%"  stopColor="#524f68" stopOpacity={0.15} />
-              <stop offset="100%" stopColor="#524f68" stopOpacity={0.65} />
+              <stop offset="50%"  stopColor="#302e2c" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#302e2c" stopOpacity={0.65} />
             </linearGradient>
           </defs>
           <XAxis dataKey="move" hide />
           <YAxis domain={[-500, 500]} hide />
-          <ReferenceLine y={0} stroke="#524f68" strokeWidth={1} />
+          <ReferenceLine y={0} stroke="#454340" strokeWidth={1} />
           {currentMove > 0 && (
             <ReferenceLine
               x={currentMove}
@@ -92,7 +92,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
             <Tooltip
               contentStyle={{
                 backgroundColor: "#262522",
-                border: "1px solid #222136",
+                border: "1px solid #454340",
                 borderRadius: "6px",
                 color: "#f0ede4",
                 fontSize: 12,
@@ -112,7 +112,7 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
           <Area
             type="monotone"
             dataKey="displayEval"
-            stroke="#9896b4"
+            stroke="#9e9b98"
             strokeWidth={mini ? 1 : 1.5}
             fill="url(#evalGradient)"
             fillOpacity={1}

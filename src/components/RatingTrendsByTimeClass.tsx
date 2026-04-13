@@ -75,7 +75,7 @@ function MiniRatingChart({ timeClass, data }: MiniChartProps) {
           <Line
             type="monotone"
             dataKey="rating"
-            stroke={TC_COLORS[timeClass] ?? "#9896b4"}
+            stroke={TC_COLORS[timeClass] ?? "#9e9b98"}
             dot={false}
             strokeWidth={2}
             connectNulls

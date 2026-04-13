@@ -112,7 +112,7 @@ export default function Home() {
             className="inline-flex items-center gap-2 mb-10 animate-fade-up"
             style={{
               background: "var(--green-dim)",
-              border: "1px solid var(--gold-line)",
+              border: "1px solid var(--green-line)",
               borderRadius: "100px",
               padding: "5px 14px",
               fontSize: "12px",
@@ -172,7 +172,7 @@ export default function Home() {
                 border: `1px solid ${focused ? "var(--green-line)" : "var(--border)"}`,
                 borderRadius: "12px",
                 overflow: "hidden",
-                boxShadow: focused ? "0 0 0 3px var(--gold-glow), 0 8px 40px rgba(129,182,76,0.08)" : "0 4px 24px rgba(0,0,0,0.4)",
+                boxShadow: focused ? "0 0 0 3px var(--green-glow), 0 8px 40px rgba(129,182,76,0.08)" : "0 4px 24px rgba(0,0,0,0.4)",
                 transition: "border-color 0.2s, box-shadow 0.3s",
               }}
             >
@@ -316,7 +316,7 @@ export default function Home() {
                 textDecoration: "none",
                 transition: "color 0.2s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold-muted)")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--green-muted)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
             >
               github ↗

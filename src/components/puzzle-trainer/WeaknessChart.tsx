@@ -21,8 +21,8 @@ interface Props {
 export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }: Props) {
   if (weaknesses.length === 0) {
     return (
-      <div className="bg-[#13121c] rounded-xl p-6 text-center">
-        <p className="text-[#9896b4] text-sm">
+      <div className="bg-[#302e2c] rounded-xl p-6 text-center">
+        <p className="text-[#9e9b98] text-sm">
           No weakness data yet. Analyze some games first to see your tactical patterns.
         </p>
       </div>
@@ -34,11 +34,11 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
     label: THEME_LABELS[w.theme] ?? w.theme,
     count: w.count,
     percentage: w.percentage,
-    color: THEME_COLORS[w.theme] ?? "#9896b4",
+    color: THEME_COLORS[w.theme] ?? "#9e9b98",
   }));
 
   return (
-    <div className="bg-[#13121c] rounded-xl p-5">
+    <div className="bg-[#302e2c] rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-bold text-[#f0ede4] uppercase tracking-wider">
           Your Tactical Weaknesses
@@ -46,7 +46,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
         {activeTheme && (
           <button
             onClick={() => onThemeClick(null)}
-            className="text-xs text-[#9896b4] hover:text-[#f0ede4] transition-colors"
+            className="text-xs text-[#9e9b98] hover:text-[#f0ede4] transition-colors"
           >
             Show all
           </button>
@@ -58,7 +58,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
           <BarChart data={data} layout="vertical" margin={{ left: 0, right: 16 }}>
             <XAxis
               type="number"
-              tick={{ fill: "#524f68", fontSize: 11 }}
+              tick={{ fill: "#706e6b", fontSize: 11 }}
               axisLine={false}
               tickLine={false}
             />
@@ -74,7 +74,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
               cursor={{ fill: "rgba(255,255,255,0.05)" }}
               contentStyle={{
                 backgroundColor: "var(--bg)",
-                border: "1px solid #222136",
+                border: "1px solid #454340",
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
@@ -111,7 +111,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
             className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${
               activeTheme === d.theme
                 ? "text-white ring-1 ring-white/30"
-                : "text-[#9896b4] hover:text-white"
+                : "text-[#9e9b98] hover:text-white"
             }`}
             style={{
               backgroundColor: activeTheme === d.theme ? d.color : `${d.color}20`,

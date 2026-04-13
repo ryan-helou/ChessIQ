@@ -41,10 +41,10 @@ const CLASSIFICATIONS: { key: MoveClassification; info: ClassInfo }[] = [
   { key: "excellent",  info: { label: "Excellent",  color: "text-[#5eba3a]", bg: "#5eba3a", icon: "👍", img: "/Chess Symbols/excellent.gif" } },
   { key: "good",       info: { label: "Good",       color: "text-[#88bf40]", bg: "#88bf40", icon: "✓",  img: "/Chess Symbols/good.gif" } },
   { key: "book",       info: { label: "Book",       color: "text-[#b09860]", bg: "#b09860", icon: "📖", img: "/Chess Symbols/book.jpeg" } },
-  { key: "inaccuracy", info: { label: "Inaccuracy", color: "text-[#dbac18]", bg: "#dbac18", icon: "?!", img: "/Chess Symbols/inacuracy.png" } },
+  { key: "inaccuracy", info: { label: "Inaccuracy", color: "text-[#f6c700]", bg: "#f6c700", icon: "?!", img: "/Chess Symbols/inacuracy.png" } },
   { key: "mistake",    info: { label: "Mistake",    color: "text-[#e28c28]", bg: "#e28c28", icon: "?",  img: "/Chess Symbols/mistake.png" } },
   { key: "miss",       info: { label: "Miss",       color: "text-[#e26b50]", bg: "#e26b50", icon: "✕",  img: "/Chess Symbols/miss.png" } },
-  { key: "blunder",    info: { label: "Blunder",    color: "text-[var(--loss)]", bg: "#e05555", icon: "??", img: "/Chess Symbols/blunder.png" } },
+  { key: "blunder",    info: { label: "Blunder",    color: "text-[var(--loss)]", bg: "#ca3431", icon: "??", img: "/Chess Symbols/blunder.png" } },
   { key: "forced",     info: { label: "Forced",     color: "text-[var(--text-2)]", bg: "#888888", icon: "→" } },
 ];
 
@@ -117,7 +117,7 @@ function PhaseIcon({ acc }: { acc: number | null }) {
   return (
     <span
       className="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold"
-      style={{ backgroundColor: color === "text-green-400" ? "#3da861" : color === "text-green-500" ? "#d4a84b" : "#d4a84b" }}
+      style={{ backgroundColor: color === "text-green-400" ? "#81b64c" : color === "text-green-500" ? "#5eba3a" : color === "text-yellow-400" ? "#f6c700" : "#ca3431" }}
     >
       {icon === "👍" ? "✓" : icon}
     </span>
