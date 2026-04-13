@@ -126,11 +126,11 @@ export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
             border: `1px solid ${C.border}`,
             borderRadius: "8px",
             padding: "8px",
-            color: "#f0ede4",
+            color: "#e8e6e1",
             fontSize: "12px",
             fontFamily: "monospace",
           }}
-          labelStyle={{ color: "#f0ede4" }}
+          labelStyle={{ color: "#e8e6e1" }}
           formatter={(value: any) => `${Number(value).toFixed(1)}%`}
           cursor={{ fill: "rgba(212,168,75,0.06)" }}
         />

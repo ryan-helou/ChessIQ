@@ -144,44 +144,111 @@ export default function PlayerPage() {
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-            {/* Profile Header — Chess.com style */}
-            <div id="overview" className="scroll-mt-28" style={{ marginBottom: "28px", paddingBottom: "24px", borderBottom: "1px solid var(--border)" }}>
+            {/* Profile Header */}
+            <div
+              id="overview"
+              className="scroll-mt-28"
+              style={{
+                marginBottom: "28px",
+                paddingBottom: "20px",
+                borderBottom: "1px solid var(--border)",
+              }}
+            >
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  {data.profile.avatar ? (
-                    <img
-                      src={data.profile.avatar}
-                      alt={data.profile.username}
-                      style={{ width: "64px", height: "64px", borderRadius: "50%", border: "2px solid var(--border-strong)" }}
-                    />
-                  ) : (
-                    <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "var(--bg-card-hover)", border: "2px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", color: "var(--text-3)" }}>
-                      ♟
-                    </div>
-                  )}
+                {/* Left: avatar + identity */}
+                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                  {/* Avatar with online dot */}
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    {data.profile.avatar ? (
+                      <img
+                        src={data.profile.avatar}
+                        alt={data.profile.username}
+                        style={{
+                          width: "60px",
+                          height: "60px",
+                          borderRadius: "50%",
+                          border: "2px solid var(--border-strong)",
+                          display: "block",
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: "60px",
+                        height: "60px",
+                        borderRadius: "50%",
+                        background: "var(--bg-card-hover)",
+                        border: "2px solid var(--border-strong)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "22px",
+                        color: "var(--text-3)",
+                      }}>
+                        ♟
+                      </div>
+                    )}
+                    {/* Online indicator */}
+                    <span style={{
+                      position: "absolute",
+                      bottom: "2px",
+                      right: "2px",
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "50%",
+                      background: "var(--green)",
+                      border: "2px solid var(--bg)",
+                      boxShadow: "0 0 6px var(--green)",
+                    }} />
+                  </div>
+
+                  {/* Username + league + name */}
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                      <h1 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text-1)", lineHeight: 1.2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "2px" }}>
+                      <h1 style={{ fontSize: "20px", fontWeight: 700, color: "var(--text-1)", lineHeight: 1.2, letterSpacing: "-0.01em" }}>
                         {data.profile.username}
                       </h1>
                       {data.profile.league && (
-                        <span style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 9px", borderRadius: "4px", background: "var(--green-dim)", color: "var(--green)", border: "1px solid var(--green-line)" }}>
+                        <span style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          background: "var(--green-dim)",
+                          color: "var(--green)",
+                          border: "1px solid var(--green-line)",
+                        }}>
                           {data.profile.league}
                         </span>
                       )}
                     </div>
                     {data.profile.name && data.profile.name !== data.profile.username && (
-                      <p style={{ fontSize: "13px", color: "var(--text-3)", marginTop: "2px" }}>{data.profile.name}</p>
+                      <p style={{ fontSize: "12px", color: "var(--text-3)" }}>{data.profile.name}</p>
                     )}
+                    <p style={{ fontSize: "11px", color: "var(--text-3)", marginTop: "2px", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
+                      Chess.com
+                    </p>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+
+                {/* Right: controls */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <DateRangePicker value={months} onChange={handleMonthsChange} loading={loading} />
                   <button
                     onClick={() => setShowAnalysisDialog(true)}
                     disabled={loading}
                     className="btn-gold"
-                    style={{ padding: "9px 20px", borderRadius: "6px", fontSize: "13px", fontWeight: 700, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap" }}
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      border: "none",
+                      cursor: loading ? "not-allowed" : "pointer",
+                      opacity: loading ? 0.6 : 1,
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     Analyze Games
                   </button>

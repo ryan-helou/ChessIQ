@@ -38,7 +38,7 @@ function MiniBoard() {
       borderRadius: "8px",
       overflow: "hidden",
       border: "1px solid var(--border)",
-      boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 30px rgba(212,168,75,0.04)",
+      boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 30px rgba(129,182,76,0.06)",
     }}>
       {Array.from({ length: 64 }).map((_, i) => {
         const row = Math.floor(i / 8);
@@ -47,9 +47,9 @@ function MiniBoard() {
         const isActive = i === highlightedSquare;
         const isTrail = trail.includes(i) && !isActive;
 
-        let bg = isLight ? "#1e1c2c" : "#141320";
+        let bg = isLight ? "#3a3835" : "#2e2c2a";
         if (isActive) bg = "var(--green)";
-        else if (isTrail) bg = isLight ? "rgba(212,168,75,0.18)" : "rgba(212,168,75,0.12)";
+        else if (isTrail) bg = isLight ? "rgba(129,182,76,0.22)" : "rgba(129,182,76,0.14)";
 
         return (
           <div key={i} style={{ background: bg, transition: "background 0.25s", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
@@ -57,7 +57,7 @@ function MiniBoard() {
               <span style={{ fontSize: "13px", animation: "scaleIn 0.25s ease", userSelect: "none" }}>♞</span>
             )}
             {isTrail && !isActive && (
-              <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: "rgba(212,168,75,0.5)" }} />
+              <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: "rgba(129,182,76,0.55)" }} />
             )}
           </div>
         );

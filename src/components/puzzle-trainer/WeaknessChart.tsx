@@ -40,13 +40,13 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
   return (
     <div className="bg-[#302e2c] rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-bold text-[#f0ede4] uppercase tracking-wider">
+        <h2 className="text-sm font-bold text-[#e8e6e1] uppercase tracking-wider">
           Your Tactical Weaknesses
         </h2>
         {activeTheme && (
           <button
             onClick={() => onThemeClick(null)}
-            className="text-xs text-[#9e9b98] hover:text-[#f0ede4] transition-colors"
+            className="text-xs text-[#9e9b98] hover:text-[#e8e6e1] transition-colors"
           >
             Show all
           </button>
@@ -65,7 +65,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
             <YAxis
               type="category"
               dataKey="label"
-              tick={{ fill: "#f0ede4", fontSize: 12 }}
+              tick={{ fill: "#e8e6e1", fontSize: 12 }}
               axisLine={false}
               tickLine={false}
               width={110}
@@ -78,7 +78,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
-              labelStyle={{ color: "#f0ede4" }}
+              labelStyle={{ color: "#e8e6e1" }}
               formatter={(value: any, _name: any, entry: any) => [
                 `${value} (${entry.payload.percentage}%)`,
                 "Blunders",

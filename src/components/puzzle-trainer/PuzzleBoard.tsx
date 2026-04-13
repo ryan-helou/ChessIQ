@@ -530,7 +530,7 @@ function PuzzleBoard({
             )}
             <div className="flex justify-between text-sm">
               <span className="text-[var(--text-3)]">Source</span>
-              <span className="text-[#f0ede4] text-xs">{puzzle.sourceLabel}</span>
+              <span className="text-[#e8e6e1] text-xs">{puzzle.sourceLabel}</span>
             </div>
             {themeLabel && (
               <div className="flex justify-between text-sm items-center">

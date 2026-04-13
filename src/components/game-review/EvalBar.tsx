@@ -36,7 +36,7 @@ export default function EvalBar({ eval_, mate }: Props) {
       />
       {/* White portion (bottom) */}
       <div
-        className="w-full bg-[#f0ede4] transition-all duration-500 ease-out"
+        className="w-full bg-[#e8e6e1] transition-all duration-500 ease-out"
         style={{ height: `${whitePercent}%` }}
       />
       {/* Eval text: top of bar when black leads, bottom when white leads */}

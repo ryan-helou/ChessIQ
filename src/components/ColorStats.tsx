@@ -111,7 +111,7 @@ export default function ColorStats({ colorStats }: Props) {
                     backgroundColor: C.bg,
                     border: `1px solid ${C.border}`,
                     borderRadius: "8px",
-                    color: "#f0ede4",
+                    color: "#e8e6e1",
                     fontSize: "12px",
                     fontFamily: "monospace",
                   }}
