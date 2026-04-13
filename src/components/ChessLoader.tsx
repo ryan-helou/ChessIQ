@@ -43,100 +43,88 @@ const MESSAGE_SETS: Record<string, string[]> = {
   ],
 };
 
-// ── Knight tour path (48 squares for smooth looping) ──────────────────────
-const KNIGHT_TOUR = [
-  0,10,25,19,4,14,31,21,6,16,33,27,12,2,17,35,
-  20,5,15,30,44,29,39,24,9,3,18,28,43,37,22,32,
-  47,41,26,36,51,45,34,40,55,49,38,48,63,53,42,52,
-];
-
 // ── Piece symbols cycling in header ───────────────────────────────────────
 const PIECES = ["♟", "♞", "♝", "♜", "♛", "♚", "♙", "♘", "♗", "♖", "♕", "♔"];
 
-// ── Mini animated board ────────────────────────────────────────────────────
+// ── Ripple board ──────────────────────────────────────────────────────────
+// Multiple green ripples expand from center like stones dropped in water.
+const CENTER = 3.5; // center of 8x8 grid (between squares 3 and 4)
+const RIPPLE_SPEED   = 4.2;  // squares per second
+const RIPPLE_SIGMA   = 0.72; // ring width
+const RIPPLE_MAX     = 5.8;  // fade out past this radius
+const RIPPLE_INTERVAL_MS = 720; // new ripple every N ms
+const TICK_MS = 40; // ~25fps — smooth enough, light on CPU
+
+// Pre-compute distance of each square from center
+const SQUARE_DIST = Array.from({ length: 64 }, (_, i) => {
+  const row = Math.floor(i / 8);
+  const col = i % 8;
+  return Math.sqrt((row - CENTER) ** 2 + (col - CENTER) ** 2);
+});
+
+// Light/dark base colors as RGB arrays
+const BASE_LIGHT = [62, 59, 56];
+const BASE_DARK  = [42, 40, 38];
+const GREEN_RGB  = [129, 182, 76];
+
+function lerp(a: number, b: number, t: number) { return Math.round(a + (b - a) * t); }
+
 function AnimatedBoard() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [trail, setTrail] = useState<number[]>([]);
-  const stepRef = useRef(0);
+  const [tick, setTick] = useState(0);
+  const rippleBirthsRef = useRef<number[]>([Date.now()]);
 
   useEffect(() => {
-    const iv = setInterval(() => {
-      const sq = KNIGHT_TOUR[stepRef.current % KNIGHT_TOUR.length];
-      setActiveIdx(sq);
-      setTrail((prev) => [...prev.slice(-7), sq]);
-      stepRef.current++;
-    }, 320);
-    return () => clearInterval(iv);
+    // Launch a new ripple on interval
+    const rippleIv = setInterval(() => {
+      const now = Date.now();
+      // Prune dead ripples
+      rippleBirthsRef.current = [
+        ...rippleBirthsRef.current.filter(b => (now - b) / 1000 * RIPPLE_SPEED < RIPPLE_MAX),
+        now,
+      ];
+    }, RIPPLE_INTERVAL_MS);
+
+    // Tick to trigger re-renders
+    const tickIv = setInterval(() => setTick(t => t + 1), TICK_MS);
+
+    return () => { clearInterval(rippleIv); clearInterval(tickIv); };
   }, []);
+
+  const now = Date.now();
 
   return (
     <div
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(8, 1fr)",
-        width: "220px",
-        height: "220px",
+        width: "224px",
+        height: "224px",
         borderRadius: "10px",
         overflow: "hidden",
         border: "2px solid var(--border-strong)",
-        boxShadow: "0 0 0 1px var(--border), 0 24px 64px rgba(0,0,0,0.8), 0 0 40px rgba(129,182,76,0.08)",
-        position: "relative",
+        boxShadow: "0 0 0 1px var(--border), 0 28px 72px rgba(0,0,0,0.85), 0 0 48px rgba(129,182,76,0.10)",
       }}
     >
-      {Array.from({ length: 64 }).map((_, i) => {
-        const row = Math.floor(i / 8);
-        const col = i % 8;
-        const isLight = (row + col) % 2 === 0;
-        const isActive = i === activeIdx;
-        const trailPos = trail.lastIndexOf(i);
-        const isTrail = trailPos !== -1 && !isActive;
-        const trailStrength = trailPos / trail.length; // 0 = oldest, 1 = newest
+      {Array.from({ length: 64 }, (_, i) => {
+        const isLight = (Math.floor(i / 8) + (i % 8)) % 2 === 0;
+        const dist = SQUARE_DIST[i];
 
-        let bg = isLight ? "#3d3b38" : "#2a2826";
-        if (isActive) {
-          bg = "var(--green)";
-        } else if (isTrail) {
-          const alpha = 0.08 + trailStrength * 0.28;
-          bg = `rgba(129,182,76,${alpha})`;
+        // Sum contributions from all active ripples
+        let brightness = 0;
+        for (const birth of rippleBirthsRef.current) {
+          const elapsed = (now - birth) / 1000;
+          const radius = elapsed * RIPPLE_SPEED;
+          if (radius > RIPPLE_MAX) continue;
+          const diff = dist - radius;
+          // Gaussian ring: peak when diff === 0
+          brightness += Math.exp(-(diff * diff) / (2 * RIPPLE_SIGMA * RIPPLE_SIGMA));
         }
+        brightness = Math.min(brightness, 1);
 
-        return (
-          <div
-            key={i}
-            style={{
-              background: bg,
-              transition: "background 0.22s ease",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              position: "relative",
-            }}
-          >
-            {isActive && (
-              <span
-                style={{
-                  fontSize: "14px",
-                  lineHeight: 1,
-                  filter: "drop-shadow(0 0 4px rgba(0,0,0,0.6))",
-                  animation: "chessPiecePop 0.22s ease",
-                }}
-              >
-                ♞
-              </span>
-            )}
-            {isTrail && (
-              <div
-                style={{
-                  width: "4px",
-                  height: "4px",
-                  borderRadius: "50%",
-                  background: `rgba(129,182,76,${0.3 + trailStrength * 0.5})`,
-                  boxShadow: trailStrength > 0.7 ? "0 0 4px rgba(129,182,76,0.6)" : "none",
-                }}
-              />
-            )}
-          </div>
-        );
+        const base = isLight ? BASE_LIGHT : BASE_DARK;
+        const bg = `rgb(${lerp(base[0], GREEN_RGB[0], brightness)},${lerp(base[1], GREEN_RGB[1], brightness)},${lerp(base[2], GREEN_RGB[2], brightness)})`;
+
+        return <div key={i} style={{ background: bg }} />;
       })}
     </div>
   );
