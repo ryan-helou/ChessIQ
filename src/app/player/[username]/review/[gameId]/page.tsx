@@ -56,6 +56,13 @@ const CLASSIFICATION_LABELS: Record<MoveClassification, ClassInfo> = Object.from
 
 // ─── Helpers ───
 
+function estimatedRating(accuracy: number, currentElo: number): number {
+  const acc = Math.max(1, Math.min(99, accuracy)) / 100;
+  const perfDelta = 400 * Math.log10(acc / (1 - acc));
+  const perf = Math.round(currentElo + perfDelta);
+  return Math.max(100, Math.min(3500, perf));
+}
+
 function getGamePhaseRating(
   moves: AnalyzedMove[],
   color: "white" | "black",
@@ -188,6 +195,11 @@ function GameReviewPanel({
   const whiteEnd     = getGamePhaseRating(analysis.moves, "white", "endgame");
   const blackEnd     = getGamePhaseRating(analysis.moves, "black", "endgame");
 
+  const whiteEloNum = parseInt(gameInfo.whiteElo) || 1200;
+  const blackEloNum = parseInt(gameInfo.blackElo) || 1200;
+  const whitePerf = estimatedRating(analysis.whiteAccuracy, whiteEloNum);
+  const blackPerf = estimatedRating(analysis.blackAccuracy, blackEloNum);
+
   const labelStyle: React.CSSProperties = { width: 82, fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 };
   const centerLabelStyle: React.CSSProperties = { width: 70, fontSize: 11, color: "var(--text-3)", textAlign: "center", flexShrink: 0 };
 
@@ -281,11 +293,25 @@ function GameReviewPanel({
 
       {/* ── Ratings + game phases ── */}
       <div style={{ padding: "10px 16px 8px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-        {/* Ratings */}
+        {/* Est. Rating */}
         <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
-          <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: "#fff" }}>{gameInfo.whiteElo}</span>
-          <span style={centerLabelStyle}>Ratings</span>
-          <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: "#fff", textAlign: "right" }}>{gameInfo.blackElo}</span>
+          <div style={{ flex: 1, display: "flex", alignItems: "baseline", gap: 4 }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: whitePerf >= whiteEloNum ? "#81b64c" : "#ca3431" }}>
+              {whitePerf}
+            </span>
+            <span style={{ fontSize: 10, color: "var(--text-3)" }}>
+              ({whitePerf >= whiteEloNum ? "+" : ""}{whitePerf - whiteEloNum})
+            </span>
+          </div>
+          <span style={centerLabelStyle}>Est. Rating</span>
+          <div style={{ flex: 1, display: "flex", alignItems: "baseline", gap: 4, justifyContent: "flex-end" }}>
+            <span style={{ fontSize: 10, color: "var(--text-3)" }}>
+              ({blackPerf >= blackEloNum ? "+" : ""}{blackPerf - blackEloNum})
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: blackPerf >= blackEloNum ? "#81b64c" : "#ca3431" }}>
+              {blackPerf}
+            </span>
+          </div>
         </div>
         {[
           { label: "Opening", white: whiteOpening, black: blackOpening },
