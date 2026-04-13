@@ -370,6 +370,164 @@ function ReviewPanel({
   );
 }
 
+// ─── Player bar helpers ───
+
+interface PlayerProfile {
+  avatar?: string;
+  flagEmoji?: string;
+}
+
+function countryCodeToFlag(code: string): string {
+  if (!code || code.length !== 2) return "";
+  try {
+    return String.fromCodePoint(...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0)));
+  } catch { return ""; }
+}
+
+function parseTimeControl(pgn: string): { initial: number; increment: number } | null {
+  const m = pgn.match(/\[TimeControl "([^"]+)"\]/);
+  if (!m) return null;
+  const tc = m[1];
+  if (tc === "-" || tc === "") return null;
+  const parts = tc.split("+");
+  const initial = parseInt(parts[0], 10);
+  const increment = parts[1] ? parseInt(parts[1], 10) : 0;
+  return isNaN(initial) ? null : { initial, increment };
+}
+
+function parseMoveTimes(pgn: string): (number | null)[] {
+  const times: (number | null)[] = [];
+  const re = /\{[^}]*\[%clk (\d+):(\d+):(\d+(?:\.\d+)?)\][^}]*\}/g;
+  let match;
+  while ((match = re.exec(pgn)) !== null) {
+    const h = parseInt(match[1], 10);
+    const min = parseInt(match[2], 10);
+    const sec = parseFloat(match[3]);
+    times.push(h * 3600 + min * 60 + sec);
+  }
+  return times;
+}
+
+function formatClock(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function getPlayerTime(
+  moveTimes: (number | null)[],
+  currentMoveIdx: number,
+  color: "white" | "black",
+  initialTime: number | null
+): string {
+  if (currentMoveIdx < 0 || moveTimes.length === 0) {
+    return initialTime != null ? formatClock(initialTime) : "--:--";
+  }
+  const colorMod = color === "white" ? 0 : 1;
+  let idx = currentMoveIdx;
+  while (idx >= 0 && idx % 2 !== colorMod) idx--;
+  if (idx < 0 || moveTimes[idx] == null) {
+    return initialTime != null ? formatClock(initialTime) : "--:--";
+  }
+  return formatClock(moveTimes[idx]!);
+}
+
+// ─── Player Bar ───
+
+function PlayerBar({
+  username,
+  rating,
+  profile,
+  time,
+  result,
+  playerColor,
+}: {
+  username: string;
+  rating: string;
+  profile: PlayerProfile | null;
+  time: string;
+  result: string;
+  playerColor: "white" | "black";
+}) {
+  const [imgError, setImgError] = useState(false);
+  const won = (playerColor === "white" && result === "1-0") || (playerColor === "black" && result === "0-1");
+  const drew = result === "1/2-1/2";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "0 6px",
+        height: 48,
+        background: "var(--bg)",
+        flexShrink: 0,
+      }}
+    >
+      {/* Avatar */}
+      {profile?.avatar && !imgError ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={profile.avatar}
+          alt={username}
+          onError={() => setImgError(true)}
+          style={{ width: 36, height: 36, borderRadius: 4, objectFit: "cover", flexShrink: 0 }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 36, height: 36, borderRadius: 4, flexShrink: 0,
+            background: "var(--border-strong)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 15, fontWeight: 700, color: "var(--text-2)",
+          }}
+        >
+          {username[0]?.toUpperCase()}
+        </div>
+      )}
+
+      {/* Name + flag + rating */}
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {username}
+          </span>
+          {profile?.flagEmoji && (
+            <span style={{ fontSize: 14, lineHeight: 1 }}>{profile.flagEmoji}</span>
+          )}
+        </div>
+        <span style={{ fontSize: 11, color: "var(--text-3)", fontFamily: "var(--font-mono)" }}>
+          ({rating})
+        </span>
+      </div>
+
+      {/* Right side: result dot + clock */}
+      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <span
+          style={{
+            width: 8, height: 8, borderRadius: "50%", display: "inline-block",
+            background: won ? "var(--win)" : drew ? "var(--text-3)" : "var(--loss)",
+          }}
+        />
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 16,
+            fontWeight: 700,
+            color: time === "--:--" ? "var(--text-3)" : "var(--text-1)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {time}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Accuracy color helper ───
 
 function getAccuracyColor(accuracy: number): string {
@@ -431,6 +589,9 @@ export default function GameReviewPage() {
   const [error, setError] = useState("");
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
   const [reviewStarted, setReviewStarted] = useState(false);
+  const [playerProfiles, setPlayerProfiles] = useState<{ white: PlayerProfile | null; black: PlayerProfile | null }>({ white: null, black: null });
+  const [moveTimes, setMoveTimes] = useState<(number | null)[]>([]);
+  const [timeControl, setTimeControl] = useState<{ initial: number; increment: number } | null>(null);
   const [gameInfo, setGameInfo] = useState<{
     white: string;
     black: string;
@@ -482,6 +643,28 @@ export default function GameReviewPage() {
 
     fetchGame();
   }, [username, gameId]);
+
+  // Fetch Chess.com player profiles + parse PGN clock data
+  useEffect(() => {
+    if (!gameInfo) return;
+    setTimeControl(parseTimeControl(gameInfo.pgn));
+    setMoveTimes(parseMoveTimes(gameInfo.pgn));
+
+    async function fetchProfiles() {
+      const fetchOne = async (name: string): Promise<PlayerProfile | null> => {
+        try {
+          const res = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(name.toLowerCase())}`);
+          if (!res.ok) return null;
+          const data = await res.json();
+          const countryCode = (data.country as string | undefined)?.split("/").pop() ?? "";
+          return { avatar: data.avatar, flagEmoji: countryCodeToFlag(countryCode) };
+        } catch { return null; }
+      };
+      const [white, black] = await Promise.all([fetchOne(gameInfo!.white), fetchOne(gameInfo!.black)]);
+      setPlayerProfiles({ white, black });
+    }
+    fetchProfiles();
+  }, [gameInfo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Step 2: Send PGN to backend for Stockfish analysis
   useEffect(() => {
@@ -662,9 +845,13 @@ export default function GameReviewPage() {
     );
   }
 
-  // Board size: fill available height, constrained by width on narrow viewports
-  // 64px = header(56) + padding(8), 340px = panel(300) + evalbar(20) + gaps(12) + padding(8)
-  const boardSizeCSS = "min(calc(100vh - 64px), calc(100vw - 340px))";
+  // Board size: fill available height minus header + player bars (48px × 2 = 96px)
+  // Width constrained by panel(300) + evalbar(20) + gaps + padding
+  const boardSizeCSS = "min(calc(100vh - 160px), calc(100vw - 344px))";
+  const topColor = gameInfo?.playerColor === "white" ? "black" : "white";
+  const bottomColor = (gameInfo?.playerColor ?? "white");
+  const whiteTime = getPlayerTime(moveTimes, currentMoveIndex, "white", timeControl?.initial ?? null);
+  const blackTime = getPlayerTime(moveTimes, currentMoveIndex, "black", timeControl?.initial ?? null);
 
   return (
     <div className="h-screen bg-[var(--bg)] text-[var(--text-1)] flex flex-col overflow-hidden">
@@ -718,24 +905,52 @@ export default function GameReviewPage() {
 
       {/* Board + panel centered together as one unit */}
       <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>
-        {/* Eval bar */}
-        <div style={{ width: 20, height: boardSizeCSS, marginRight: 4 }}>
-          <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
-        </div>
-        {/* Board */}
-        <div style={{ width: boardSizeCSS, height: boardSizeCSS }}>
-          <Chessboard
-            options={{
-              position: getCurrentFen(),
-              squareStyles: customSquareStyles,
-              darkSquareStyle: { backgroundColor: "#779952" },
-              lightSquareStyle: { backgroundColor: "#edeed1" },
-              boardOrientation: gameInfo?.playerColor ?? "white",
-              allowDragging: false,
-              animationDurationInMs: 200,
-              squareRenderer,
-            }}
-          />
+        {/* Eval bar + board column grouped so eval bar stretches to full board column height */}
+        <div style={{ display: "flex", alignItems: "stretch", gap: 4, marginRight: 4 }}>
+          {/* Eval bar — height matches board column via alignItems: stretch */}
+          <div style={{ width: 20 }}>
+            <EvalBar eval_={currentEval} mate={currentMove?.mate ?? null} />
+          </div>
+          {/* Board column: top player bar + board + bottom player bar */}
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {/* Top player (opponent from user's perspective) */}
+            {gameInfo && (
+              <PlayerBar
+                username={topColor === "white" ? gameInfo.white : gameInfo.black}
+                rating={topColor === "white" ? gameInfo.whiteElo : gameInfo.blackElo}
+                profile={topColor === "white" ? playerProfiles.white : playerProfiles.black}
+                time={topColor === "white" ? whiteTime : blackTime}
+                result={gameInfo.result}
+                playerColor={topColor}
+              />
+            )}
+            {/* Board */}
+            <div style={{ width: boardSizeCSS, height: boardSizeCSS }}>
+              <Chessboard
+                options={{
+                  position: getCurrentFen(),
+                  squareStyles: customSquareStyles,
+                  darkSquareStyle: { backgroundColor: "#779952" },
+                  lightSquareStyle: { backgroundColor: "#edeed1" },
+                  boardOrientation: gameInfo?.playerColor ?? "white",
+                  allowDragging: false,
+                  animationDurationInMs: 200,
+                  squareRenderer,
+                }}
+              />
+            </div>
+            {/* Bottom player (user) */}
+            {gameInfo && (
+              <PlayerBar
+                username={bottomColor === "white" ? gameInfo.white : gameInfo.black}
+                rating={bottomColor === "white" ? gameInfo.whiteElo : gameInfo.blackElo}
+                profile={bottomColor === "white" ? playerProfiles.white : playerProfiles.black}
+                time={bottomColor === "white" ? whiteTime : blackTime}
+                result={gameInfo.result}
+                playerColor={bottomColor}
+              />
+            )}
+          </div>
         </div>
         {/* Panel — adjacent to the board, fixed width */}
         <div className="w-[300px] shrink-0 self-stretch border-l border-[var(--border)] flex flex-col overflow-hidden">
