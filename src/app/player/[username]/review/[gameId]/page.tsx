@@ -56,10 +56,11 @@ const CLASSIFICATION_LABELS: Record<MoveClassification, ClassInfo> = Object.from
 
 // ─── Helpers ───
 
-function estimatedRating(accuracy: number, currentElo: number): number {
-  const acc = Math.max(1, Math.min(99, accuracy)) / 100;
-  const perfDelta = 400 * Math.log10(acc / (1 - acc));
-  const perf = Math.round(currentElo + perfDelta);
+function estimatedRating(accuracy: number): number {
+  // Step 1: accuracy → centipawns per move (Chess.com's formula, inverted)
+  const cpl = Math.max(0, -Math.log((Math.min(accuracy, 99.5) + 3.1669) / 103.1668) / 0.04354);
+  // Step 2: cpl → performance rating (empirically calibrated to Chess.com data)
+  const perf = Math.round(2818 * Math.exp(-0.1059 * cpl));
   return Math.max(100, Math.min(3500, perf));
 }
 
@@ -197,8 +198,8 @@ function GameReviewPanel({
 
   const whiteEloNum = parseInt(gameInfo.whiteElo) || 1200;
   const blackEloNum = parseInt(gameInfo.blackElo) || 1200;
-  const whitePerf = estimatedRating(analysis.whiteAccuracy, whiteEloNum);
-  const blackPerf = estimatedRating(analysis.blackAccuracy, blackEloNum);
+  const whitePerf = estimatedRating(analysis.whiteAccuracy);
+  const blackPerf = estimatedRating(analysis.blackAccuracy);
 
   const labelStyle: React.CSSProperties = { width: 82, fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 };
   const centerLabelStyle: React.CSSProperties = { width: 70, fontSize: 11, color: "var(--text-3)", textAlign: "center", flexShrink: 0 };
