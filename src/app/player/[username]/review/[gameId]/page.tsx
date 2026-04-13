@@ -845,9 +845,9 @@ export default function GameReviewPage() {
     );
   }
 
-  // Board size: fill available height minus header + player bars (48px × 2 = 96px)
+  // Board size: header(56) + nav(36) + player bars(96) + padding(12) + buffer(20) = 220px
   // Width constrained by panel(300) + evalbar(20) + gaps + padding
-  const boardSizeCSS = "min(calc(100vh - 160px), calc(100vw - 344px))";
+  const boardSizeCSS = "min(calc(100vh - 220px), calc(100vw - 344px))";
   const topColor = gameInfo?.playerColor === "white" ? "black" : "white";
   const bottomColor = (gameInfo?.playerColor ?? "white");
   const whiteTime = getPlayerTime(moveTimes, currentMoveIndex, "white", timeControl?.initial ?? null);
