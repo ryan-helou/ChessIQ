@@ -223,10 +223,10 @@ function GameReviewPanel({
   // Layout constants matching Chess.com proportions (panel = 340px, padding = 16px each side)
   // Content width = 308px → label(110) + white(85) + icon(28) + black(85)
   const LABEL = 110;
-  const ICON_COL = 28;
+  const ICON_COL = 34;
 
   const labelStyle: React.CSSProperties = {
-    width: LABEL, fontSize: 15, color: "var(--text-2)", flexShrink: 0, fontWeight: 500,
+    width: LABEL, fontSize: 17, color: "var(--text-2)", flexShrink: 0, fontWeight: 500,
   };
 
   const WhiteBox = ({ children }: { children: React.ReactNode }) => (
@@ -271,10 +271,10 @@ function GameReviewPanel({
         {/* Usernames */}
         <div style={{ display: "flex", marginBottom: 6 }}>
           <div style={{ width: LABEL, flexShrink: 0 }} />
-          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
             {gameInfo.white}
           </span>
-          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
             {gameInfo.black}
           </span>
         </div>
@@ -303,21 +303,21 @@ function GameReviewPanel({
         {TABLE_KEYS.map((key) => {
           const info = CLASSIFICATION_LABELS[key];
           return (
-            <div key={key} style={{ display: "flex", alignItems: "center", height: 36, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-              <span style={{ width: LABEL, fontSize: 15, color: "var(--text-2)", flexShrink: 0 }}>{info.label}</span>
+            <div key={key} style={{ display: "flex", alignItems: "center", height: 44, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <span style={{ width: LABEL, fontSize: 17, color: "var(--text-2)", flexShrink: 0 }}>{info.label}</span>
               <span style={{
                 flex: 1, textAlign: "right", paddingRight: 6,
-                fontSize: 14, fontWeight: 700,
+                fontSize: 17, fontWeight: 700,
                 color: whiteCounts[key] > 0 ? info.bg : "var(--text-4)",
               }}>
                 {whiteCounts[key]}
               </span>
               <div style={{ width: ICON_COL, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
+                <ClassCircle bg={info.bg} icon={info.icon} img={info.img} />
               </div>
               <span style={{
                 flex: 1, textAlign: "left", paddingLeft: 6,
-                fontSize: 14, fontWeight: 700,
+                fontSize: 17, fontWeight: 700,
                 color: blackCounts[key] > 0 ? info.bg : "var(--text-4)",
               }}>
                 {blackCounts[key]}
