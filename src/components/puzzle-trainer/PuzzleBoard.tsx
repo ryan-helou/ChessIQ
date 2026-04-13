@@ -233,19 +233,22 @@ function PuzzleBoard({
   }, [puzzle, doMove, playOpponent, onSolved]);
 
   // ── Reject a move ─────────────────────────────────────────────────
-  const rejectMove = useCallback((to: string) => {
+  const rejectMove = useCallback((to: string, resetFen?: string) => {
     const newAttempts = attemptsRef.current + 1;
     attemptsRef.current = newAttempts;
     setAttempts(newAttempts);
+    if (resetFen) setFen(resetFen); // snap piece back after async-eval drag
     setFlashSq({ sq: to, color: "red" });
     setPhase("wrong");
     setTimeout(() => {
       if (!cancelled.current) { setFlashSq(null); setPhase("idle"); }
-    }, 600);
+    }, 280);
   }, []);
 
   // ── Attempt a move ────────────────────────────────────────────────
-  const tryMove = useCallback((from: string, to: string): boolean => {
+  // isDrag=true: piece is already visually at `to`; return true to keep it there
+  // during async eval, then reset FEN if rejected
+  const tryMove = useCallback((from: string, to: string, isDrag = false): boolean => {
     if (phase !== "idle") return false;
     setSelectedSq(null);
     setLegalSqs([]);
@@ -278,22 +281,24 @@ function PuzzleBoard({
       }
     }
 
-    // Good moves not ready yet — fall back to per-move evaluation
+    // Good moves not ready — async eval. For drag: keep piece at destination (return true),
+    // then snap back manually if rejected.
+    const preMovefen = chessRef.current.fen();
     setPhase("evaluating");
     fetch("/api/puzzles/evaluate-move", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fen: chessRef.current.fen(), move: uci }),
+      body: JSON.stringify({ fen: preMovefen, move: uci }),
     })
       .then((r) => r.json())
       .then(({ acceptable }) => {
         if (cancelled.current) return;
         if (acceptable) acceptMove(uci, to);
-        else rejectMove(to);
+        else rejectMove(to, isDrag ? preMovefen : undefined);
       })
-      .catch(() => { if (!cancelled.current) rejectMove(to); });
+      .catch(() => { if (!cancelled.current) rejectMove(to, isDrag ? preMovefen : undefined); });
 
-    return false;
+    return isDrag; // drag: keep piece at destination; click: no-op (piece never moved visually)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, puzzle, acceptMove, rejectMove]);
 
@@ -314,11 +319,15 @@ function PuzzleBoard({
 
   // ── Square click ──────────────────────────────────────────────────
   const handleSquareClick = useCallback(({ square }: { piece: unknown; square: string }) => {
-    if (phase !== "idle") return;
+    // Allow selection during "wrong" phase so dots appear immediately after a mistake
+    if (phase !== "idle" && phase !== "wrong") return;
     const piece = chessRef.current.get(square as Parameters<typeof chessRef.current.get>[0]);
 
     if (selectedSq) {
-      if (legalSqs.includes(square)) { tryMove(selectedSq, square); return; }
+      if (legalSqs.includes(square)) {
+        if (phase === "idle") tryMove(selectedSq, square);
+        return;
+      }
       if (piece?.color === playerColor) {
         const moves = chessRef.current.moves({ square: square as Parameters<typeof chessRef.current.moves>[0]["square"], verbose: true });
         setSelectedSq(square);
@@ -334,11 +343,21 @@ function PuzzleBoard({
     }
   }, [phase, selectedSq, legalSqs, playerColor, tryMove]);
 
+  // ── Drag start — show legal moves ─────────────────────────────────
+  const handlePieceDrag = useCallback(({ square }: { piece: unknown; square: string; isSparePiece: boolean }) => {
+    if (phase !== "idle" && phase !== "wrong") return;
+    const piece = chessRef.current.get(square as Parameters<typeof chessRef.current.get>[0]);
+    if (piece?.color === playerColor) {
+      const moves = chessRef.current.moves({ square: square as Parameters<typeof chessRef.current.moves>[0]["square"], verbose: true });
+      setSelectedSq(square);
+      setLegalSqs(moves.map(m => m.to));
+    }
+  }, [phase, playerColor]);
+
   // ── Drag drop ─────────────────────────────────────────────────────
   const handleDrop = useCallback(({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }): boolean => {
     if (!targetSquare) return false;
-    setSelectedSq(null); setLegalSqs([]);
-    return tryMove(sourceSquare, targetSquare);
+    return tryMove(sourceSquare, targetSquare, true);
   }, [tryMove]);
 
   // ── Hint ──────────────────────────────────────────────────────────
@@ -391,8 +410,8 @@ function PuzzleBoard({
       for (const sq of legalSqs) {
         const isCapture = !!chessRef.current.get(sq as Parameters<typeof chessRef.current.get>[0]);
         s[sq] = isCapture
-          ? { background: "radial-gradient(circle, rgba(0,0,0,0) 76%, rgba(0,0,0,0.18) 78%)", borderRadius: "0" }
-          : { background: "radial-gradient(circle, rgba(0,0,0,0.15) 22%, transparent 24%)" };
+          ? { background: "radial-gradient(circle, rgba(0,0,0,0) 74%, rgba(0,0,0,0.35) 76%)", borderRadius: "0" }
+          : { background: "radial-gradient(circle, rgba(0,0,0,0.32) 26%, transparent 28%)" };
       }
     }
     if (flashSq) {
@@ -412,6 +431,7 @@ function PuzzleBoard({
   const themeColor = mainTheme ? (THEME_COLORS[mainTheme] ?? "#706e6b") : "#706e6b";
   const themeDesc = mainTheme ? (THEME_DESCRIPTIONS[mainTheme] ?? null) : null;
   const canInteract = phase === "idle" || phase === "wrong";
+  const canShowSolution = hintUsed || attempts > 0;
   const isDone = phase === "solved" || phase === "failed" || phase === "done";
   const timerDisplay = `${Math.floor(timerSecs / 60)}:${String(timerSecs % 60).padStart(2, "0")}`;
 
@@ -455,10 +475,11 @@ function PuzzleBoard({
                 fontWeight: "600",
               },
               boardOrientation: orientation,
-              allowDragging: canInteract,
+              allowDragging: phase === "idle",
               animationDurationInMs: 200,
               onPieceDrop: handleDrop,
               onSquareClick: handleSquareClick,
+              onPieceDrag: handlePieceDrag,
             };
             return <Chessboard options={boardOptions} />;
           })()}
@@ -672,10 +693,10 @@ function PuzzleBoard({
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={() => hintUsed && showSolution(true)}
-                  disabled={!hintUsed}
+                  onClick={() => canShowSolution && showSolution(true)}
+                  disabled={!canShowSolution}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
-                    hintUsed
+                    canShowSolution
                       ? "bg-[#302e2c] hover:bg-[#3a3836] text-[#9e9b98]"
                       : "bg-[#262522] text-[#454340] cursor-not-allowed"
                   }`}
