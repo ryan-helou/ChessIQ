@@ -343,8 +343,8 @@ function PuzzleBoard({
     }
   }, [phase, selectedSq, legalSqs, playerColor, tryMove]);
 
-  // ── Drag start — show legal moves ─────────────────────────────────
-  const handlePieceDrag = useCallback(({ square }: { piece: unknown; square: string; isSparePiece: boolean }) => {
+  // ── Mouse down / drag start — show legal moves immediately ───────
+  const showMovesForSquare = useCallback((square: string) => {
     if (phase !== "idle" && phase !== "wrong") return;
     const piece = chessRef.current.get(square as Parameters<typeof chessRef.current.get>[0]);
     if (piece?.color === playerColor) {
@@ -353,6 +353,14 @@ function PuzzleBoard({
       setLegalSqs(moves.map(m => m.to));
     }
   }, [phase, playerColor]);
+
+  const handleMouseDown = useCallback(({ square }: { piece: unknown; square: string }) => {
+    showMovesForSquare(square);
+  }, [showMovesForSquare]);
+
+  const handlePieceDrag = useCallback(({ square }: { piece: unknown; square: string; isSparePiece: boolean }) => {
+    showMovesForSquare(square);
+  }, [showMovesForSquare]);
 
   // ── Drag drop ─────────────────────────────────────────────────────
   const handleDrop = useCallback(({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }): boolean => {
@@ -479,6 +487,7 @@ function PuzzleBoard({
               animationDurationInMs: 200,
               onPieceDrop: handleDrop,
               onSquareClick: handleSquareClick,
+              onSquareMouseDown: handleMouseDown,
               onPieceDrag: handlePieceDrag,
             };
             return <Chessboard options={boardOptions} />;
