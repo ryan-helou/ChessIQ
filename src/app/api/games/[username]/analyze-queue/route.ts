@@ -4,15 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAllGames } from "@/lib/chess-com-api";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
-
-function usernameToUserId(username: string): string {
-  let h = 0;
-  for (let i = 0; i < username.length; i++) {
-    h = Math.imul(31, h) + username.charCodeAt(i) | 0;
-  }
-  const hex = Math.abs(h).toString(16).padStart(8, "0");
-  return `00000000-0000-0000-0000-${hex.padStart(12, "0")}`;
-}
+import { usernameToUserId } from "@/lib/user-id";
 
 /**
  * POST /api/games/[username]/analyze-queue

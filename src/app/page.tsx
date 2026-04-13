@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 import Header from "@/components/Header";
 
 const PLATFORM_STATS = [
@@ -124,6 +126,20 @@ function SearchForm({ large = false }: { large?: boolean }) {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.chessComUsername) {
+      router.replace(`/player/${session.user.chessComUsername}`);
+    }
+  }, [status, session, router]);
+
+  // Show nothing while checking auth (avoid flash of landing page)
+  if (status === "loading" || (status === "authenticated")) {
+    return <div style={{ background: "var(--bg)", minHeight: "100vh" }} />;
+  }
+
   return (
     <div style={{ background: "var(--bg)", color: "var(--text-1)", minHeight: "100vh", overflowX: "hidden" }}>
       <Header />
@@ -177,7 +193,7 @@ export default function Home() {
             }}
           >
             <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#81b64c", display: "inline-block", boxShadow: "0 0 8px #81b64c" }} />
-            Free · No sign-up · Stockfish powered
+            Stockfish powered · Deep analysis
           </div>
 
           {/* Headline */}
@@ -221,12 +237,36 @@ export default function Home() {
             Find the patterns behind your losses and train what actually matters.
           </p>
 
-          {/* Search */}
+          {/* Auth CTAs */}
           <div
-            className="animate-fade-up max-w-md mx-auto"
+            className="animate-fade-up flex items-center justify-center gap-3"
             style={{ animationDelay: "0.24s" }}
           >
-            <SearchForm large />
+            <Link
+              href="/signup"
+              className="btn-gold rounded-lg text-sm"
+              style={{ padding: "12px 28px", textDecoration: "none", display: "inline-block" }}
+            >
+              Get started free →
+            </Link>
+            <Link
+              href="/login"
+              style={{
+                padding: "12px 20px",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "var(--text-2)",
+                textDecoration: "none",
+                display: "inline-block",
+                transition: "border-color 0.2s, color 0.2s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--green-line)"; e.currentTarget.style.color = "var(--text-1)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.color = "var(--text-2)"; }}
+            >
+              Sign in
+            </Link>
           </div>
 
           <p
@@ -239,7 +279,7 @@ export default function Home() {
               animationDelay: "0.3s",
             }}
           >
-            Works with any public Chess.com profile
+            Requires a Chess.com account
           </p>
         </div>
       </section>
@@ -373,20 +413,20 @@ export default function Home() {
             {[
               {
                 step: "1",
-                title: "Enter your username",
-                desc: "Any public Chess.com account. No sign-up, no permissions, no waiting.",
+                title: "Create your account",
+                desc: "Sign up with your email and link your Chess.com username. Takes 30 seconds.",
                 color: "#81b64c",
               },
               {
                 step: "2",
-                title: "We fetch your games",
-                desc: "Last 6 months by default. Filter to any time range. All formats supported.",
+                title: "We analyze your games",
+                desc: "Your last 30 days of games are queued automatically. Stockfish does the rest — no waiting.",
                 color: "#5b8bb4",
               },
               {
                 step: "3",
-                title: "Review your analysis",
-                desc: "Deep stats, game review with Stockfish, and personalized puzzle recommendations.",
+                title: "Improve every session",
+                desc: "Deep stats, game review with Stockfish, and personalized puzzle recommendations waiting for you.",
                 color: "#f6c700",
               },
             ].map((item) => (
@@ -474,9 +514,32 @@ export default function Home() {
             Ready to understand your chess?
           </h2>
           <p style={{ fontSize: "15px", color: "var(--text-2)", marginBottom: "36px", lineHeight: 1.65 }}>
-            Enter your username and get a complete picture of your game in seconds.
+            Create an account and your games will be analyzed automatically — no waiting.
           </p>
-          <SearchForm large />
+          <div className="flex items-center justify-center gap-3">
+            <Link
+              href="/signup"
+              className="btn-gold rounded-lg text-sm"
+              style={{ padding: "14px 32px", textDecoration: "none", display: "inline-block" }}
+            >
+              Create account →
+            </Link>
+            <Link
+              href="/login"
+              style={{
+                padding: "14px 24px",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "var(--text-2)",
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              Sign in
+            </Link>
+          </div>
         </div>
       </section>
 

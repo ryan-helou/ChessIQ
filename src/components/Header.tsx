@@ -2,15 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 
 interface Props {
   username?: string;
 }
 
-export default function Header({ username }: Props) {
+export default function Header({ username: usernameProp }: Props) {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState("");
   const [focused, setFocused] = useState(false);
+  const { data: session } = useSession();
+
+  const displayUsername = usernameProp ?? session?.user?.chessComUsername;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,13 +73,36 @@ export default function Header({ username }: Props) {
             </div>
           </form>
 
-          {/* Active player */}
-          {username && (
-            <div className="hidden sm:flex items-center gap-2 shrink-0">
-              <div className="w-2 h-2 rounded-full" style={{ background: "var(--green)", boxShadow: "0 0 6px var(--green)" }} />
-              <span style={{ color: "var(--text-2)", fontSize: "13px", letterSpacing: "0.02em", fontWeight: 600 }}>
-                {username}
-              </span>
+          {/* Active player + sign out */}
+          {displayUsername && (
+            <div className="hidden sm:flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full" style={{ background: "var(--green)", boxShadow: "0 0 6px var(--green)" }} />
+                <span style={{ color: "var(--text-2)", fontSize: "13px", letterSpacing: "0.02em", fontWeight: 600 }}>
+                  {displayUsername}
+                </span>
+              </div>
+              {session && (
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  style={{
+                    background: "none",
+                    border: "1px solid var(--border)",
+                    borderRadius: "6px",
+                    padding: "4px 10px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "var(--text-3)",
+                    cursor: "pointer",
+                    letterSpacing: "0.04em",
+                    transition: "border-color 0.2s, color 0.2s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.color = "var(--text-2)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-3)"; }}
+                >
+                  Sign out
+                </button>
+              )}
             </div>
           )}
         </div>
