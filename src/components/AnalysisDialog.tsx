@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 interface AnalysisDialogProps {
   username: string;
   months: number;
-  onClose: () => void;
+  onClose: (analysisRan?: boolean) => void;
   isOpen: boolean;
 }
 
@@ -50,6 +50,8 @@ export default function AnalysisDialog({
   const [msgIdx, setMsgIdx] = useState(0);
   const [selectedCount, setSelectedCount] = useState<10 | 20 | 50 | "all" | null>(null);
   const [alreadyUpToDate, setAlreadyUpToDate] = useState(false);
+  const [analysisRan, setAnalysisRan] = useState(false);
+  const [failedCount, setFailedCount] = useState(0);
 
   const abortRef = useRef<AbortController | null>(null);
   const msgRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -65,6 +67,8 @@ export default function AnalysisDialog({
         setTotalBlunders(0);
         setSelectedCount(null);
         setAlreadyUpToDate(false);
+        setAnalysisRan(false);
+        setFailedCount(0);
       }, 300);
     }
   }, [isOpen]);
@@ -76,7 +80,7 @@ export default function AnalysisDialog({
     };
   }, []);
 
-  async function handleAnalyze(count: 10 | 20 | 50 | "all") {
+  async function handleAnalyze(count: 10 | 20 | 50 | "all", retryFailed = false) {
     setSelectedCount(count);
     setError(null);
     setMsgIdx(0);
@@ -96,7 +100,7 @@ export default function AnalysisDialog({
       const queueRes = await fetch(`/api/games/${encodeURIComponent(username)}/analyze-queue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ months, gameCount: count }),
+        body: JSON.stringify({ months, gameCount: count, retryFailed }),
         signal: abortRef.current.signal,
       });
 
@@ -107,6 +111,7 @@ export default function AnalysisDialog({
       }
 
       const queueData = await queueRes.json();
+      if (queueData.failedCount) setFailedCount(queueData.failedCount);
       const total: number = queueData.total ?? (queueData.queued + (queueData.alreadyDone ?? 0));
       const alreadyDone: number = queueData.alreadyDone ?? 0;
       const toAnalyze: number = queueData.queued ?? 0;
@@ -161,6 +166,7 @@ export default function AnalysisDialog({
       if (msgRef.current) clearInterval(msgRef.current);
       setProgress(100);
       setGamesAnalyzed(total);
+      setAnalysisRan(true);
       setPhase("done");
     } catch (err: unknown) {
       if (msgRef.current) clearInterval(msgRef.current);
@@ -176,7 +182,7 @@ export default function AnalysisDialog({
     <>
       <div
         style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 40, backdropFilter: "blur(4px)" }}
-        onClick={phase === "select" ? onClose : undefined}
+        onClick={phase === "select" ? () => onClose(false) : undefined}
       />
 
       <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "16px" }}>
@@ -240,7 +246,7 @@ export default function AnalysisDialog({
               </div>
 
               <button
-                onClick={onClose}
+                onClick={() => onClose(false)}
                 style={{ width: "100%", padding: "8px", color: "var(--text-3)", background: "none", border: "none", cursor: "pointer", fontSize: "13px", transition: "color 0.15s" }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-2)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-3)"; }}
@@ -333,7 +339,7 @@ export default function AnalysisDialog({
 
               <button
                 onClick={() => {
-                  onClose();
+                  onClose(analysisRan);
                   if (totalBlunders > 0) {
                     router.push(`/player/${encodeURIComponent(username)}/puzzles`);
                   }
@@ -343,6 +349,26 @@ export default function AnalysisDialog({
               >
                 {totalBlunders > 0 ? "View Puzzle Recommendations →" : "Done"}
               </button>
+
+              {failedCount > 0 && (
+                <button
+                  onClick={() => handleAnalyze(selectedCount ?? "all", true)}
+                  style={{
+                    width: "100%",
+                    marginTop: "8px",
+                    padding: "9px 16px",
+                    background: "var(--loss-dim)",
+                    border: "1px solid rgba(202,52,49,0.3)",
+                    borderRadius: "10px",
+                    color: "var(--loss)",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-mono)",
+                  }}
+                >
+                  {failedCount} game{failedCount !== 1 ? "s" : ""} failed — Retry?
+                </button>
+              )}
             </div>
           )}
 

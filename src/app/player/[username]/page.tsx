@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ChessLoader from "@/components/ChessLoader";
 import SectionNav from "@/components/SectionNav";
@@ -58,20 +58,47 @@ function ChartSkeleton({ height = "h-[350px]" }: { height?: string }) {
   );
 }
 
+const VALID_MONTHS = [0, 1, 3, 6, 12];
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function cacheKey(username: string, months: number) {
+  return `chessiq_${username}_${months}`;
+}
+
 export default function PlayerPage() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const username = params.username as string;
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [ratingFilter, setRatingFilter] = useState("all");
-  const [months, setMonths] = useState(6);
+  const [months, setMonths] = useState<number>(() => {
+    const m = parseInt(searchParams.get("months") ?? "6", 10);
+    return VALID_MONTHS.includes(m) ? m : 6;
+  });
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
 
-  const fetchData = useCallback(async (m: number) => {
-    setLoading(true);
-    setError("");
+  function processResult(result: any): DashboardData {
+    return {
+      ...result,
+      games: result.games.map((g: ParsedGame & { date: string | Date }) => ({
+        ...g,
+        date: typeof g.date === "string" ? new Date(g.date) : g.date,
+      })),
+    };
+  }
+
+  const fetchData = useCallback(async (m: number, background = false) => {
+    if (!background) {
+      setLoading(true);
+      setError("");
+    } else {
+      setBackgroundRefreshing(true);
+    }
 
     try {
       const url = m === 0
@@ -80,26 +107,42 @@ export default function PlayerPage() {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Player not found or Chess.com API error");
       const result = await res.json();
+      const processed = processResult(result);
+      setData(processed);
 
-      const processedGames = result.games.map((g: ParsedGame & { date: string | Date }) => ({
-        ...g,
-        date: typeof g.date === "string" ? new Date(g.date) : g.date,
-      }));
-
-      setData({ ...result, games: processedGames });
+      try {
+        localStorage.setItem(cacheKey(username, m), JSON.stringify({ data: result, ts: Date.now() }));
+      } catch {}
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch data");
+      if (!background) setError(err instanceof Error ? err.message : "Failed to fetch data");
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
+      else setBackgroundRefreshing(false);
     }
   }, [username]);
 
   useEffect(() => {
+    // Try localStorage cache first for instant render
+    try {
+      const raw = localStorage.getItem(cacheKey(username, months));
+      if (raw) {
+        const { data: cached, ts } = JSON.parse(raw);
+        setData(processResult(cached));
+        setLoading(false);
+        // Skip background fetch if data is fresh
+        if (Date.now() - ts < CACHE_TTL) return;
+        // Otherwise refresh in background
+        fetchData(months, true);
+        return;
+      }
+    } catch {}
+    // No cache — full load
     fetchData(months);
-  }, [fetchData, months]);
+  }, [fetchData, months]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMonthsChange = (m: number) => {
     setMonths(m);
+    router.replace(`?months=${m}`, { scroll: false });
   };
 
   // Memoized derived stats — only recompute when data changes
@@ -234,6 +277,11 @@ export default function PlayerPage() {
 
                 {/* Right: controls */}
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {backgroundRefreshing && (
+                    <span style={{ fontSize: "11px", color: "var(--text-3)", fontFamily: "var(--font-mono)", animation: "pulse 1.5s ease-in-out infinite" }}>
+                      refreshing…
+                    </span>
+                  )}
                   <DateRangePicker value={months} onChange={handleMonthsChange} loading={loading} />
                   <button
                     onClick={() => setShowAnalysisDialog(true)}
@@ -257,7 +305,7 @@ export default function PlayerPage() {
             </div>
 
             {/* Stats Cards */}
-            <div style={{ marginBottom: "36px", opacity: loading ? 0.5 : 1, transition: "opacity 0.3s" }}>
+            <div style={{ marginBottom: "36px" }}>
               <StatsCards
                 totalGames={totalGames}
                 winRate={winRate}
@@ -350,7 +398,18 @@ export default function PlayerPage() {
           <AnalysisDialog
             username={username}
             months={months}
-            onClose={() => setShowAnalysisDialog(false)}
+            onClose={(analysisRan?: boolean) => {
+              setShowAnalysisDialog(false);
+              if (analysisRan) {
+                // Bust cache so next render fetches fresh data with updated accuracy
+                try {
+                  for (const m of VALID_MONTHS) {
+                    localStorage.removeItem(cacheKey(username, m));
+                  }
+                } catch {}
+                fetchData(months);
+              }
+            }}
             isOpen={showAnalysisDialog}
           />
         </>

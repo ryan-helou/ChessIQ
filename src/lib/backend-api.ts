@@ -92,13 +92,15 @@ function calcGameAccuracy(moves: AnalyzedMove[], color: "white" | "black"): numb
 export async function analyzeGame(
   pgn: string,
   depth: number = 14,
-  chessComId?: string
+  chessComId?: string,
+  signal?: AbortSignal
 ): Promise<GameAnalysisResult> {
   try {
     const response = await fetch(`/api/game-review`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pgn, depth, chessComId }),
+      signal,
     });
 
     if (!response.ok) {

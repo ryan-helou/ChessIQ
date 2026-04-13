@@ -29,23 +29,34 @@ export async function POST(
     // Validate inputs
     const rawMonths = body.months ?? 1;
     const rawCount = body.gameCount ?? 20;
+    const retryFailed: boolean = body.retryFailed === true;
     const months = Math.max(1, Math.min(12, Number(rawMonths) || 1));
     const gameCount = rawCount === "all" ? "all" : Math.max(1, Math.min(200, Number(rawCount) || 20));
 
     // Ensure schema columns exist before inserting
     await ensureDbInit().catch(() => {});
 
+    const userId = usernameToUserId(username);
+
+    // If retrying failed games, reset them to pending first
+    let failedCount = 0;
+    if (retryFailed) {
+      const failedResult = await query(
+        `UPDATE games SET analysis_status = 'pending' WHERE analysis_status = 'failed' AND user_id = $1 RETURNING chess_com_id`,
+        [userId]
+      ).catch(() => ({ rows: [] }));
+      failedCount = failedResult.rows.length;
+    }
+
     // Fetch games from Chess.com
     const chesscomGames = await getAllGames(username, months);
     if (!chesscomGames || chesscomGames.length === 0) {
-      return NextResponse.json({ queued: 0, alreadyDone: 0, total: 0 });
+      return NextResponse.json({ queued: 0, alreadyDone: 0, total: 0, failedCount });
     }
 
     const gamesToProcess = gameCount === "all"
       ? chesscomGames
       : chesscomGames.slice(-(gameCount as number));
-
-    const userId = usernameToUserId(username);
 
     // Filter to games that have a valid ID and PGN
     const validGames = gamesToProcess
@@ -53,7 +64,7 @@ export async function POST(
       .filter((g) => g.chessComId && g.pgn);
 
     if (validGames.length === 0) {
-      return NextResponse.json({ queued: 0, alreadyDone: 0, total: 0 });
+      return NextResponse.json({ queued: 0, alreadyDone: 0, total: 0, failedCount });
     }
 
     // ── Single batch SELECT to find already-complete games ──
@@ -70,7 +81,7 @@ export async function POST(
     const alreadyDone = validGames.length - toQueue.length;
 
     if (toQueue.length === 0) {
-      return NextResponse.json({ queued: 0, alreadyDone, total: alreadyDone });
+      return NextResponse.json({ queued: 0, alreadyDone, total: alreadyDone, failedCount });
     }
 
     // ── Batch upsert all pending games in one query ──
@@ -135,7 +146,7 @@ export async function POST(
     }
 
     const queued = toQueue.length;
-    return NextResponse.json({ queued, alreadyDone, total: queued + alreadyDone });
+    return NextResponse.json({ queued, alreadyDone, total: queued + alreadyDone, failedCount });
   } catch (error) {
     console.error("[analyze-queue] Error:", error);
     return NextResponse.json(

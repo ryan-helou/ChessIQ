@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Header from "@/components/Header";
 import EvalBar from "@/components/game-review/EvalBar";
@@ -403,8 +403,26 @@ function AnalysisProgress() {
 
 export default function GameReviewPage() {
   const params = useParams();
+  const router = useRouter();
   const username = params.username as string;
   const gameId = params.gameId as string;
+
+  // Prev/next game navigation from sessionStorage game list
+  const [prevId, setPrevId] = useState<string | null>(null);
+  const [nextId, setNextId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("chessiq_game_list");
+      if (!raw) return;
+      const { username: listUsername, ids } = JSON.parse(raw) as { username: string; ids: string[] };
+      if (listUsername !== username) return;
+      const idx = ids.indexOf(gameId);
+      if (idx === -1) return;
+      setPrevId(idx > 0 ? ids[idx - 1] : null);
+      setNextId(idx < ids.length - 1 ? ids[idx + 1] : null);
+    } catch {}
+  }, [username, gameId]);
 
   const [analysis, setAnalysis] = useState<GameAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -468,18 +486,22 @@ export default function GameReviewPage() {
   useEffect(() => {
     if (!gameInfo?.pgn || analyzing || analysis) return;
 
+    const controller = new AbortController();
     setAnalyzing(true);
 
-    analyzeGame(gameInfo.pgn, 14, gameId)
+    analyzeGame(gameInfo.pgn, 14, gameId, controller.signal)
       .then((result) => {
         setAnalysis(result);
         setAnalyzing(false);
       })
       .catch((err) => {
+        if (err instanceof Error && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Analysis failed");
         setAnalyzing(false);
       });
-  }, [gameInfo?.pgn, analyzing, analysis]);
+
+    return () => controller.abort();
+  }, [gameInfo?.pgn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Current position FEN
   const getCurrentFen = useCallback(() => {
@@ -648,6 +670,52 @@ export default function GameReviewPage() {
   return (
     <div className="h-screen bg-[var(--bg)] text-[var(--text-1)] flex flex-col overflow-hidden">
       <Header username={username} />
+
+      {/* Prev / Next game navigation */}
+      {(prevId || nextId) && (
+        <div style={{ display: "flex", justifyContent: "center", gap: "8px", padding: "4px 8px", borderBottom: "1px solid var(--border)" }}>
+          <button
+            disabled={!prevId}
+            onClick={() => prevId && router.push(`/player/${encodeURIComponent(username)}/review/${encodeURIComponent(prevId)}`)}
+            style={{
+              padding: "4px 14px",
+              fontSize: "12px",
+              fontFamily: "var(--font-mono)",
+              background: prevId ? "var(--bg-card)" : "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              color: prevId ? "var(--text-2)" : "var(--text-3)",
+              cursor: prevId ? "pointer" : "not-allowed",
+              opacity: prevId ? 1 : 0.4,
+            }}
+          >
+            ← Prev
+          </button>
+          <a
+            href={`/player/${encodeURIComponent(username)}`}
+            style={{ padding: "4px 14px", fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-3)", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "6px", textDecoration: "none" }}
+          >
+            All Games
+          </a>
+          <button
+            disabled={!nextId}
+            onClick={() => nextId && router.push(`/player/${encodeURIComponent(username)}/review/${encodeURIComponent(nextId)}`)}
+            style={{
+              padding: "4px 14px",
+              fontSize: "12px",
+              fontFamily: "var(--font-mono)",
+              background: nextId ? "var(--bg-card)" : "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              color: nextId ? "var(--text-2)" : "var(--text-3)",
+              cursor: nextId ? "pointer" : "not-allowed",
+              opacity: nextId ? 1 : 0.4,
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      )}
 
       {/* Board + panel centered together as one unit */}
       <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>

@@ -86,6 +86,7 @@ export default function GamesList({ games, username }: Props) {
               onClick={() => {
                 if (username) {
                   try {
+                    sessionStorage.setItem("chessiq_game_list", JSON.stringify({ username, ids: reversed.map((x) => x.id) }));
                     sessionStorage.setItem(`game_${g.id}`, JSON.stringify({
                       white: g.playerColor === "white" ? username : g.opponentName,
                       black: g.playerColor === "black" ? username : g.opponentName,
