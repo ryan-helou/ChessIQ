@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { neoPieces } from "@/lib/chess-pieces";
 import { Chess } from "chess.js";
 import type { TrainerPuzzle, WeaknessProfile, PuzzleMode } from "@/lib/puzzle-api";
 import { THEME_LABELS, THEME_COLORS } from "@/lib/puzzle-api";
@@ -489,6 +490,7 @@ function PuzzleBoard({
           {(() => {
             const boardOptions: any = {
               position: fen,
+              pieces: neoPieces,
               squareStyles,
               darkSquareStyle: { backgroundColor: "#769656" },
               lightSquareStyle: { backgroundColor: "#eeeed2" },

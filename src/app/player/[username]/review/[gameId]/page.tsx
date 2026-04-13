@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
 import ChessLoader from "@/components/ChessLoader";
+import { neoPieces } from "@/lib/chess-pieces";
 import EvalBar from "@/components/game-review/EvalBar";
 import EvalGraph from "@/components/game-review/EvalGraph";
 import MoveList from "@/components/game-review/MoveList";
@@ -891,9 +892,9 @@ export default function GameReviewPage() {
     );
   }
 
-  // Board size: header(44) + nav(36) + player bars(96) + padding(12) + buffer(16) = 204px
+  // Board size: header(44) + player bars(96) + padding(12) + buffer(16) = 168px
   // Width constrained by panel(300) + evalbar(20) + gaps + padding
-  const boardSizeCSS = "min(calc(100vh - 204px), calc(100vw - 344px))";
+  const boardSizeCSS = "min(calc(100vh - 168px), calc(100vw - 344px))";
   const topColor = gameInfo?.playerColor === "white" ? "black" : "white";
   const bottomColor = (gameInfo?.playerColor ?? "white");
   const whiteTime = getPlayerTime(moveTimes, currentMoveIndex, "white", timeControl?.initial ?? null);
@@ -903,51 +904,6 @@ export default function GameReviewPage() {
     <div className="h-screen bg-[var(--bg)] text-[var(--text-1)] flex flex-col overflow-hidden">
       <ReviewHeader username={username} />
 
-      {/* Prev / Next game navigation */}
-      {(prevId || nextId) && (
-        <div style={{ display: "flex", justifyContent: "center", gap: "8px", padding: "4px 8px", borderBottom: "1px solid var(--border)" }}>
-          <button
-            disabled={!prevId}
-            onClick={() => prevId && router.push(`/player/${encodeURIComponent(username)}/review/${encodeURIComponent(prevId)}`)}
-            style={{
-              padding: "4px 14px",
-              fontSize: "12px",
-              fontFamily: "var(--font-mono)",
-              background: prevId ? "var(--bg-card)" : "transparent",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              color: prevId ? "var(--text-2)" : "var(--text-3)",
-              cursor: prevId ? "pointer" : "not-allowed",
-              opacity: prevId ? 1 : 0.4,
-            }}
-          >
-            ← Prev
-          </button>
-          <a
-            href={`/player/${encodeURIComponent(username)}`}
-            style={{ padding: "4px 14px", fontSize: "12px", fontFamily: "var(--font-mono)", color: "var(--text-3)", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "6px", textDecoration: "none" }}
-          >
-            All Games
-          </a>
-          <button
-            disabled={!nextId}
-            onClick={() => nextId && router.push(`/player/${encodeURIComponent(username)}/review/${encodeURIComponent(nextId)}`)}
-            style={{
-              padding: "4px 14px",
-              fontSize: "12px",
-              fontFamily: "var(--font-mono)",
-              background: nextId ? "var(--bg-card)" : "transparent",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              color: nextId ? "var(--text-2)" : "var(--text-3)",
-              cursor: nextId ? "pointer" : "not-allowed",
-              opacity: nextId ? 1 : 0.4,
-            }}
-          >
-            Next →
-          </button>
-        </div>
-      )}
 
       {/* Board + panel centered together as one unit */}
       <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>
@@ -975,6 +931,7 @@ export default function GameReviewPage() {
               <Chessboard
                 options={{
                   position: getCurrentFen(),
+                  pieces: neoPieces,
                   squareStyles: customSquareStyles,
                   darkSquareStyle: { backgroundColor: "#779952" },
                   lightSquareStyle: { backgroundColor: "#edeed1" },
