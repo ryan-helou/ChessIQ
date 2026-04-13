@@ -226,7 +226,7 @@ function GameReviewPanel({
   const ICON_COL = 28;
 
   const labelStyle: React.CSSProperties = {
-    width: LABEL, fontSize: 13, color: "var(--text-2)", flexShrink: 0, fontWeight: 500,
+    width: LABEL, fontSize: 15, color: "var(--text-2)", flexShrink: 0, fontWeight: 500,
   };
 
   const WhiteBox = ({ children }: { children: React.ReactNode }) => (
@@ -304,7 +304,7 @@ function GameReviewPanel({
           const info = CLASSIFICATION_LABELS[key];
           return (
             <div key={key} style={{ display: "flex", alignItems: "center", height: 36, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-              <span style={{ width: LABEL, fontSize: 13, color: "var(--text-2)", flexShrink: 0 }}>{info.label}</span>
+              <span style={{ width: LABEL, fontSize: 15, color: "var(--text-2)", flexShrink: 0 }}>{info.label}</span>
               <span style={{
                 flex: 1, textAlign: "right", paddingRight: 6,
                 fontSize: 14, fontWeight: 700,
