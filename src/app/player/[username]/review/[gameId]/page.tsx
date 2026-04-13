@@ -126,11 +126,38 @@ function PhaseIcon({ acc }: { acc: number | null }) {
   );
 }
 
+// ─── Avatar for panel ───
+
+function PanelAvatar({ profile, username }: { profile: PlayerProfile | null; username: string }) {
+  const [err, setErr] = useState(false);
+  return (
+    <div style={{
+      width: 64, height: 64, borderRadius: 6, overflow: "hidden",
+      border: "2px solid var(--border-strong)", flexShrink: 0,
+    }}>
+      {profile?.avatar && !err ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={profile.avatar} alt={username} onError={() => setErr(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <div style={{
+          width: "100%", height: "100%", background: "var(--border-strong)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 22, fontWeight: 700, color: "var(--text-2)",
+        }}>
+          {username[0]?.toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Game Review Summary Panel (Chess.com style) ───
 
 function GameReviewPanel({
   analysis,
   gameInfo,
+  playerProfiles,
   onStartReview,
   onMoveClick,
 }: {
@@ -142,6 +169,7 @@ function GameReviewPanel({
     blackElo: string;
     playerColor: "white" | "black";
   };
+  playerProfiles: { white: PlayerProfile | null; black: PlayerProfile | null };
   onStartReview: () => void;
   onMoveClick: (moveIndex: number) => void;
 }) {
@@ -160,15 +188,21 @@ function GameReviewPanel({
   const whiteEnd     = getGamePhaseRating(analysis.moves, "white", "endgame");
   const blackEnd     = getGamePhaseRating(analysis.moves, "black", "endgame");
 
+  const labelStyle: React.CSSProperties = { width: 82, fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 };
+  const centerLabelStyle: React.CSSProperties = { width: 70, fontSize: 11, color: "var(--text-3)", textAlign: "center", flexShrink: 0 };
+
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-card)]">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-[var(--border)]">
-        <h2 className="text-sm font-bold text-white tracking-wide">⭐ Game Review</h2>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg-card)" }}>
+
+      {/* ── Header ── */}
+      <div style={{ padding: "11px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <h2 style={{ fontSize: 13, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
+          ⭐ Game Review
+        </h2>
       </div>
 
-      {/* Eval graph */}
-      <div className="h-[52px] bg-[var(--bg-surface)] border-b border-[var(--border)]">
+      {/* ── Eval graph ── */}
+      <div style={{ height: 60, background: "var(--bg-surface)", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
         <EvalGraph
           data={analysis.moves.map((m, i) => ({ move: i + 1, eval: m.engineEval, mate: m.mate ?? null }))}
           currentMove={0}
@@ -177,81 +211,109 @@ function GameReviewPanel({
         />
       </div>
 
-      {/* Players + Accuracy — Chess.com row style */}
-      <div className="px-4 py-3 border-b border-[var(--border)]">
-        {/* Player names */}
-        <div className="grid grid-cols-[1fr_80px_1fr] text-xs text-[var(--text-2)] mb-2">
-          <span className="truncate font-medium text-white">{gameInfo.white}</span>
-          <span className="text-center">Players</span>
-          <span className="truncate font-medium text-white text-right">{gameInfo.black}</span>
+      {/* ── Players section ── */}
+      <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        {/* Username row */}
+        <div style={{ display: "flex", marginBottom: 10 }}>
+          <div style={{ width: 82, flexShrink: 0 }} />
+          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+            {gameInfo.white}
+          </span>
+          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" }}>
+            {gameInfo.black}
+          </span>
         </div>
-        {/* Accuracy */}
-        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
-          <span
-            className="text-base font-bold"
-            style={{ color: getAccuracyColor(analysis.whiteAccuracy) }}
-          >
-            {analysis.whiteAccuracy.toFixed(1)}
-          </span>
-          <span className="text-xs text-[var(--text-3)] text-center">Accuracy</span>
-          <span
-            className="text-base font-bold text-right"
-            style={{ color: getAccuracyColor(analysis.blackAccuracy) }}
-          >
-            {analysis.blackAccuracy.toFixed(1)}
-          </span>
+
+        {/* Players row: label + large avatars */}
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+          <span style={labelStyle}>Players</span>
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <PanelAvatar profile={playerProfiles.white} username={gameInfo.white} />
+          </div>
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <PanelAvatar profile={playerProfiles.black} username={gameInfo.black} />
+          </div>
+        </div>
+
+        {/* Accuracy row: label + white boxes */}
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <span style={labelStyle}>Accuracy</span>
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <div style={{ background: "#fff", borderRadius: 6, padding: "5px 14px", minWidth: 58, textAlign: "center" }}>
+              <span style={{ fontSize: 20, fontWeight: 800, color: "#1a1a1a", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+                {analysis.whiteAccuracy.toFixed(1)}
+              </span>
+            </div>
+          </div>
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <div style={{ background: "#fff", borderRadius: 6, padding: "5px 14px", minWidth: 58, textAlign: "center" }}>
+              <span style={{ fontSize: 20, fontWeight: 800, color: "#1a1a1a", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
+                {analysis.blackAccuracy.toFixed(1)}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Classification table — Chess.com format: label | white | icon | black */}
-      <div className="flex-1 overflow-y-auto px-4 py-2">
+      {/* ── Classification table ── */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "2px 16px 4px" }}>
         {CLASSIFICATIONS.map(({ key, info }) => (
-          <div key={key} className="grid grid-cols-[80px_28px_20px_28px] items-center py-[3px] gap-1">
-            <span className="text-xs text-[var(--text-2)]">{info.label}</span>
-            <span className={`text-sm font-semibold text-right ${whiteCounts[key] > 0 ? "text-white" : "text-[var(--text-4)]"}`}>
+          <div key={key} style={{ display: "flex", alignItems: "center", padding: "5px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            <span style={{ width: 82, fontSize: 13, color: "var(--text-2)", flexShrink: 0 }}>{info.label}</span>
+            <span style={{
+              flex: 1, textAlign: "right", fontSize: 14, fontWeight: 700,
+              color: whiteCounts[key] > 0 ? info.bg : "var(--text-4)",
+            }}>
               {whiteCounts[key]}
             </span>
-            <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
-            <span className={`text-sm font-semibold text-left pl-1 ${blackCounts[key] > 0 ? "text-white" : "text-[var(--text-4)]"}`}>
+            <div style={{ width: 32, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+              <ClassCircle bg={info.bg} icon={info.icon} img={info.img} small />
+            </div>
+            <span style={{
+              flex: 1, textAlign: "left", fontSize: 14, fontWeight: 700,
+              color: blackCounts[key] > 0 ? info.bg : "var(--text-4)",
+            }}>
               {blackCounts[key]}
             </span>
           </div>
         ))}
       </div>
 
-      {/* Phase + Ratings section */}
-      <div className="px-4 py-3 border-t border-[var(--border)] space-y-1.5">
+      {/* ── Ratings + game phases ── */}
+      <div style={{ padding: "10px 16px 8px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
         {/* Ratings */}
-        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
-          <span className="text-sm font-bold text-white">{gameInfo.whiteElo}</span>
-          <span className="text-xs text-[var(--text-3)] text-center">Ratings</span>
-          <span className="text-sm font-bold text-white text-right">{gameInfo.blackElo}</span>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: "#fff" }}>{gameInfo.whiteElo}</span>
+          <span style={centerLabelStyle}>Ratings</span>
+          <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: "#fff", textAlign: "right" }}>{gameInfo.blackElo}</span>
         </div>
-        {/* Opening */}
-        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
-          <PhaseIcon acc={whiteOpening?.accuracy ?? null} />
-          <span className="text-xs text-[var(--text-3)] text-center">Opening</span>
-          <div className="flex justify-end"><PhaseIcon acc={blackOpening?.accuracy ?? null} /></div>
-        </div>
-        {/* Middlegame */}
-        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
-          <PhaseIcon acc={whiteMiddle?.accuracy ?? null} />
-          <span className="text-xs text-[var(--text-3)] text-center">Middlegame</span>
-          <div className="flex justify-end"><PhaseIcon acc={blackMiddle?.accuracy ?? null} /></div>
-        </div>
-        {/* Endgame */}
-        <div className="grid grid-cols-[1fr_80px_1fr] items-center">
-          <PhaseIcon acc={whiteEnd?.accuracy ?? null} />
-          <span className="text-xs text-[var(--text-3)] text-center">Endgame</span>
-          <div className="flex justify-end"><PhaseIcon acc={blackEnd?.accuracy ?? null} /></div>
-        </div>
+        {[
+          { label: "Opening", white: whiteOpening, black: blackOpening },
+          { label: "Middlegame", white: whiteMiddle, black: blackMiddle },
+          { label: "Endgame", white: whiteEnd, black: blackEnd },
+        ].map(({ label, white: w, black: b }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
+            <div style={{ flex: 1 }}><PhaseIcon acc={w?.accuracy ?? null} /></div>
+            <span style={centerLabelStyle}>{label}</span>
+            <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}><PhaseIcon acc={b?.accuracy ?? null} /></div>
+          </div>
+        ))}
       </div>
 
-      {/* Start Review */}
-      <div className="px-4 pb-4 pt-2">
+      {/* ── Start Review button ── */}
+      <div style={{ padding: "8px 12px 12px", flexShrink: 0 }}>
         <button
           onClick={onStartReview}
-          className="w-full py-2.5 rounded-lg btn-gold font-bold text-sm transition-colors"
+          style={{
+            width: "100%", padding: "13px 0", borderRadius: 8,
+            background: "#6aaa3c", border: "none", color: "#fff",
+            fontSize: 16, fontWeight: 800, cursor: "pointer",
+            letterSpacing: "0.01em",
+            boxShadow: "0 2px 8px rgba(106,170,60,0.35)",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#5e9935"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#6aaa3c"; }}
         >
           Start Review
         </button>
@@ -963,6 +1025,7 @@ export default function GameReviewPage() {
             <GameReviewPanel
               analysis={analysis}
               gameInfo={gameInfo}
+              playerProfiles={playerProfiles}
               onStartReview={() => {
                 setReviewStarted(true);
                 setCurrentMoveIndex(0);
