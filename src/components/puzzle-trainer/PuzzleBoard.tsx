@@ -114,6 +114,8 @@ function PuzzleBoard({
   const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null);
   const [flashSq, setFlashSq] = useState<{ sq: string; color: "green" | "red" } | null>(null);
   const [hintUsed, setHintUsed] = useState(false);
+  const [solveAnimKey, setSolveAnimKey] = useState(0);
+  const [wrongAnimKey, setWrongAnimKey] = useState(0);
 
   // Precomputed good moves for the current puzzle position (instant lookup)
   const goodMovesRef = useRef<Set<string> | null>(null);
@@ -302,6 +304,12 @@ function PuzzleBoard({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, puzzle, acceptMove, rejectMove]);
 
+  // Trigger celebration / shake animations on phase change
+  useEffect(() => {
+    if (phase === "solved") setSolveAnimKey((k) => k + 1);
+    if (phase === "wrong")  setWrongAnimKey((k) => k + 1);
+  }, [phase]);
+
   // Timer tick
   useEffect(() => {
     const isDone = phase === "solved" || phase === "done" || phase === "failed";
@@ -465,7 +473,7 @@ function PuzzleBoard({
 
       {/* ── Board ── */}
       <div
-        className="bg-[var(--bg)] flex-shrink-0"
+        className="relative bg-[var(--bg)] flex-shrink-0"
         style={{ width: boardSize, height: boardSize }}
       >
         <div style={{ width: "100%", height: "100%" }}
@@ -493,6 +501,59 @@ function PuzzleBoard({
             return <Chessboard options={boardOptions} />;
           })()}
         </div>
+
+        {/* ── Correct flash overlay ── */}
+        {solveAnimKey > 0 && (
+          <div
+            key={`correct-${solveAnimKey}`}
+            className="absolute inset-0 pointer-events-none rounded-sm"
+            style={{
+              background: "rgba(129,182,76,0.22)",
+              animation: "boardCorrect 0.9s ease-out forwards",
+            }}
+          />
+        )}
+
+        {/* ── "✓" badge ── */}
+        {solveAnimKey > 0 && (
+          <div
+            key={`badge-${solveAnimKey}`}
+            className="absolute pointer-events-none select-none"
+            style={{
+              top: "50%",
+              left: "50%",
+              animation: "correctBadge 1.1s ease-out forwards",
+              zIndex: 20,
+            }}
+          >
+            <div style={{
+              background: "rgba(129,182,76,0.95)",
+              borderRadius: "50%",
+              width: "72px",
+              height: "72px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 24px rgba(129,182,76,0.5)",
+            }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* ── Wrong flash overlay ── */}
+        {wrongAnimKey > 0 && (
+          <div
+            key={`wrong-${wrongAnimKey}`}
+            className="absolute inset-0 pointer-events-none rounded-sm"
+            style={{
+              background: "rgba(202,52,49,0.18)",
+              animation: "boardWrong 0.32s ease-out forwards",
+            }}
+          />
+        )}
       </div>
 
       {/* ── Sidebar ── */}
@@ -530,11 +591,15 @@ function PuzzleBoard({
         <div className="flex-1 flex flex-col px-5 pt-5 pb-3 gap-5 overflow-y-auto">
 
           {/* Status bubble */}
-          <div className={`rounded-xl p-4 transition-colors duration-300 ${
-            phase === "solved" ? "bg-[var(--win)]/10" :
-            phase === "done" ? "bg-[var(--win)]/8" :
-            "bg-[var(--bg-card)]"
-          }`}>
+          <div
+            key={`status-${solveAnimKey}-${wrongAnimKey}`}
+            className={`rounded-xl p-4 transition-colors duration-300 ${
+              phase === "solved" ? "bg-[var(--win)]/10 puzzle-solve-pop" :
+              phase === "wrong"  ? "puzzle-shake" :
+              phase === "done"   ? "bg-[var(--win)]/8" :
+              "bg-[var(--bg-card)]"
+            }`}
+          >
             <div className="flex items-center gap-2.5 mb-1.5">
               <div className={`w-4 h-4 rounded-sm border flex-shrink-0 ${
                 orientation === "white" ? "bg-white border-[#aaa]" : "bg-[var(--bg-overlay,#262522)] border-[#555]"
@@ -685,7 +750,7 @@ function PuzzleBoard({
           {isDone ? (
             <button
               onClick={onNext}
-              className="w-full py-3 bg-[var(--green)] hover:bg-[#6fa53c] text-white font-bold rounded-lg transition-colors text-sm"
+              className="w-full py-3 bg-[var(--green)] hover:bg-[#6fa53c] text-white font-bold rounded-lg transition-colors text-sm puzzle-next-glow"
             >
               Next Puzzle →
             </button>
