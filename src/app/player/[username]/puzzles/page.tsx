@@ -387,7 +387,7 @@ export default function PuzzlesPage() {
   return (
     <div className="h-dvh flex flex-col bg-[var(--bg)] text-[var(--text-1)] overflow-hidden">
       <Header username={username} />
-      <div className="flex-1 min-h-0 w-full px-4 py-3 flex flex-col">
+      <div className="flex-1 min-h-0 w-full flex items-center justify-center">
         {currentPuzzle && (
           <PuzzleBoard
             key={currentPuzzle.id}

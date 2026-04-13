@@ -426,18 +426,21 @@ function PuzzleBoard({
     return { heading: "", sub: "" };
   })();
 
+  // Board size: fill available viewport, keeping a square that fits both dimensions
+  const boardSize = "min(calc(100vh - 80px), calc(100vw - 340px))";
+
   return (
-    <div className="flex flex-col lg:flex-row w-full h-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
+    <div
+      className="flex flex-row items-stretch rounded-xl overflow-hidden shadow-2xl flex-shrink-0"
+      style={{ height: boardSize }}
+    >
 
       {/* ── Board ── */}
-      <div className="flex-1 min-w-0 min-h-0 bg-[var(--bg)] flex items-center justify-center p-2">
-        <div
-          style={{
-            height: "min(100%, calc(100vw - 320px))",
-            aspectRatio: "1",
-            maxWidth: "100%",
-            maxHeight: "100%",
-          }}
+      <div
+        className="bg-[var(--bg)] flex-shrink-0"
+        style={{ width: boardSize, height: boardSize }}
+      >
+        <div style={{ width: "100%", height: "100%" }}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {(() => {
@@ -463,7 +466,7 @@ function PuzzleBoard({
       </div>
 
       {/* ── Sidebar ── */}
-      <div className="flex flex-col bg-[var(--bg-overlay,#262522)] lg:w-[300px] w-full flex-shrink-0 h-full">
+      <div className="flex flex-col bg-[var(--bg-overlay,#262522)] w-[300px] flex-shrink-0 overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--bg-card)]">
