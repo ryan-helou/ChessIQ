@@ -319,15 +319,9 @@ function GameReviewPanel({
             <span style={{ fontSize: 15, fontWeight: 700, color: whitePerf >= whiteEloNum ? "#81b64c" : "#ca3431" }}>
               {whitePerf}
             </span>
-            <span style={{ fontSize: 10, color: "var(--text-3)" }}>
-              ({whitePerf >= whiteEloNum ? "+" : ""}{whitePerf - whiteEloNum})
-            </span>
           </div>
           <span style={centerLabelStyle}>Est. Rating</span>
           <div style={{ flex: 1, display: "flex", alignItems: "baseline", gap: 4, justifyContent: "flex-end" }}>
-            <span style={{ fontSize: 10, color: "var(--text-3)" }}>
-              ({blackPerf >= blackEloNum ? "+" : ""}{blackPerf - blackEloNum})
-            </span>
             <span style={{ fontSize: 15, fontWeight: 700, color: blackPerf >= blackEloNum ? "#81b64c" : "#ca3431" }}>
               {blackPerf}
             </span>
