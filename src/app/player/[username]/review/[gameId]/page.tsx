@@ -77,7 +77,7 @@ function estimatedRating(accuracy: number): number {
     const [a2, r2] = anchors[i + 1];
     if (accuracy >= a1 && accuracy <= a2) {
       const t = (accuracy - a1) / (a2 - a1);
-      return Math.round(r1 + t * (r2 - r1));
+      return Math.round((r1 + t * (r2 - r1)) / 50) * 50;
     }
   }
   return 2850;
