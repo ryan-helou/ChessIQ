@@ -55,7 +55,7 @@ export default function SectionNav({ username }: Props) {
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex gap-0 overflow-x-auto scrollbar-hide">
           {items.map((s) => {
             const isActive = active === s.id;

@@ -170,7 +170,7 @@ export default function PlayerPage() {
 
       {/* Error state */}
       {error && !data && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div style={{ background: "var(--loss-dim)", border: "1px solid rgba(224,85,85,0.25)", borderRadius: "12px", padding: "32px", maxWidth: "420px", margin: "0 auto", textAlign: "center" }}>
             <div style={{ fontSize: "36px", marginBottom: "12px" }}>♚</div>
             <h2 style={{ color: "var(--loss)", fontWeight: 600, marginBottom: "8px" }}>Player Not Found</h2>
@@ -185,7 +185,7 @@ export default function PlayerPage() {
         <>
           <SectionNav username={username} />
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
             {/* Profile Header */}
             <div

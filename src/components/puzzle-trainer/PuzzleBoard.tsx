@@ -430,13 +430,13 @@ function PuzzleBoard({
     <div className="flex flex-col lg:flex-row w-full h-full lg:items-stretch rounded-xl overflow-hidden shadow-2xl">
 
       {/* ── Board ── */}
-      <div className="flex-1 min-w-0 min-h-0 bg-[var(--bg)] flex items-center justify-center">
+      <div className="flex-1 min-w-0 min-h-0 bg-[var(--bg)] flex items-center justify-center p-2">
         <div
           style={{
-            height: "100%",
-            maxHeight: "560px",
+            height: "min(100%, calc(100vw - 320px))",
             aspectRatio: "1",
             maxWidth: "100%",
+            maxHeight: "100%",
           }}
         >
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
