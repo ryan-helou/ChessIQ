@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import dynamic from "next/dynamic";
-import Header from "@/components/Header";
 import ChessLoader from "@/components/ChessLoader";
 import EvalBar from "@/components/game-review/EvalBar";
 import EvalGraph from "@/components/game-review/EvalGraph";
@@ -538,6 +538,52 @@ function getAccuracyColor(accuracy: number): string {
   return "#ca3431";
 }
 
+// ─── Slim review header (no search bar) ───
+
+function ReviewHeader({ username }: { username: string }) {
+  const { data: session } = useSession();
+  return (
+    <header
+      style={{
+        borderBottom: "1px solid var(--border)",
+        background: "var(--bg-surface)",
+        backdropFilter: "blur(12px)",
+        height: 44,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 16px",
+        flexShrink: 0,
+      }}
+    >
+      <a href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+        <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="6" fill="var(--green)" opacity="0.9"/>
+          <path d="M11 25V23.5C11 23.5 9 22 9 19C9 16 11 14 11 14L10 12H12L13 10H15L15.5 11.5C17 11 18 11 19 12C20 13 20 14 20 14L18 15L19 17C19 17 20 19 19 21C18 23 17 23.5 17 23.5V25H11Z" fill="white" opacity="0.95"/>
+          <rect x="10" y="26" width="12" height="2" rx="1" fill="white" opacity="0.7"/>
+        </svg>
+        <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>
+          Chess<span style={{ color: "var(--green)" }}>IQ</span>
+        </span>
+      </a>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 6px var(--green)" }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", letterSpacing: "0.02em" }}>{username}</span>
+        </div>
+        {session && (
+          <button
+            onClick={() => signOut({ callbackUrl: "/" })}
+            style={{ background: "none", border: "1px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 600, color: "var(--text-3)", cursor: "pointer" }}
+          >
+            Sign out
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}
+
 // ─── Analysis Progress ───
 
 function AnalysisProgress() {
@@ -817,7 +863,7 @@ export default function GameReviewPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
-        <Header username={username} />
+        <ReviewHeader username={username} />
         <ChessLoader username={username} variant="review" />
       </div>
     );
@@ -827,7 +873,7 @@ export default function GameReviewPage() {
   if (error && !analysis) {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
-        <Header username={username} />
+        <ReviewHeader username={username} />
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8">
             <div className="text-4xl mb-4">♟</div>
@@ -845,9 +891,9 @@ export default function GameReviewPage() {
     );
   }
 
-  // Board size: header(56) + nav(36) + player bars(96) + padding(12) + buffer(20) = 220px
+  // Board size: header(44) + nav(36) + player bars(96) + padding(12) + buffer(16) = 204px
   // Width constrained by panel(300) + evalbar(20) + gaps + padding
-  const boardSizeCSS = "min(calc(100vh - 220px), calc(100vw - 344px))";
+  const boardSizeCSS = "min(calc(100vh - 204px), calc(100vw - 344px))";
   const topColor = gameInfo?.playerColor === "white" ? "black" : "white";
   const bottomColor = (gameInfo?.playerColor ?? "white");
   const whiteTime = getPlayerTime(moveTimes, currentMoveIndex, "white", timeControl?.initial ?? null);
@@ -855,7 +901,7 @@ export default function GameReviewPage() {
 
   return (
     <div className="h-screen bg-[var(--bg)] text-[var(--text-1)] flex flex-col overflow-hidden">
-      <Header username={username} />
+      <ReviewHeader username={username} />
 
       {/* Prev / Next game navigation */}
       {(prevId || nextId) && (
