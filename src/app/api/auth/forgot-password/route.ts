@@ -52,21 +52,27 @@ export async function POST(req: NextRequest) {
 
     // Send email via Resend if configured
     if (process.env.RESEND_API_KEY) {
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      await resend.emails.send({
-        from: "ChessIQ <onboarding@resend.dev>",
-        to: normalizedEmail,
-        subject: "Reset your ChessIQ password",
-        html: `
-          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background: #262522; color: #e8e6e1; padding: 32px; border-radius: 8px;">
-            <h2 style="color: #81b64c; margin-top: 0;">Reset your password</h2>
-            <p>Click the button below to reset your ChessIQ password. This link expires in 1 hour.</p>
-            <a href="${resetUrl}" style="display: inline-block; background: #81b64c; color: #fff; font-weight: 700; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 16px 0;">Reset Password</a>
-            <p style="color: #706e6b; font-size: 13px;">If you didn't request this, you can safely ignore this email.</p>
-          </div>
-        `,
-      });
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { error } = await resend.emails.send({
+          from: "ChessIQ <onboarding@resend.dev>",
+          to: normalizedEmail,
+          subject: "Reset your ChessIQ password",
+          html: `
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; background: #262522; color: #e8e6e1; padding: 32px; border-radius: 8px;">
+              <h2 style="color: #81b64c; margin-top: 0;">Reset your password</h2>
+              <p>Click the button below to reset your ChessIQ password. This link expires in 1 hour.</p>
+              <a href="${resetUrl}" style="display: inline-block; background: #81b64c; color: #fff; font-weight: 700; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin: 16px 0;">Reset Password</a>
+              <p style="color: #706e6b; font-size: 13px;">If you didn't request this, you can safely ignore this email.</p>
+            </div>
+          `,
+        });
+        if (error) console.error("[forgot-password] Resend error:", error);
+        else console.log("[forgot-password] Email sent to:", normalizedEmail);
+      } catch (err) {
+        console.error("[forgot-password] Failed to send email:", err);
+      }
     } else {
       // Dev fallback: log the reset URL
       console.log("[forgot-password] Reset URL (no RESEND_API_KEY set):", resetUrl);
