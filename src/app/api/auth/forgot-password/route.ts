@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomBytes, createHash } from "crypto";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // 3 password reset requests per IP per 10 minutes
+  const ip = getClientIp(req.headers);
+  if (!await checkRateLimit(`forgot-password:${ip}`, 3, 10 * 60 * 1000)) {
+    return NextResponse.json({ ok: true }); // Return ok:true to not reveal rate limiting to attackers
+  }
+
   await ensureDbInit();
 
   let email: string;
@@ -39,7 +46,9 @@ export async function POST(req: NextRequest) {
       [user.id, tokenHash]
     );
 
-    const resetUrl = `${process.env.NEXT_PUBLIC_URL}/reset-password?token=${raw}`;
+    const baseUrl = process.env.NEXT_PUBLIC_URL ?? process.env.NEXTAUTH_URL;
+    if (!baseUrl) console.error("[forgot-password] NEXT_PUBLIC_URL not set — reset links will be broken");
+    const resetUrl = `${baseUrl ?? "http://localhost:3000"}/reset-password?token=${raw}`;
 
     // Send email via Resend if configured
     if (process.env.RESEND_API_KEY) {

@@ -135,8 +135,11 @@ export default function AnalysisDialog({
 
       let analyzed = alreadyDone;
       let blunders = 0;
+      const MAX_ITERATIONS = 1000; // Safety: never loop more than 1000 times regardless of server response
+      const DEADLINE = Date.now() + 5 * 60 * 1000; // 5-minute wall-clock limit
+      let iterations = 0;
 
-      while (true) {
+      while (iterations++ < MAX_ITERATIONS && Date.now() < DEADLINE) {
         if (abortRef.current?.signal.aborted) break;
 
         const nextRes = await fetch(`/api/games/${encodeURIComponent(username)}/analyze-next`, {

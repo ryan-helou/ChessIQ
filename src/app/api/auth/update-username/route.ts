@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
   // Verify Chess.com username exists
   const chessComRes = await fetch(`https://api.chess.com/pub/player/${normalizedUsername}`, {
     headers: { "User-Agent": "ChessIQ/1.0" },
+    signal: AbortSignal.timeout(5000),
   });
   if (!chessComRes.ok) {
     return NextResponse.json(

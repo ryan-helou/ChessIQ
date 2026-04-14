@@ -23,7 +23,7 @@ function getResult(game: { white: { result: string }; black: { result: string } 
 
 /**
  * GET /api/cron/sync-games
- * Called every 5 minutes by Vercel Cron.
+ * Called every 5 minutes by server.mjs setInterval.
  * Fetches new games from Chess.com for all registered users and queues them for analysis.
  */
 export async function GET(req: NextRequest) {
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     `SELECT id, chess_com_username, last_synced_at FROM users
      WHERE last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '5 minutes'
      ORDER BY last_synced_at ASC NULLS FIRST
-     LIMIT 20`
+     LIMIT 10`
   );
 
   const users = usersResult.rows;

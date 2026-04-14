@@ -20,6 +20,7 @@ export default function Header({ username: usernameProp }: Props) {
     e.preventDefault();
     if (searchInput.trim()) {
       router.push(`/player/${searchInput.trim()}`);
+      setSearchInput("");
     }
   };
 

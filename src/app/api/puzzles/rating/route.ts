@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const username = request.nextUrl.searchParams.get("username");
     if (!username) return NextResponse.json({ rating: 1200 });
 
-    await ensureDbInit().catch(() => {});
+    await ensureDbInit().catch((err: Error) => console.error('[db-init] failed:', err.message));
 
     const result = await query(
       `SELECT rating FROM user_puzzle_ratings WHERE username = $1`,

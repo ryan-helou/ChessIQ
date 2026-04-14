@@ -60,7 +60,7 @@ export async function POST(
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    await ensureDbInit().catch(() => {});
+    await ensureDbInit().catch((err: Error) => console.error('[db-init] failed:', err.message));
 
     // Record attempt
     await query(
@@ -105,7 +105,7 @@ export async function GET(
     const username = request.nextUrl.searchParams.get("username");
     if (!username) return NextResponse.json({ rating: 1200 });
 
-    await ensureDbInit().catch(() => {});
+    await ensureDbInit().catch((err: Error) => console.error('[db-init] failed:', err.message));
     const rating = await getUserRating(username);
     return NextResponse.json({ rating });
   } catch {

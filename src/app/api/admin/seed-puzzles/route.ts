@@ -64,12 +64,23 @@ async function fetchPuzzlesForTheme(theme: string, count: number): Promise<any[]
   return puzzles;
 }
 
+function isAuthorized(request: NextRequest): boolean {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret) return false;
+  const auth = request.headers.get("authorization");
+  return auth === `Bearer ${secret}`;
+}
+
 /**
  * POST /api/admin/seed-puzzles?perTheme=20
  * Fetches puzzles from Lichess for each theme and upserts into local DB.
  * Safe to call multiple times — uses ON CONFLICT DO NOTHING.
  */
 export async function POST(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const perTheme = parseInt(request.nextUrl.searchParams.get("perTheme") ?? "20", 10);
 
@@ -133,7 +144,10 @@ export async function POST(request: NextRequest) {
  * GET /api/admin/seed-puzzles
  * Returns current puzzle library stats.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const result = await query(`
       SELECT unnest(themes) as theme, COUNT(*) as count

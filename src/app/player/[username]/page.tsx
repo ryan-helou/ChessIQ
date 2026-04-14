@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ChessLoader from "@/components/ChessLoader";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import SectionNav from "@/components/SectionNav";
 import StatsCards from "@/components/StatsCards";
 import RatingChart from "@/components/RatingChart";
@@ -135,8 +136,11 @@ export default function PlayerPage() {
         fetchData(months, true);
         return;
       }
-    } catch {}
-    // No cache — full load
+    } catch {
+      // Corrupt cache — clear it and do a fresh fetch
+      try { localStorage.removeItem(cacheKey(username, months)); } catch {}
+    }
+    // No cache (or cleared) — full load
     fetchData(months);
   }, [fetchData, months]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -336,12 +340,16 @@ export default function PlayerPage() {
                       <option value="daily">Daily</option>
                     </select>
                   </div>
-                  <RatingChart data={data.ratingHistory} filter={ratingFilter} />
+                  <ErrorBoundary>
+                    <RatingChart data={data.ratingHistory} filter={ratingFilter} />
+                  </ErrorBoundary>
                 </div>
 
                 <div id="results" className="scroll-mt-28 card" style={{ padding: "22px" }}>
                   <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Results</h2>
-                  <WinLossDrawChart wins={wins} losses={losses} draws={draws} />
+                  <ErrorBoundary>
+                    <WinLossDrawChart wins={wins} losses={losses} draws={draws} />
+                  </ErrorBoundary>
                   <div style={{ marginTop: "18px", display: "flex", flexDirection: "column", gap: "8px" }}>
                     {[
                       { label: "Total Games", value: totalGames.toLocaleString(), accent: undefined },
@@ -362,36 +370,48 @@ export default function PlayerPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "12px", marginBottom: "12px" }}>
               <div className="card" style={{ padding: "22px" }}>
                 <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>How Games End</h2>
-                <ResultBreakdownChart data={data.resultBreakdown} />
+                <ErrorBoundary>
+                  <ResultBreakdownChart data={data.resultBreakdown} />
+                </ErrorBoundary>
               </div>
               <div id="accuracy" className="scroll-mt-28 card" style={{ padding: "22px" }}>
                 <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Accuracy Trend</h2>
-                <AccuracyOverTime games={data.games} />
+                <ErrorBoundary>
+                  <AccuracyOverTime games={data.games} />
+                </ErrorBoundary>
               </div>
             </div>
 
             {/* Accuracy vs Rating */}
             <div className="card" style={{ padding: "22px", marginBottom: "12px" }}>
               <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Accuracy vs Opponent Rating</h2>
-              <AccuracyVsRating games={data.games} />
+              <ErrorBoundary>
+                <AccuracyVsRating games={data.games} />
+              </ErrorBoundary>
             </div>
 
             {/* Accuracy by Phase */}
             <div className="card" style={{ padding: "22px", marginBottom: "12px" }}>
               <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Accuracy by Game Phase</h2>
-              <AccuracyByPhase games={data.games} />
+              <ErrorBoundary>
+                <AccuracyByPhase />
+              </ErrorBoundary>
             </div>
 
             {/* Openings */}
             <div id="openings" className="scroll-mt-28 card" style={{ padding: "22px", marginBottom: "12px" }}>
               <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Opening Statistics</h2>
-              <OpeningTable openings={data.openings} games={data.games} />
+              <ErrorBoundary>
+                <OpeningTable openings={data.openings} games={data.games} />
+              </ErrorBoundary>
             </div>
 
             {/* Games */}
             <div id="games" className="scroll-mt-28 card" style={{ padding: "22px", marginBottom: "48px" }}>
               <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Game History</h2>
-              <GamesList games={data.games} username={username} />
+              <ErrorBoundary>
+                <GamesList games={data.games} username={username} />
+              </ErrorBoundary>
             </div>
           </div>
 

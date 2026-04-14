@@ -38,7 +38,7 @@ export async function persistGameAnalysis(
        VALUES ${placeholders}
        ON CONFLICT DO NOTHING`,
       flat
-    ).catch(() => {});
+    ).catch((err: Error) => { console.error("[game-persistence] analyzed_moves insert failed:", err.message); throw err; });
   }
 
   // ── Batch INSERT blunders ──
@@ -61,7 +61,7 @@ export async function persistGameAnalysis(
        VALUES ${placeholders}
        ON CONFLICT (game_id, move_number) DO UPDATE SET fen_before = EXCLUDED.fen_before`,
       flat
-    ).catch(() => {});
+    ).catch((err: Error) => { console.error("[game-persistence] blunders insert failed:", err.message); throw err; });
   }
 
   return badMoves.length;

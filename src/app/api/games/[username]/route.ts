@@ -1,4 +1,4 @@
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAllGames, getProfile, getStats } from "@/lib/chess-com-api";
@@ -12,10 +12,9 @@ import {
   getColorStats,
   getRatingHistoryByTimeClass,
 } from "@/lib/game-analysis";
+import { redis, ensureRedisConnected } from "@/lib/redis";
 
-// Module-level in-memory cache (persists across requests in same serverless instance)
-const responseCache = new Map<string, { data: unknown; ts: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_S = 5 * 60; // 5 minutes (Redis SETEX uses seconds)
 
 export async function GET(
   request: NextRequest,
@@ -23,21 +22,32 @@ export async function GET(
 ) {
   const { username } = await params;
   const searchParams = request.nextUrl.searchParams;
-  const months = parseInt(searchParams.get("months") ?? "6", 10);
+  const months = Math.min(Math.max(parseInt(searchParams.get("months") ?? "6", 10) || 6, 1), 24);
 
-  // Cache hit
-  const cacheKey = `${username}:${months}`;
-  const hit = responseCache.get(cacheKey);
-  if (hit && Date.now() - hit.ts < CACHE_TTL) {
-    return NextResponse.json(hit.data);
-  }
+  // Cache lookup (Redis, falls back silently on error)
+  const cacheKey = `games:${username}:${months}`;
+  try {
+    await ensureRedisConnected();
+    const cached = await redis.get(cacheKey);
+    if (cached) return NextResponse.json(JSON.parse(cached));
+  } catch { /* Redis unavailable — continue to live fetch */ }
 
   try {
-    const [profile, stats, rawGames] = await Promise.all([
+    const [profileRes, statsRes, rawGamesRes] = await Promise.allSettled([
       getProfile(username),
       getStats(username),
       getAllGames(username, months),
     ]);
+
+    // Games are required — fail fast if we can't fetch them
+    if (rawGamesRes.status === "rejected") throw rawGamesRes.reason;
+
+    const profile = profileRes.status === "fulfilled" ? profileRes.value : null;
+    const stats   = statsRes.status  === "fulfilled" ? statsRes.value  : null;
+    const rawGames = rawGamesRes.value;
+
+    if (profileRes.status === "rejected") console.warn("[games route] profile fetch failed:", profileRes.reason);
+    if (statsRes.status   === "rejected") console.warn("[games route] stats fetch failed:",   statsRes.reason);
 
     const games = parseAllGames(rawGames, username);
     const openings = getOpeningStats(games);
@@ -61,8 +71,12 @@ export async function GET(
       streaks,
       totalGames: games.length,
     };
-    responseCache.set(cacheKey, { data: result, ts: Date.now() });
-    return NextResponse.json(result);
+    try {
+      await redis.setEx(cacheKey, CACHE_TTL_S, JSON.stringify(result));
+    } catch { /* Redis unavailable — skip caching */ }
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" },
+    });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(

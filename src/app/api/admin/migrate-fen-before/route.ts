@@ -1,6 +1,6 @@
 export const maxDuration = 60;
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 
 /**
@@ -12,7 +12,11 @@ import { query } from "@/lib/db";
  * to get the AM row for the actual blunder ply, then take the fen from the row
  * immediately preceding it (by insertion id) in the same game.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     // 1. Add column if missing
     await query(`

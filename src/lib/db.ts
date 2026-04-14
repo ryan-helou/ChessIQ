@@ -12,9 +12,9 @@ export function getPool(): Pool {
     pool = new Pool({
       connectionString: databaseUrl,
       ssl: { rejectUnauthorized: false }, // Required for Railway
-      max: 10,                            // Cap concurrent connections
+      max: 30,                            // Enough headroom for 100+ concurrent users
       idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
+      connectionTimeoutMillis: 10_000,
     });
 
     pool.on("error", (err) => {

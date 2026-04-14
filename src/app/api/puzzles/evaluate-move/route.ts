@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
     const { fen } = await request.json();
     if (!fen) return NextResponse.json({ error: "Missing fen" }, { status: 400 });
 
-    await ensureDbInit().catch(() => {});
+    await ensureDbInit().catch((err: Error) => console.error('[db-init] failed:', err.message));
 
     // ── Cache hit ──
     const cached = await getCachedGoodMoves(fen);

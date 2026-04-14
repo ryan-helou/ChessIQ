@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // 5 registration attempts per IP per 15 minutes
+  const ip = getClientIp(req.headers);
+  if (!await checkRateLimit(`register:${ip}`, 5, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
+  }
+
   await ensureDbInit();
 
   let email: string, password: string, chessComUsername: string;
@@ -33,6 +40,7 @@ export async function POST(req: NextRequest) {
   // Verify Chess.com username exists
   const chessComRes = await fetch(`https://api.chess.com/pub/player/${normalizedUsername}`, {
     headers: { "User-Agent": "ChessIQ/1.0" },
+    signal: AbortSignal.timeout(5000),
   });
   if (!chessComRes.ok) {
     return NextResponse.json(

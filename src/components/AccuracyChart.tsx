@@ -109,9 +109,18 @@ export function AccuracyVsRating({ games }: Props) {
     }));
 
   const ratings = raw.map((d) => d.opponentRating);
+
+  if (ratings.length === 0) {
+    return (
+      <div className="w-full h-[300px] flex items-center justify-center text-sm" style={{ color: C.text2 }}>
+        No games with accuracy data
+      </div>
+    );
+  }
+
   const mean = ratings.reduce((a, b) => a + b, 0) / ratings.length;
   const std = Math.sqrt(ratings.reduce((s, r) => s + (r - mean) ** 2, 0) / ratings.length);
-  const data = raw.filter((d) => Math.abs(d.opponentRating - mean) <= 2 * std);
+  const data = std === 0 ? raw : raw.filter((d) => Math.abs(d.opponentRating - mean) <= 2 * std);
 
   const wins   = data.filter((d) => d.result === "win");
   const losses = data.filter((d) => d.result === "loss");

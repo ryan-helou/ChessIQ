@@ -26,7 +26,7 @@ export async function POST(
     const gameCount = rawCount === "all" ? "all" : Math.max(1, Math.min(200, Number(rawCount) || 20));
 
     // Ensure schema columns exist before inserting
-    await ensureDbInit().catch(() => {});
+    await ensureDbInit().catch((err: Error) => console.error("[analyze-queue] db-init failed:", err.message));
 
     const userId = usernameToUserId(username);
 

@@ -8,7 +8,7 @@ import { persistGameAnalysis } from "@/lib/game-persistence";
 
 /**
  * GET /api/cron/analyze-pending
- * Called every 2 minutes by Vercel Cron.
+ * Called every 2 minutes by server.mjs setInterval.
  * Claims up to 3 pending games across all users and analyzes them via Railway.
  */
 export async function GET(req: NextRequest) {
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
          OR (analysis_status = 'analyzing' AND analysis_started_at < NOW() - INTERVAL '5 minutes')
        )
        ORDER BY played_at ASC NULLS LAST
-       LIMIT 3
+       LIMIT 10
        FOR UPDATE SKIP LOCKED
      )
      RETURNING id, pgn, white_username, black_username, result`
@@ -42,54 +42,65 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ analyzed: 0, message: "No pending games" });
   }
 
+  // Batch-fetch all matching usernames in one query (avoids N+1)
+  const allUsernames = games.flatMap(g => [g.white_username, g.black_username]).filter(Boolean);
+  const userMapResult = await query(
+    `SELECT chess_com_username FROM users WHERE LOWER(chess_com_username) = ANY($1::text[])`,
+    [allUsernames.map(u => u.toLowerCase())]
+  );
+  const knownUsernames = new Set(userMapResult.rows.map((r: { chess_com_username: string }) => r.chess_com_username.toLowerCase()));
+
+  // Analyze all claimed games in parallel — total time = slowest game, not sum of all
+  const results = await Promise.allSettled(games.map(async (game) => {
+    const username = knownUsernames.has(game.white_username?.toLowerCase())
+      ? game.white_username
+      : game.black_username ?? game.white_username;
+
+    const analysis = await analyzeGame(game.pgn, 14);
+
+    await persistGameAnalysis(
+      game.id,
+      username,
+      game.white_username,
+      game.black_username,
+      analysis.moves
+    );
+
+    const whiteMoves = analysis.moves.filter((m) => m.color === "white");
+    const blackMoves = analysis.moves.filter((m) => m.color === "black");
+    const avg = (arr: typeof whiteMoves) =>
+      arr.length > 0 ? arr.reduce((s, m) => s + (m.accuracy ?? 0), 0) / arr.length : null;
+
+    await query(
+      `UPDATE games
+       SET analysis_status = 'complete',
+           analysis_completed_at = NOW(),
+           accuracy_white = $1,
+           accuracy_black = $2
+       WHERE id = $3`,
+      [avg(whiteMoves), avg(blackMoves), game.id]
+    );
+  }));
+
+  // Mark failed games — transient errors (network, timeout) reset to 'pending' for retry;
+  // permanent errors (bad PGN, no data) mark as 'failed'.
   let analyzed = 0;
-
-  for (const game of games) {
-    try {
-      // Find the owning user's Chess.com username via username match
-      const userResult = await query(
-        `SELECT chess_com_username FROM users
-         WHERE chess_com_username ILIKE $1 OR chess_com_username ILIKE $2
-         LIMIT 1`,
-        [game.white_username, game.black_username]
-      );
-      const username = userResult.rows[0]?.chess_com_username ?? game.white_username;
-
-      // Analyze via Railway Stockfish backend
-      const analysis = await analyzeGame(game.pgn, 14);
-
-      // Persist moves and blunders
-      await persistGameAnalysis(
-        game.id,
-        username,
-        game.white_username,
-        game.black_username,
-        analysis.moves
-      );
-
-      // Compute accuracy for white and black
-      const whiteMoves = analysis.moves.filter((m) => m.color === "white");
-      const blackMoves = analysis.moves.filter((m) => m.color === "black");
-      const avg = (arr: typeof whiteMoves) =>
-        arr.length > 0 ? arr.reduce((s, m) => s + (m.accuracy ?? 0), 0) / arr.length : null;
-
-      await query(
-        `UPDATE games
-         SET analysis_status = 'complete',
-             analysis_completed_at = NOW(),
-             accuracy_white = $1,
-             accuracy_black = $2
-         WHERE id = $3`,
-        [avg(whiteMoves), avg(blackMoves), game.id]
-      );
-
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === "fulfilled") {
       analyzed++;
-    } catch (err) {
-      console.error(`[analyze-pending] Error analyzing game ${game.id}:`, err);
-      // Mark failed so it doesn't get stuck in 'analyzing'
+    } else {
+      const reason = (results[i] as PromiseRejectedResult).reason;
+      console.error(`[analyze-pending] Error analyzing game ${games[i].id}:`, reason);
+      const msg: string = reason?.message ?? "";
+      const isTransient = reason?.name === "AbortError"
+        || msg.includes("fetch failed")
+        || msg.includes("ECONNRESET")
+        || msg.includes("ETIMEDOUT")
+        || msg.includes("timeout");
+      const nextStatus = isTransient ? "pending" : "failed";
       await query(
-        "UPDATE games SET analysis_status = 'failed' WHERE id = $1",
-        [game.id]
+        "UPDATE games SET analysis_status = $1 WHERE id = $2",
+        [nextStatus, games[i].id]
       ).catch(() => {});
     }
   }

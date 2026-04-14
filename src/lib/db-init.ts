@@ -36,7 +36,7 @@ async function _init(): Promise<void> {
   `, []);
 
   // Schema migrations — idempotent column additions
-  const alter = (sql: string) => query(sql, []).catch(() => {});
+  const alter = (sql: string) => query(sql, []).catch((err: Error) => console.warn("[db-init] alter:", err.message));
   await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS analysis_cache JSONB`);
   await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS white_elo INTEGER`);
   await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS black_elo INTEGER`);
@@ -46,8 +46,14 @@ async function _init(): Promise<void> {
   await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS played_at TIMESTAMPTZ`);
   await alter(`ALTER TABLE games ADD COLUMN IF NOT EXISTS result TEXT`);
 
+  // TTL cleanup — delete stale position cache entries older than 30 days (runs on startup, fast)
+  await query(
+    `DELETE FROM position_good_moves WHERE cached_at < NOW() - INTERVAL '30 days'`,
+    []
+  ).catch(() => {});
+
   // Indexes — all wrapped in catch so a missing table never blocks startup
-  const idx = (sql: string) => query(sql, []).catch(() => {});
+  const idx = (sql: string) => query(sql, []).catch((err: Error) => console.warn("[db-init] index:", err.message));
 
   await idx(`CREATE INDEX IF NOT EXISTS idx_puzzle_attempts_user_puzzle ON puzzle_attempts(username, puzzle_id)`);
   await idx(`CREATE INDEX IF NOT EXISTS idx_games_white_username ON games(white_username)`);
@@ -55,4 +61,8 @@ async function _init(): Promise<void> {
   await idx(`CREATE INDEX IF NOT EXISTS idx_games_user_status ON games(user_id, analysis_status)`);
   await idx(`CREATE INDEX IF NOT EXISTS idx_analyzed_moves_game_move ON analyzed_moves(game_id, move_number)`);
   await idx(`CREATE INDEX IF NOT EXISTS idx_blunders_game_id ON blunders(game_id)`);
+  // Additional indexes for high-traffic queries
+  await idx(`CREATE INDEX IF NOT EXISTS idx_games_chess_com_id ON games(chess_com_id)`);
+  await idx(`CREATE INDEX IF NOT EXISTS idx_games_played_at ON games(played_at DESC)`);
+  await idx(`CREATE INDEX IF NOT EXISTS idx_games_analysis_status ON games(analysis_status)`);
 }

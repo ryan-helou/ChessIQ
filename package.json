@@ -13,6 +13,7 @@
     "db:migrate": "node scripts/migrate.js"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.48.0",
     "bcryptjs": "^3.0.3",
     "bull": "^4.16.5",
     "chess-react": "^0.0.2",

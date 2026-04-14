@@ -73,9 +73,10 @@ export default function GamesList({ games, username }: Props) {
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
         {pageGames.map((g, idx) => {
           const rc = resultConfig[g.result as keyof typeof resultConfig] ?? resultConfig.draw;
-          const dateStr = g.date instanceof Date
-            ? g.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            : new Date(g.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          const dateObj = g.date instanceof Date ? g.date : new Date(g.date);
+          const dateStr = isNaN(dateObj.getTime())
+            ? "—"
+            : dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
           return (
             <a

@@ -1,6 +1,6 @@
 export const maxDuration = 60;
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { detectMissedTactic } from "@/lib/tactic-detector";
 
@@ -8,7 +8,11 @@ import { detectMissedTactic } from "@/lib/tactic-detector";
  * POST /api/admin/retag-blunders
  * Re-runs tactic detection on all existing blunders that have null or "unknown" missed_tactic.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const secret = process.env.ADMIN_SECRET;
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const result = await query(
       `SELECT id, best_move,

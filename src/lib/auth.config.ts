@@ -5,6 +5,7 @@ import type { Session } from "next-auth";
 // Edge-compatible auth config — no Node.js/DB imports.
 // Used by middleware for JWT verification only.
 export const authConfig = {
+  trustHost: true,
   pages: {
     signIn: "/login",
     error:  "/login",

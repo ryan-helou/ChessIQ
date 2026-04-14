@@ -1,145 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import type { ParsedGame } from "@/lib/game-analysis";
+// Phase accuracy requires per-move accuracy data from the analysis pipeline.
+// Until that data is available this component shows a placeholder.
 
-const C = { bg: "#262522", border: "#454340", text3: "#706e6b" };
-
-interface AccuracyByPhaseProps {
-  games: ParsedGame[];
-}
-
-type GamePhase = "opening" | "middlegame" | "endgame";
-
-interface PhaseAccuracy {
-  phase: string;
-  accuracy: number;
-  games: number;
-}
-
-function getPhase(moveNumber: number, totalMoves: number): GamePhase {
-  if (moveNumber <= 12) return "opening";
-  if (moveNumber > totalMoves * 0.75 || moveNumber > 30) return "endgame";
-  return "middlegame";
-}
-
-function analyzeGamePhases(game: ParsedGame): Record<GamePhase, { moveCount: number; accuracy: number }[]> {
-  const totalMoves = game.moveCount;
-  const overallAccuracy = game.accuracy ?? 50;
-
-  const phaseAccuracies: Record<GamePhase, { moveCount: number; accuracy: number }[]> = {
-    opening: [],
-    middlegame: [],
-    endgame: [],
-  };
-
-  for (let i = 1; i <= totalMoves; i++) {
-    const phase = getPhase(i, totalMoves);
-    let phaseAccuracy = overallAccuracy;
-    if (phase === "opening") phaseAccuracy += 2;
-    if (phase === "endgame") phaseAccuracy -= 1;
-
-    phaseAccuracies[phase].push({
-      moveCount: 1,
-      accuracy: Math.max(0, Math.min(100, phaseAccuracy)),
-    });
-  }
-
-  return phaseAccuracies;
-}
-
-// Phase colors from design tokens
-const PHASE_COLORS = ["#81b64c", "#f6c700", "#5d8fbb"];
-
-export function AccuracyByPhase({ games }: AccuracyByPhaseProps) {
-  const phaseData = useMemo(() => {
-    const phaseStats: Record<GamePhase, { totalAccuracy: number; count: number; gameCount: number }> = {
-      opening:    { totalAccuracy: 0, count: 0, gameCount: 0 },
-      middlegame: { totalAccuracy: 0, count: 0, gameCount: 0 },
-      endgame:    { totalAccuracy: 0, count: 0, gameCount: 0 },
-    };
-
-    games.forEach((game) => {
-      if (game.accuracy === null) return;
-
-      const phases = analyzeGamePhases(game);
-      const gamePhases: Set<GamePhase> = new Set();
-
-      (Object.keys(phases) as GamePhase[]).forEach((phase) => {
-        const moves = phases[phase];
-        if (moves.length > 0) {
-          gamePhases.add(phase);
-          const avgAccuracy = moves.reduce((sum, m) => sum + m.accuracy, 0) / moves.length;
-          phaseStats[phase].totalAccuracy += avgAccuracy;
-          phaseStats[phase].count += 1;
-        }
-      });
-
-      gamePhases.forEach((phase) => {
-        phaseStats[phase].gameCount += 1;
-      });
-    });
-
-    const result: PhaseAccuracy[] = [
-      {
-        phase: "Opening",
-        accuracy: phaseStats.opening.count > 0 ? phaseStats.opening.totalAccuracy / phaseStats.opening.count : 0,
-        games: phaseStats.opening.gameCount,
-      },
-      {
-        phase: "Middlegame",
-        accuracy: phaseStats.middlegame.count > 0 ? phaseStats.middlegame.totalAccuracy / phaseStats.middlegame.count : 0,
-        games: phaseStats.middlegame.gameCount,
-      },
-      {
-        phase: "Endgame",
-        accuracy: phaseStats.endgame.count > 0 ? phaseStats.endgame.totalAccuracy / phaseStats.endgame.count : 0,
-        games: phaseStats.endgame.gameCount,
-      },
-    ].filter((d) => d.games > 0);
-
-    return result;
-  }, [games]);
-
-  if (phaseData.length === 0) {
-    return (
-      <div style={{ height: "300px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)", fontSize: "13px", fontFamily: "var(--font-mono)" }}>
-        No games with accuracy data
-      </div>
-    );
-  }
-
+export function AccuracyByPhase() {
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={phaseData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-        <XAxis dataKey="phase" tick={{ fill: C.text3, fontSize: 13 }} />
-        <YAxis
-          domain={[0, 100]}
-          tick={{ fill: C.text3, fontSize: 13 }}
-          label={{ value: "Accuracy %", angle: -90, position: "insideLeft", fill: C.text3, fontSize: 11 }}
-        />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: C.bg,
-            border: `1px solid ${C.border}`,
-            borderRadius: "8px",
-            padding: "8px",
-            color: "#e8e6e1",
-            fontSize: "12px",
-            fontFamily: "monospace",
-          }}
-          labelStyle={{ color: "#e8e6e1" }}
-          formatter={(value: any) => `${Number(value).toFixed(1)}%`}
-          cursor={{ fill: "rgba(212,168,75,0.06)" }}
-        />
-        <Bar dataKey="accuracy" radius={[6, 6, 0, 0]}>
-          {phaseData.map((_, index) => (
-            <Cell key={`cell-${index}`} fill={PHASE_COLORS[index % PHASE_COLORS.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={{
+      height: "300px",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "8px",
+      color: "var(--text-3)",
+      fontSize: "13px",
+      fontFamily: "var(--font-mono)",
+    }}>
+      <span style={{ fontSize: "24px" }}>♟</span>
+      <span>Accuracy by phase</span>
+      <span style={{ fontSize: "12px", opacity: 0.6 }}>Coming soon — requires per-move analysis data</span>
+    </div>
   );
 }
