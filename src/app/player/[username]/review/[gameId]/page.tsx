@@ -16,6 +16,7 @@ import {
   type MoveClassification,
   type AnalyzedMove,
 } from "@/lib/backend-api";
+import { annotateMove } from "@/lib/move-annotator";
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
@@ -459,6 +460,14 @@ function ReviewPanel({
                 </span>
               </div>
             )}
+            {isBad && (() => {
+              const annotation = annotateMove(currentMove);
+              return annotation ? (
+                <div className="text-xs text-[var(--text-3)] mt-1.5 pl-7 leading-relaxed" style={{ fontStyle: "italic" }}>
+                  {annotation}
+                </div>
+              ) : null;
+            })()}
           </>
         ) : (
           <p className="text-xs text-[var(--text-3)]">Use ← → to navigate moves</p>

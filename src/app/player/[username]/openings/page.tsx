@@ -378,6 +378,18 @@ export default function OpeningsPage() {
     return getOpeningStats(games).sort((a, b) => b.games - a.games);
   }, [allGames, colorTab]);
 
+  // Preparation depth per opening: longest common move prefix across all games with that opening
+  const openingPrepDepths = useMemo(() => {
+    const games = colorTab === "all" ? allGames : allGames.filter(g => g.playerColor === colorTab);
+    const map = new Map<string, number>();
+    for (const opening of filteredOpenings) {
+      const og = games.filter(g => g.opening === opening.name);
+      if (og.length === 0) { map.set(opening.name, 0); continue; }
+      map.set(opening.name, getCommonPrefix(og).length);
+    }
+    return map;
+  }, [allGames, colorTab, filteredOpenings]);
+
   // Win rate trend per opening (compare first half vs second half of games, chronologically)
   const openingTrends = useMemo(() => {
     const games = colorTab === "all" ? allGames : allGames.filter(g => g.playerColor === colorTab);
@@ -725,6 +737,20 @@ export default function OpeningsPage() {
                   </span>
                 )}
               </div>
+              {(() => {
+                const depth = openingPrepDepths.get(selectedOpening.name) ?? 0;
+                return depth > 0 ? (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--text-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Prep depth</span>
+                    <span
+                      style={{ fontSize: 11, fontWeight: 700, color: "#81b64c", background: "rgba(129,182,76,0.12)", border: "1px solid rgba(129,182,76,0.25)", borderRadius: 4, padding: "1px 7px", fontFamily: "var(--font-mono)" }}
+                      title={`You consistently follow this opening for ${depth} move${depth !== 1 ? "s" : ""} before diverging`}
+                    >
+                      {depth} move{depth !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             {/* Scrollable body: tree + games */}
@@ -817,6 +843,7 @@ export default function OpeningsPage() {
               ) : (
                 filteredOpenings.map(opening => {
                   const trend = openingTrends.get(opening.name);
+                  const prepDepth = openingPrepDepths.get(opening.name) ?? 0;
                   return (
                     <button
                       key={`${opening.eco}-${opening.name}`}
@@ -836,7 +863,17 @@ export default function OpeningsPage() {
                       </span>
 
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 1 }}>
-                        <span style={{ fontSize: 11, color: "var(--text-4)" }}>{opening.games}g</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: 11, color: "var(--text-4)" }}>{opening.games}g</span>
+                          {prepDepth > 0 && (
+                            <span
+                              style={{ fontSize: 10, color: "var(--text-4)", fontFamily: "var(--font-mono)" }}
+                              title={`Preparation depth: ${prepDepth} moves`}
+                            >
+                              ·{prepDepth}m
+                            </span>
+                          )}
+                        </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
                           {trend && (
                             <span style={{ fontSize: 10, color: trend === "up" ? "#81b64c" : "#ca3431", lineHeight: 1 }} title={trend === "up" ? "Win rate trending up" : "Win rate trending down"}>
