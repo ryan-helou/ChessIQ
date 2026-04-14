@@ -47,6 +47,7 @@ export default function SectionNav({ username }: Props) {
         ? `/player/${encodeURIComponent(username)}/openings`
         : undefined,
     })),
+    ...(username ? [{ id: "losses", label: "Loss Patterns ↗", href: `/player/${encodeURIComponent(username)}/losses` }] : []),
     ...(username ? [{ id: "puzzles", label: "Puzzles ↗", href: `/player/${encodeURIComponent(username)}/puzzles` }] : []),
   ];
 

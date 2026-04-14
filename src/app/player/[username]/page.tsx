@@ -82,6 +82,7 @@ export default function PlayerPage() {
     return VALID_MONTHS.includes(m) ? m : 6;
   });
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => searchParams.get("welcome") === "1");
 
   function processResult(result: any): DashboardData {
     return {
@@ -188,6 +189,39 @@ export default function PlayerPage() {
       {data && (
         <>
           <SectionNav username={username} />
+
+          {/* First-login welcome banner */}
+          {showWelcomeBanner && (
+            <div style={{
+              background: "linear-gradient(90deg, rgba(129,182,76,0.12) 0%, rgba(38,201,195,0.08) 100%)",
+              borderBottom: "1px solid rgba(129,182,76,0.25)",
+              padding: "12px 0",
+            }}>
+              <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <span style={{ fontSize: "20px" }}>♟</span>
+                  <div>
+                    <span style={{ fontWeight: 600, color: "var(--text-1)", fontSize: "14px" }}>
+                      Welcome to ChessIQ!{" "}
+                    </span>
+                    <span style={{ color: "var(--text-3)", fontSize: "13px" }}>
+                      Your games are being synced and analysed in the background. Deep stats and loss patterns will appear as analysis completes — usually within 30 minutes.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowWelcomeBanner(false);
+                    router.replace(`/player/${username}`, { scroll: false });
+                  }}
+                  style={{ background: "none", border: "none", color: "var(--text-3)", fontSize: "18px", cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
