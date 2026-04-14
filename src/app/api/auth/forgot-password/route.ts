@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         const { Resend } = await import("resend");
         const resend = new Resend(process.env.RESEND_API_KEY);
         const { error } = await resend.emails.send({
-          from: "ChessIQ <onboarding@resend.dev>",
+          from: "ChessIQ <noreply@chessiq.io>",
           to: normalizedEmail,
           subject: "Reset your ChessIQ password",
           html: `
