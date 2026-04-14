@@ -18,6 +18,7 @@ import GamesList from "@/components/GamesList";
 import ColorStatsPanel from "@/components/ColorStats";
 import TimePressurePanel from "@/components/TimePressurePanel";
 import ConversionRateCard from "@/components/ConversionRateCard";
+import OpeningRecommendations from "@/components/OpeningRecommendations";
 import { getUserPuzzleRating } from "@/lib/puzzle-api";
 import type {
   ParsedGame,
@@ -582,7 +583,7 @@ export default function PlayerPage() {
             <div className="card" style={{ padding: "22px", marginBottom: "12px" }}>
               <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Accuracy by Game Phase</h2>
               <ErrorBoundary>
-                <AccuracyByPhase />
+                <AccuracyByPhase username={username} />
               </ErrorBoundary>
             </div>
 
@@ -611,6 +612,16 @@ export default function PlayerPage() {
                 </ErrorBoundary>
               </div>
             </div>
+
+            {/* Opening Recommendations */}
+            {data.games.length >= 5 && (
+              <div className="card" style={{ padding: "22px", marginBottom: "12px" }}>
+                <h2 style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Opening Recommendations</h2>
+                <ErrorBoundary>
+                  <OpeningRecommendations games={data.games} />
+                </ErrorBoundary>
+              </div>
+            )}
 
             {/* Openings */}
             <div id="openings" className="scroll-mt-28 card" style={{ padding: "22px", marginBottom: "12px" }}>
