@@ -985,6 +985,16 @@ export default function GameReviewPage() {
     );
   }
 
+  // Stockfish analysis in progress
+  if (analyzing && !analysis) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
+        <ReviewHeader username={username} />
+        <ChessLoader username={username} variant="review" />
+      </div>
+    );
+  }
+
   // Error
   if (error && !analysis) {
     return (
