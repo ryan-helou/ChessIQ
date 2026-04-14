@@ -1,11 +1,11 @@
 {
-  "name": "chess-coach",
+  "name": "chessiq",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node server.mjs",
     "lint": "eslint",
     "db:seed": "node scripts/seed-data.js",
     "db:seed-puzzles": "node scripts/load-puzzles.js",

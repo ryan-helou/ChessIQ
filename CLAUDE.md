@@ -1332,7 +1332,7 @@ npm run dev    # Development server with HMR
 ## File Structure Reference
 
 ```
-chess-coach/
+ChessIQ/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx           # Root layout
