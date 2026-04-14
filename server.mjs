@@ -72,13 +72,13 @@ function callCron(path) {
 function startCrons() {
   console.log("> Cron jobs starting");
 
-  // sync-games: every 5 minutes (matches original Vercel schedule */5 * * * *)
+  // sync-games: every 1 minute (archives are Redis-cached so Chess.com load stays low)
   callCron("/api/cron/sync-games"); // fire immediately on startup too
-  setInterval(() => callCron("/api/cron/sync-games"), 5 * 60 * 1000);
+  setInterval(() => callCron("/api/cron/sync-games"), 60 * 1000);
 
   // analyze-pending: every 30 seconds for faster queue drain
   callCron("/api/cron/analyze-pending");
   setInterval(() => callCron("/api/cron/analyze-pending"), 30 * 1000);
 
-  console.log("> Cron jobs scheduled (sync-games: 5min, analyze-pending: 2min)");
+  console.log("> Cron jobs scheduled (sync-games: 1min, analyze-pending: 30s)");
 }

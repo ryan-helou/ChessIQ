@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   // Get users due for sync (oldest first, cap at 20 per invocation)
   const usersResult = await query(
     `SELECT id, chess_com_username, last_synced_at FROM users
-     WHERE last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '5 minutes'
+     WHERE last_synced_at IS NULL OR last_synced_at < NOW() - INTERVAL '1 minute'
      ORDER BY last_synced_at ASC NULLS FIRST
      LIMIT 10`
   );
