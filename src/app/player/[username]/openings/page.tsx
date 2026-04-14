@@ -236,6 +236,7 @@ export default function OpeningsPage() {
                 squareStyles,
                 darkSquareStyle: { backgroundColor: "#779952" },
                 lightSquareStyle: { backgroundColor: "#edeed1" },
+                boardOrientation: selectedGame?.playerColor ?? openingGames[0]?.playerColor ?? "white",
                 allowDragging: false,
                 animationDurationInMs: 150,
               }}
