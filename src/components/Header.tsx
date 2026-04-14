@@ -1,8 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
+
+const HISTORY_KEY = "chessiq_search_history";
+const MAX_HISTORY = 5;
+
+function getHistory(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]");
+  } catch { return []; }
+}
+
+function addToHistory(username: string) {
+  try {
+    const history = getHistory().filter((u) => u !== username);
+    history.unshift(username);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+  } catch {}
+}
 
 interface Props {
   username?: string;
@@ -12,16 +29,31 @@ export default function Header({ username: usernameProp }: Props) {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState("");
   const [focused, setFocused] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
   const { data: session } = useSession();
 
   const displayUsername = usernameProp ?? session?.user?.chessComUsername;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchInput.trim()) {
-      router.push(`/player/${searchInput.trim()}`);
+    const val = searchInput.trim();
+    if (val) {
+      addToHistory(val);
+      router.push(`/player/${val}`);
       setSearchInput("");
+      setFocused(false);
     }
+  };
+
+  const handleFocus = useCallback(() => {
+    setHistory(getHistory());
+    setFocused(true);
+  }, []);
+
+  const handleHistoryClick = (username: string) => {
+    addToHistory(username);
+    router.push(`/player/${username}`);
+    setFocused(false);
   };
 
   return (
@@ -52,7 +84,7 @@ export default function Header({ username: usernameProp }: Props) {
           </a>
 
           {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-[280px]">
+          <form onSubmit={handleSearch} className="flex-1 max-w-[280px]" style={{ position: "relative" }}>
             <div className="relative">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
@@ -65,13 +97,58 @@ export default function Header({ username: usernameProp }: Props) {
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
+                onFocus={handleFocus}
+                onBlur={() => setTimeout(() => setFocused(false), 150)}
                 placeholder="Search player…"
                 className="input-base w-full pl-9 pr-4 py-2 rounded-lg text-sm"
                 style={{ fontSize: "13px" }}
               />
             </div>
+            {/* History dropdown */}
+            {focused && history.length > 0 && !searchInput && (
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                left: 0,
+                right: 0,
+                background: "var(--bg-card)",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "8px",
+                overflow: "hidden",
+                zIndex: 200,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              }}>
+                <div style={{ padding: "6px 10px 4px", fontSize: "10px", fontWeight: 700, color: "var(--text-4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Recent
+                </div>
+                {history.map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onMouseDown={() => handleHistoryClick(u)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "7px 12px",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontSize: "13px",
+                      color: "var(--text-2)",
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "none"; }}
+                  >
+                    <span style={{ fontSize: "11px", color: "var(--text-4)" }}>↩</span>
+                    {u}
+                  </button>
+                ))}
+              </div>
+            )}
           </form>
 
           {/* Active player + sign out */}

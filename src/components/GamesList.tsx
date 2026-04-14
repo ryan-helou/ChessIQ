@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { ParsedGame } from "@/lib/game-analysis";
+import { useToast } from "@/components/Toast";
 
 interface Props {
   games: ParsedGame[];
@@ -12,6 +13,7 @@ export default function GamesList({ games, username }: Props) {
   const [filter, setFilter] = useState<"all" | "win" | "loss" | "draw">("all");
   const [page, setPage] = useState(0);
   const [reanalyzeState, setReanalyzeState] = useState<Record<string, "idle" | "loading" | "queued" | "already">>({});
+  const { toast } = useToast();
 
   const handleReanalyze = useCallback(async (e: React.MouseEvent, gameId: string) => {
     e.preventDefault();
@@ -21,13 +23,19 @@ export default function GamesList({ games, username }: Props) {
     try {
       const res = await fetch(`/api/games/${encodeURIComponent(username)}/${encodeURIComponent(gameId)}/reanalyze`, { method: "POST" });
       const data = await res.json();
-      const next = data.status === "already_queued" ? "already" : "queued";
-      setReanalyzeState((s) => ({ ...s, [gameId]: next }));
+      if (data.status === "already_queued") {
+        toast("Already in the analysis queue", "info");
+        setReanalyzeState((s) => ({ ...s, [gameId]: "already" }));
+      } else {
+        toast("Game queued for analysis");
+        setReanalyzeState((s) => ({ ...s, [gameId]: "queued" }));
+      }
       setTimeout(() => setReanalyzeState((s) => ({ ...s, [gameId]: "idle" })), 2000);
     } catch {
+      toast("Failed to queue analysis", "error");
       setReanalyzeState((s) => ({ ...s, [gameId]: "idle" }));
     }
-  }, [username, reanalyzeState]);
+  }, [username, reanalyzeState, toast]);
   const perPage = 20;
 
   const filtered = filter === "all" ? games : games.filter((g) => g.result === filter);
@@ -85,6 +93,28 @@ export default function GamesList({ games, username }: Props) {
           );
         })}
       </div>
+
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <div style={{
+          textAlign: "center",
+          padding: "40px 16px",
+          color: "var(--text-3)",
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 10 }}>♟</div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-2)", marginBottom: 6 }}>
+            No {filter === "all" ? "" : filter + " "}games found
+          </div>
+          {filter !== "all" && (
+            <button
+              onClick={() => { setFilter("all"); setPage(0); }}
+              style={{ background: "none", border: "1px solid var(--border)", borderRadius: 6, padding: "5px 14px", fontSize: 12, color: "var(--text-3)", cursor: "pointer", marginTop: 4 }}
+            >
+              Show all games
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Games */}
       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>

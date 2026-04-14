@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 const TC_ICON: Record<string, string> = {
   bullet: "⚡",
   blitz:  "⏱",
@@ -20,20 +22,50 @@ interface StatCardProps {
   sub?: string;
   accent?: string;
   delay?: number;
+  tooltip?: string;
 }
 
-function StatCard({ label, value, sub, accent, delay = 0 }: StatCardProps) {
+function StatCard({ label, value, sub, accent, delay = 0, tooltip }: StatCardProps) {
+  const [hovered, setHovered] = useState(false);
   return (
     <div
       className="animate-fade-up"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         background: "var(--bg-card)",
         border: "1px solid var(--border)",
         borderRadius: "8px",
         padding: "16px 18px",
         animationDelay: `${delay}s`,
+        position: "relative",
+        cursor: tooltip ? "help" : "default",
       }}
     >
+      {tooltip && hovered && (
+        <div style={{
+          position: "absolute",
+          bottom: "calc(100% + 6px)",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#1a1917",
+          border: "1px solid var(--border-strong)",
+          borderRadius: "6px",
+          padding: "6px 10px",
+          fontSize: "11px",
+          color: "var(--text-2)",
+          whiteSpace: "nowrap",
+          zIndex: 100,
+          pointerEvents: "none",
+          lineHeight: 1.4,
+          maxWidth: "220px",
+          whiteSpaceCollapse: "preserve" as React.CSSProperties["whiteSpaceCollapse"],
+          textWrap: "wrap" as React.CSSProperties["textWrap"],
+        }}>
+          {tooltip}
+        </div>
+      )}
+
       <div
         style={{
           fontSize: "11px",
@@ -148,18 +180,21 @@ export default function StatsCards({
         value={totalGames.toLocaleString()}
         sub={periodLabel}
         delay={0}
+        tooltip="Total games played in this period."
       />
       <StatCard
         label="Win Rate"
         value={`${winRate.toFixed(1)}%`}
         accent={winAccent}
         delay={0.04}
+        tooltip="Percentage of games you won. 50%+ is positive territory."
       />
       <StatCard
         label="Avg Accuracy"
         value={avgAccuracy ? `${avgAccuracy.toFixed(1)}%` : "—"}
         accent={avgAccuracy ? "var(--gold)" : undefined}
         delay={0.08}
+        tooltip="Average move accuracy across analysed games. 90%+ is excellent, 80–90% is good, below 75% has room to grow."
       />
       <StatCard
         label="Current Streak"
@@ -167,6 +202,7 @@ export default function StatsCards({
         sub={`Best ${bestWinStreak}W · Worst ${worstLossStreak}L`}
         accent={streakAccent}
         delay={0.12}
+        tooltip="Your current win/loss/draw streak. Best and worst streaks ever are shown below."
       />
       {ratings.map((r, i) => (
         <RatingCard
@@ -184,6 +220,7 @@ export default function StatsCards({
           sub="Tactics"
           accent="#26c9c3"
           delay={0.16 + ratings.length * 0.04}
+          tooltip="Your puzzle rating based on tactical training sessions. Starts at 1200."
         />
       )}
     </div>

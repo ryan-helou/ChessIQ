@@ -58,6 +58,7 @@ export default function PuzzlesPage() {
   const [sessionSolved, setSessionSolved] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [streakCelebration, setStreakCelebration] = useState<number | null>(null);
   const [mode, setMode] = useState<PuzzleMode>("random");
   const [modeSelected, setModeSelected] = useState(false);
   const [playerRating, setPlayerRating] = useState(1200);
@@ -221,7 +222,14 @@ export default function PuzzlesPage() {
   const handleSolved = useCallback((attempts: number, timeSeconds: number) => {
     setSessionSolved((s) => s + 1);
     setSessionTotal((s) => s + 1);
-    setStreak((s) => s + 1);
+    setStreak((s) => {
+      const next = s + 1;
+      if (next > 0 && next % 5 === 0) {
+        setStreakCelebration(next);
+        setTimeout(() => setStreakCelebration(null), 2500);
+      }
+      return next;
+    });
     if (currentPuzzle) {
       const id = currentPuzzle.id.replace(/^(lichess-|blunder-)/, "");
       recordPuzzleAttempt(id, username, true, attempts, timeSeconds, currentPuzzle.rating)
@@ -382,6 +390,34 @@ export default function PuzzlesPage() {
 
   return (
     <div className="h-dvh flex flex-col bg-[var(--bg)] text-[var(--text-1)] overflow-hidden">
+      {/* Streak celebration overlay */}
+      {streakCelebration !== null && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            pointerEvents: "none",
+            animation: "fadeIn 0.2s ease both",
+          }}
+        >
+          <div style={{
+            background: "linear-gradient(135deg, rgba(129,182,76,0.95), rgba(38,201,195,0.95))",
+            borderRadius: "16px",
+            padding: "28px 48px",
+            textAlign: "center",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
+            animation: "scaleIn 0.25s ease both",
+          }}>
+            <div style={{ fontSize: "48px", marginBottom: "8px" }}>🔥</div>
+            <div style={{ fontSize: "28px", fontWeight: 900, color: "#fff", letterSpacing: "0.02em" }}>
+              {streakCelebration} in a row!
+            </div>
+            <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.85)", marginTop: "6px", fontWeight: 500 }}>
+              {streakCelebration >= 15 ? "Unstoppable!" : streakCelebration >= 10 ? "On fire!" : "Keep it up!"}
+            </div>
+          </div>
+        </div>
+      )}
       <Header username={username} />
       <div className="flex-1 min-h-0 w-full flex items-center justify-center">
         {currentPuzzle && (

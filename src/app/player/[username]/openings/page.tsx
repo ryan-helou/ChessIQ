@@ -378,6 +378,27 @@ export default function OpeningsPage() {
     return getOpeningStats(games).sort((a, b) => b.games - a.games);
   }, [allGames, colorTab]);
 
+  // Win rate trend per opening (compare first half vs second half of games, chronologically)
+  const openingTrends = useMemo(() => {
+    const games = colorTab === "all" ? allGames : allGames.filter(g => g.playerColor === colorTab);
+    const map = new Map<string, "up" | "down">();
+    for (const opening of filteredOpenings) {
+      const og = games
+        .filter(g => g.opening === opening.name)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      if (og.length < 6) continue;
+      const half = Math.floor(og.length / 2);
+      const older = og.slice(0, half);
+      const newer = og.slice(-half);
+      const olderWR = older.filter(g => g.result === "win").length / older.length;
+      const newerWR = newer.filter(g => g.result === "win").length / newer.length;
+      const delta = newerWR - olderWR;
+      if (delta >= 0.1) map.set(opening.name, "up");
+      else if (delta <= -0.1) map.set(opening.name, "down");
+    }
+    return map;
+  }, [allGames, colorTab, filteredOpenings]);
+
   // Games for the selected opening
   const openingGames = useMemo(() => {
     if (!selectedOpening) return [];
@@ -794,32 +815,42 @@ export default function OpeningsPage() {
                   No openings found
                 </div>
               ) : (
-                filteredOpenings.map(opening => (
-                  <button
-                    key={`${opening.eco}-${opening.name}`}
-                    onClick={() => setSelectedOpening(opening)}
-                    style={{ width: "100%", display: "flex", alignItems: "center", padding: "11px 16px", background: "none", border: "none", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", gap: 10, textAlign: "left" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-                  >
-                    {opening.eco ? (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", fontFamily: "var(--font-mono)", width: 28, flexShrink: 0, letterSpacing: "0.04em" }}>
-                        {opening.eco}
-                      </span>
-                    ) : <span style={{ width: 28, flexShrink: 0 }} />}
+                filteredOpenings.map(opening => {
+                  const trend = openingTrends.get(opening.name);
+                  return (
+                    <button
+                      key={`${opening.eco}-${opening.name}`}
+                      onClick={() => setSelectedOpening(opening)}
+                      style={{ width: "100%", display: "flex", alignItems: "center", padding: "11px 16px", background: "none", border: "none", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", gap: 10, textAlign: "left" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                    >
+                      {opening.eco ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", fontFamily: "var(--font-mono)", width: 28, flexShrink: 0, letterSpacing: "0.04em" }}>
+                          {opening.eco}
+                        </span>
+                      ) : <span style={{ width: 28, flexShrink: 0 }} />}
 
-                    <span style={{ flex: 1, fontSize: 13, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {opening.name}
-                    </span>
-
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 1 }}>
-                      <span style={{ fontSize: 11, color: "var(--text-4)" }}>{opening.games}g</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: winRateColor(opening.winRate) }}>
-                        {opening.winRate.toFixed(0)}%
+                      <span style={{ flex: 1, fontSize: 13, color: "var(--text-1)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {opening.name}
                       </span>
-                    </div>
-                  </button>
-                ))
+
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 1 }}>
+                        <span style={{ fontSize: 11, color: "var(--text-4)" }}>{opening.games}g</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                          {trend && (
+                            <span style={{ fontSize: 10, color: trend === "up" ? "#81b64c" : "#ca3431", lineHeight: 1 }} title={trend === "up" ? "Win rate trending up" : "Win rate trending down"}>
+                              {trend === "up" ? "↑" : "↓"}
+                            </span>
+                          )}
+                          <span style={{ fontSize: 12, fontWeight: 700, color: winRateColor(opening.winRate) }}>
+                            {opening.winRate.toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </>)}

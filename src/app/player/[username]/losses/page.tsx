@@ -280,6 +280,19 @@ export default function LossesPage() {
                         {sev.label}
                       </div>
 
+                      {/* See games link */}
+                      <Link
+                        href={`/player/${encodeURIComponent(username)}?filter=loss#games`}
+                        style={{
+                          flexShrink: 0, padding: "6px 12px", borderRadius: "8px",
+                          background: "none", border: "1px solid var(--border)",
+                          color: "var(--text-3)", fontSize: "12px", fontWeight: 600,
+                          textDecoration: "none", whiteSpace: "nowrap",
+                        }}
+                      >
+                        See games →
+                      </Link>
+
                       {/* Practice link */}
                       <Link
                         href={`/player/${encodeURIComponent(username)}/puzzles`}

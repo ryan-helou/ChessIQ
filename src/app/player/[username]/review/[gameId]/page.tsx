@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { useToast } from "@/components/Toast";
 import dynamic from "next/dynamic";
 import ChessLoader from "@/components/ChessLoader";
 import { neoPieces } from "@/lib/chess-pieces";
@@ -187,6 +188,7 @@ function GameReviewPanel({
   playerProfiles,
   onStartReview,
   onMoveClick,
+  onJumpToWorst,
 }: {
   analysis: GameAnalysisResult;
   gameInfo: {
@@ -199,6 +201,7 @@ function GameReviewPanel({
   playerProfiles: { white: PlayerProfile | null; black: PlayerProfile | null };
   onStartReview: () => void;
   onMoveClick: (moveIndex: number) => void;
+  onJumpToWorst?: () => void;
 }) {
   const whiteMoves = analysis.moves.filter((m) => m.color === "white");
   const blackMoves = analysis.moves.filter((m) => m.color === "black");
@@ -355,7 +358,7 @@ function GameReviewPanel({
       </div>
 
       {/* ── Start Review button ── */}
-      <div style={{ padding: "8px 12px 12px", flexShrink: 0 }}>
+      <div style={{ padding: "8px 12px 12px", flexShrink: 0, display: "flex", flexDirection: "column", gap: 6 }}>
         <button
           onClick={onStartReview}
           style={{
@@ -370,6 +373,21 @@ function GameReviewPanel({
         >
           Start Review
         </button>
+        {onJumpToWorst && (
+          <button
+            onClick={onJumpToWorst}
+            style={{
+              width: "100%", padding: "8px 0", borderRadius: 6,
+              background: "none", border: "1px solid rgba(202,52,49,0.4)", color: "#ca3431",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              transition: "background 0.15s, border-color 0.15s",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(202,52,49,0.08)"; e.currentTarget.style.borderColor = "#ca3431"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "none"; e.currentTarget.style.borderColor = "rgba(202,52,49,0.4)"; }}
+          >
+            ⚡ Jump to Worst Move
+          </button>
+        )}
       </div>
     </div>
   );
@@ -383,6 +401,7 @@ function ReviewPanel({
   setCurrentMoveIndex,
   gameInfo,
   onBackToSummary,
+  onJumpToWorst,
 }: {
   analysis: GameAnalysisResult;
   currentMoveIndex: number;
@@ -395,6 +414,7 @@ function ReviewPanel({
     playerColor: "white" | "black";
   };
   onBackToSummary: () => void;
+  onJumpToWorst?: () => void;
 }) {
   const displayMoves = analysis.moves;
   const currentMove = currentMoveIndex >= 0 ? displayMoves[currentMoveIndex] : null;
@@ -465,12 +485,13 @@ function ReviewPanel({
       </div>
 
       {/* Navigation buttons — very bottom like Chess.com */}
-      <div className="grid grid-cols-4 border-t border-[var(--border)]">
+      <div className={`grid border-t border-[var(--border)]`} style={{ gridTemplateColumns: onJumpToWorst ? "repeat(5, 1fr)" : "repeat(4, 1fr)" }}>
         {[
           { label: "⟨⟨", action: () => setCurrentMoveIndex(-1), title: "Start" },
           { label: "⟨",  action: () => setCurrentMoveIndex((p: number) => Math.max(-1, p - 1)), title: "Previous" },
           { label: "⟩",  action: () => setCurrentMoveIndex((p: number) => Math.min(displayMoves.length - 1, p + 1)), title: "Next" },
           { label: "⟩⟩", action: () => setCurrentMoveIndex(displayMoves.length - 1), title: "End" },
+          ...(onJumpToWorst ? [{ label: "⚡", action: onJumpToWorst, title: "Jump to worst move (J)" }] : []),
         ].map(({ label, action, title }) => (
           <button
             key={title}
@@ -656,8 +677,44 @@ function getAccuracyColor(accuracy: number): string {
 
 // ─── Slim review header (no search bar) ───
 
-function ReviewHeader({ username }: { username: string }) {
+function ReviewHeader({
+  username,
+  prevId,
+  nextId,
+  pgn,
+  onShowShortcuts,
+}: {
+  username: string;
+  prevId?: string | null;
+  nextId?: string | null;
+  pgn?: string;
+  onShowShortcuts?: () => void;
+}) {
   const { data: session } = useSession();
+  const { toast } = useToast();
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => toast("Link copied!"));
+  };
+
+  const copyPgn = () => {
+    if (!pgn) return;
+    navigator.clipboard.writeText(pgn).then(() => toast("PGN copied!"));
+  };
+
+  const iconBtn: React.CSSProperties = {
+    background: "none",
+    border: "1px solid var(--border)",
+    borderRadius: 6,
+    padding: "3px 8px",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--text-3)",
+    cursor: "pointer",
+    transition: "color 0.15s, border-color 0.15s",
+    lineHeight: 1.4,
+  };
+
   return (
     <header
       style={{
@@ -668,35 +725,157 @@ function ReviewHeader({ username }: { username: string }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "0 16px",
+        padding: "0 12px",
         flexShrink: 0,
+        gap: 8,
       }}
     >
-      <a href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-        <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="6" fill="var(--green)" opacity="0.9"/>
-          <path d="M11 25V23.5C11 23.5 9 22 9 19C9 16 11 14 11 14L10 12H12L13 10H15L15.5 11.5C17 11 18 11 19 12C20 13 20 14 20 14L18 15L19 17C19 17 20 19 19 21C18 23 17 23.5 17 23.5V25H11Z" fill="white" opacity="0.95"/>
-          <rect x="10" y="26" width="12" height="2" rx="1" fill="white" opacity="0.7"/>
-        </svg>
-        <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>
-          Chess<span style={{ color: "var(--green)" }}>IQ</span>
-        </span>
-      </a>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {/* Left: logo + back link + prev/next */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <a href={`/player/${username}`} style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="6" fill="var(--green)" opacity="0.9"/>
+            <path d="M11 25V23.5C11 23.5 9 22 9 19C9 16 11 14 11 14L10 12H12L13 10H15L15.5 11.5C17 11 18 11 19 12C20 13 20 14 20 14L18 15L19 17C19 17 20 19 19 21C18 23 17 23.5 17 23.5V25H11Z" fill="white" opacity="0.95"/>
+            <rect x="10" y="26" width="12" height="2" rx="1" fill="white" opacity="0.7"/>
+          </svg>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-1)" }}>
+            Chess<span style={{ color: "var(--green)" }}>IQ</span>
+          </span>
+        </a>
+
+        {/* Prev / Next game */}
+        {(prevId || nextId) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 2, marginLeft: 4 }}>
+            <a
+              href={prevId ? `/player/${username}/review/${prevId}` : undefined}
+              title="Previous game"
+              style={{
+                ...iconBtn,
+                opacity: prevId ? 1 : 0.3,
+                pointerEvents: prevId ? "auto" : "none",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "3px 7px",
+              }}
+            >
+              ←
+            </a>
+            <a
+              href={nextId ? `/player/${username}/review/${nextId}` : undefined}
+              title="Next game"
+              style={{
+                ...iconBtn,
+                opacity: nextId ? 1 : 0.3,
+                pointerEvents: nextId ? "auto" : "none",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "3px 7px",
+              }}
+            >
+              →
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* Right: action buttons + user */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {pgn && (
+          <button onClick={copyPgn} style={iconBtn} title="Copy PGN">
+            PGN
+          </button>
+        )}
+        <button onClick={copyLink} style={iconBtn} title="Copy link to this game">
+          Share
+        </button>
+        {onShowShortcuts && (
+          <button onClick={onShowShortcuts} style={iconBtn} title="Keyboard shortcuts (?)">
+            ?
+          </button>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 2 }}>
           <div style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 6px var(--green)" }} />
           <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", letterSpacing: "0.02em" }}>{username}</span>
         </div>
         {session && (
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            style={{ background: "none", border: "1px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: 600, color: "var(--text-3)", cursor: "pointer" }}
+            style={iconBtn}
           >
             Sign out
           </button>
         )}
       </div>
     </header>
+  );
+}
+
+// ─── Keyboard Shortcuts Modal ───
+
+function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  const shortcuts = [
+    { key: "←  →", desc: "Navigate moves" },
+    { key: "Home / End", desc: "Jump to start / end" },
+    { key: "J", desc: "Jump to worst move" },
+    { key: "F", desc: "Flip board (coming soon)" },
+    { key: "?", desc: "Toggle this help panel" },
+    { key: "Esc", desc: "Close this panel" },
+  ];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-strong)",
+          borderRadius: 12,
+          padding: "20px 24px",
+          minWidth: 280,
+          maxWidth: 360,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--text-1)", margin: 0 }}>
+            Keyboard Shortcuts
+          </h3>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", color: "var(--text-3)", fontSize: 18, cursor: "pointer", lineHeight: 1, padding: 0 }}
+          >
+            ×
+          </button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {shortcuts.map(({ key, desc }) => (
+            <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <kbd style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-strong)",
+                borderRadius: 5,
+                padding: "2px 8px",
+                fontSize: 11,
+                fontFamily: "var(--font-mono)",
+                color: "var(--text-2)",
+                whiteSpace: "nowrap",
+              }}>
+                {key}
+              </kbd>
+              <span style={{ fontSize: 12, color: "var(--text-3)", textAlign: "right" }}>{desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -752,6 +931,8 @@ export default function GameReviewPage() {
       setNextId(idx < ids.length - 1 ? ids[idx + 1] : null);
     } catch {}
   }, [username, gameId]);
+
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const [analysis, setAnalysis] = useState<GameAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -873,6 +1054,15 @@ export default function GameReviewPage() {
   useEffect(() => {
     const moves = analysis?.moves;
     const handleKeyDown = (e: KeyboardEvent) => {
+      // ? toggles shortcuts panel regardless of review state
+      if (e.key === "?") {
+        setShowShortcuts((s) => !s);
+        return;
+      }
+      if (e.key === "Escape") {
+        setShowShortcuts(false);
+        return;
+      }
       if (!moves?.length || !reviewStarted) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
@@ -886,6 +1076,14 @@ export default function GameReviewPage() {
       } else if (e.key === "End") {
         e.preventDefault();
         setCurrentMoveIndex(moves.length - 1);
+      } else if (e.key === "j" || e.key === "J") {
+        // Jump to worst move (highest evalDrop blunder/mistake)
+        const worstIdx = moves.reduce((best, m, i) => {
+          if (!["blunder", "mistake"].includes(m.classification)) return best;
+          if (best === -1) return i;
+          return (m.evalDrop ?? 0) > (moves[best].evalDrop ?? 0) ? i : best;
+        }, -1);
+        if (worstIdx !== -1) setCurrentMoveIndex(worstIdx);
       }
     };
 
@@ -983,11 +1181,28 @@ export default function GameReviewPage() {
     );
   }, [moveToSquare, moveClassification]);
 
+  // Jump-to-worst helper (computed from analysis)
+  const worstMoveIndex = useMemo(() => {
+    if (!analysis?.moves) return -1;
+    return analysis.moves.reduce((best, m, i) => {
+      if (!["blunder", "mistake"].includes(m.classification)) return best;
+      if (best === -1) return i;
+      return (m.evalDrop ?? 0) > (analysis.moves[best].evalDrop ?? 0) ? i : best;
+    }, -1);
+  }, [analysis]);
+
+  const jumpToWorst = useCallback(() => {
+    if (worstMoveIndex !== -1) {
+      setReviewStarted(true);
+      setCurrentMoveIndex(worstMoveIndex);
+    }
+  }, [worstMoveIndex]);
+
   // Loading game data
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
-        <ReviewHeader username={username} />
+        <ReviewHeader username={username} prevId={prevId} nextId={nextId} />
         <ChessLoader username={username} variant="review" />
       </div>
     );
@@ -997,7 +1212,7 @@ export default function GameReviewPage() {
   if (analyzing && !analysis) {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
-        <ReviewHeader username={username} />
+        <ReviewHeader username={username} prevId={prevId} nextId={nextId} />
         <ChessLoader username={username} variant="review" />
       </div>
     );
@@ -1007,7 +1222,7 @@ export default function GameReviewPage() {
   if (error && !analysis) {
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-1)]">
-        <ReviewHeader username={username} />
+        <ReviewHeader username={username} prevId={prevId} nextId={nextId} />
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8">
             <div className="text-4xl mb-4">♟</div>
@@ -1040,6 +1255,7 @@ export default function GameReviewPage() {
           playerProfiles={playerProfiles}
           onStartReview={() => { setReviewStarted(true); setCurrentMoveIndex(0); }}
           onMoveClick={(moveIndex) => { setReviewStarted(true); setCurrentMoveIndex(moveIndex); }}
+          onJumpToWorst={worstMoveIndex !== -1 ? jumpToWorst : undefined}
         />
       )}
       {analysis && gameInfo && reviewStarted && (
@@ -1049,6 +1265,7 @@ export default function GameReviewPage() {
           setCurrentMoveIndex={setCurrentMoveIndex}
           gameInfo={gameInfo}
           onBackToSummary={() => { setReviewStarted(false); setCurrentMoveIndex(-1); }}
+          onJumpToWorst={worstMoveIndex !== -1 ? jumpToWorst : undefined}
         />
       )}
     </>
@@ -1075,7 +1292,8 @@ export default function GameReviewPage() {
     const mobileBoardSize = "100vw";
     return (
       <div style={{ height: "100dvh", background: "var(--bg)", color: "var(--text-1)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <ReviewHeader username={username} />
+        {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+        <ReviewHeader username={username} prevId={prevId} nextId={nextId} pgn={gameInfo?.pgn} onShowShortcuts={() => setShowShortcuts(true)} />
 
         {/* Opponent bar */}
         {gameInfo && (
@@ -1121,7 +1339,8 @@ export default function GameReviewPage() {
 
   return (
     <div className="h-screen bg-[var(--bg)] text-[var(--text-1)] flex flex-col overflow-hidden">
-      <ReviewHeader username={username} />
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+      <ReviewHeader username={username} prevId={prevId} nextId={nextId} pgn={gameInfo?.pgn} onShowShortcuts={() => setShowShortcuts(true)} />
 
       {/* Board + panel centered together as one unit */}
       <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>

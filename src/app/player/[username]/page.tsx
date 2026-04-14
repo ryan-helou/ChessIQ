@@ -195,6 +195,21 @@ export default function PlayerPage() {
     }).catch(() => {});
   }, [username]);
 
+  // "You're improving!" — compare last 10 vs previous 10 accuracy
+  const improvingTrend = useMemo(() => {
+    const accs = (data?.games ?? [])
+      .map((g) => g.accuracy)
+      .filter((a): a is number => a !== null);
+    if (accs.length < 20) return null;
+    const recent = accs.slice(-10);
+    const prev = accs.slice(-20, -10);
+    const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+    const prevAvg = prev.reduce((a, b) => a + b, 0) / prev.length;
+    const delta = recentAvg - prevAvg;
+    if (delta < 1) return null; // Only show if meaningfully better
+    return { delta: parseFloat(delta.toFixed(1)), recentAvg: parseFloat(recentAvg.toFixed(1)) };
+  }, [data]);
+
   // Memoized derived stats — only recompute when data changes
   const { totalGames, wins, losses, draws, winRate, avgAccuracy, ratings } = useMemo(() => {
     const games = data?.games ?? [];
@@ -306,6 +321,25 @@ export default function PlayerPage() {
                 >
                   ×
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* "You're improving!" accuracy trend banner */}
+          {improvingTrend && (
+            <div style={{
+              background: "linear-gradient(90deg, rgba(129,182,76,0.10) 0%, rgba(38,201,195,0.07) 100%)",
+              borderBottom: "1px solid rgba(129,182,76,0.20)",
+              padding: "10px 0",
+            }}>
+              <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "18px" }}>📈</span>
+                <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--win)" }}>
+                  You&apos;re improving!
+                </span>
+                <span style={{ fontSize: "13px", color: "var(--text-3)" }}>
+                  Your accuracy is up <strong style={{ color: "var(--text-2)" }}>+{improvingTrend.delta}%</strong> in your last 10 games (now averaging <strong style={{ color: "var(--text-2)" }}>{improvingTrend.recentAvg}%</strong>).
+                </span>
               </div>
             </div>
           )}
@@ -428,6 +462,33 @@ export default function PlayerPage() {
                 </div>
               </div>
             </div>
+
+            {/* Empty state: no games in this period */}
+            {totalGames === 0 && !loading && (
+              <div style={{
+                background: "var(--bg-card)", border: "1px solid var(--border)",
+                borderRadius: "12px", padding: "32px 24px", textAlign: "center",
+                marginBottom: "24px", maxWidth: "480px",
+              }}>
+                <div style={{ fontSize: "36px", marginBottom: "12px" }}>♟</div>
+                <h3 style={{ fontSize: "16px", fontWeight: 600, color: "var(--text-1)", marginBottom: "8px" }}>
+                  No games in this period
+                </h3>
+                <p style={{ fontSize: "13px", color: "var(--text-3)", lineHeight: 1.6, marginBottom: "16px" }}>
+                  {months > 0
+                    ? `No games found in the last ${months} month${months !== 1 ? "s" : ""}. Try extending the date range.`
+                    : "No games found for this player."}
+                </p>
+                {months > 0 && months < 12 && (
+                  <button
+                    onClick={() => handleMonthsChange(12)}
+                    style={{ background: "var(--green)", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Show last 12 months
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Stats Cards */}
             <div style={{ marginBottom: "36px" }}>
