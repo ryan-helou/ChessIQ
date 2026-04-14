@@ -731,6 +731,14 @@ export default function GameReviewPage() {
   // Prev/next game navigation from sessionStorage game list
   const [prevId, setPrevId] = useState<string | null>(null);
   const [nextId, setNextId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     try {
@@ -1017,18 +1025,103 @@ export default function GameReviewPage() {
     );
   }
 
-  // Board size: header(44) + player bars(96) + padding(12) + buffer(16) = 168px
-  // Width constrained by panel(340) + evalbar(20) + gaps + padding
-  const boardSizeCSS = "min(calc(100vh - 168px), calc(100vw - 384px))";
   const topColor = gameInfo?.playerColor === "white" ? "black" : "white";
   const bottomColor = (gameInfo?.playerColor ?? "white");
   const whiteTime = getPlayerTime(moveTimes, currentMoveIndex, "white", timeControl?.initial ?? null);
   const blackTime = getPlayerTime(moveTimes, currentMoveIndex, "black", timeControl?.initial ?? null);
 
+  const panelContent = (
+    <>
+      {analyzing && !analysis && <AnalysisProgress />}
+      {analysis && gameInfo && !reviewStarted && (
+        <GameReviewPanel
+          analysis={analysis}
+          gameInfo={gameInfo}
+          playerProfiles={playerProfiles}
+          onStartReview={() => { setReviewStarted(true); setCurrentMoveIndex(0); }}
+          onMoveClick={(moveIndex) => { setReviewStarted(true); setCurrentMoveIndex(moveIndex); }}
+        />
+      )}
+      {analysis && gameInfo && reviewStarted && (
+        <ReviewPanel
+          analysis={analysis}
+          currentMoveIndex={currentMoveIndex}
+          setCurrentMoveIndex={setCurrentMoveIndex}
+          gameInfo={gameInfo}
+          onBackToSummary={() => { setReviewStarted(false); setCurrentMoveIndex(-1); }}
+        />
+      )}
+    </>
+  );
+
+  const boardNode = (
+    <Chessboard
+      options={{
+        position: getCurrentFen(),
+        pieces: neoPieces,
+        squareStyles: customSquareStyles,
+        darkSquareStyle: { backgroundColor: "#779952" },
+        lightSquareStyle: { backgroundColor: "#edeed1" },
+        boardOrientation: gameInfo?.playerColor ?? "white",
+        allowDragging: false,
+        animationDurationInMs: 200,
+        squareRenderer,
+      }}
+    />
+  );
+
+  // ── Mobile layout ──────────────────────────────────────────────────────────
+  if (isMobile) {
+    const mobileBoardSize = "100vw";
+    return (
+      <div style={{ height: "100dvh", background: "var(--bg)", color: "var(--text-1)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <ReviewHeader username={username} />
+
+        {/* Opponent bar */}
+        {gameInfo && (
+          <PlayerBar
+            username={topColor === "white" ? gameInfo.white : gameInfo.black}
+            rating={topColor === "white" ? gameInfo.whiteElo : gameInfo.blackElo}
+            profile={topColor === "white" ? playerProfiles.white : playerProfiles.black}
+            time={topColor === "white" ? whiteTime : blackTime}
+            result={gameInfo.result}
+            playerColor={topColor}
+          />
+        )}
+
+        {/* Full-width board */}
+        <div style={{ width: mobileBoardSize, height: mobileBoardSize, flexShrink: 0 }}>
+          {boardNode}
+        </div>
+
+        {/* User bar */}
+        {gameInfo && (
+          <PlayerBar
+            username={bottomColor === "white" ? gameInfo.white : gameInfo.black}
+            rating={bottomColor === "white" ? gameInfo.whiteElo : gameInfo.blackElo}
+            profile={bottomColor === "white" ? playerProfiles.white : playerProfiles.black}
+            time={bottomColor === "white" ? whiteTime : blackTime}
+            result={gameInfo.result}
+            playerColor={bottomColor}
+          />
+        )}
+
+        {/* Panel below board — scrollable */}
+        <div style={{ flex: 1, borderTop: "1px solid var(--border)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          {panelContent}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Desktop layout ─────────────────────────────────────────────────────────
+  // Board size: header(44) + player bars(96) + padding(12) + buffer(16) = 168px
+  // Width constrained by panel(340) + evalbar(20) + gaps + padding
+  const boardSizeCSS = "min(calc(100vh - 168px), calc(100vw - 384px))";
+
   return (
     <div className="h-screen bg-[var(--bg)] text-[var(--text-1)] flex flex-col overflow-hidden">
       <ReviewHeader username={username} />
-
 
       {/* Board + panel centered together as one unit */}
       <div className="flex-1 flex items-center justify-center overflow-hidden" style={{ padding: "4px" }}>
@@ -1040,7 +1133,6 @@ export default function GameReviewPage() {
           </div>
           {/* Board column: top player bar + board + bottom player bar */}
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {/* Top player (opponent from user's perspective) */}
             {gameInfo && (
               <PlayerBar
                 username={topColor === "white" ? gameInfo.white : gameInfo.black}
@@ -1051,23 +1143,9 @@ export default function GameReviewPage() {
                 playerColor={topColor}
               />
             )}
-            {/* Board */}
             <div style={{ width: boardSizeCSS, height: boardSizeCSS }}>
-              <Chessboard
-                options={{
-                  position: getCurrentFen(),
-                  pieces: neoPieces,
-                  squareStyles: customSquareStyles,
-                  darkSquareStyle: { backgroundColor: "#779952" },
-                  lightSquareStyle: { backgroundColor: "#edeed1" },
-                  boardOrientation: gameInfo?.playerColor ?? "white",
-                  allowDragging: false,
-                  animationDurationInMs: 200,
-                  squareRenderer,
-                }}
-              />
+              {boardNode}
             </div>
-            {/* Bottom player (user) */}
             {gameInfo && (
               <PlayerBar
                 username={bottomColor === "white" ? gameInfo.white : gameInfo.black}
@@ -1082,36 +1160,7 @@ export default function GameReviewPage() {
         </div>
         {/* Panel — adjacent to the board, fixed width */}
         <div className="w-[340px] shrink-0 self-stretch border-l border-[var(--border)] flex flex-col overflow-hidden">
-          {analyzing && !analysis && <AnalysisProgress />}
-
-          {analysis && gameInfo && !reviewStarted && (
-            <GameReviewPanel
-              analysis={analysis}
-              gameInfo={gameInfo}
-              playerProfiles={playerProfiles}
-              onStartReview={() => {
-                setReviewStarted(true);
-                setCurrentMoveIndex(0);
-              }}
-              onMoveClick={(moveIndex) => {
-                setReviewStarted(true);
-                setCurrentMoveIndex(moveIndex);
-              }}
-            />
-          )}
-
-          {analysis && gameInfo && reviewStarted && (
-            <ReviewPanel
-              analysis={analysis}
-              currentMoveIndex={currentMoveIndex}
-              setCurrentMoveIndex={setCurrentMoveIndex}
-              gameInfo={gameInfo}
-              onBackToSummary={() => {
-                setReviewStarted(false);
-                setCurrentMoveIndex(-1);
-              }}
-            />
-          )}
+          {panelContent}
         </div>
       </div>
     </div>

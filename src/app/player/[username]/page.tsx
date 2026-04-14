@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import ChessLoader from "@/components/ChessLoader";
@@ -15,6 +15,7 @@ import { AccuracyOverTime, AccuracyVsRating } from "@/components/AccuracyChart";
 import { AccuracyByPhase } from "@/components/AccuracyPhaseChart";
 import OpeningTable from "@/components/OpeningTable";
 import GamesList from "@/components/GamesList";
+import { getUserPuzzleRating } from "@/lib/puzzle-api";
 import type {
   ParsedGame,
   OpeningStats,
@@ -83,6 +84,10 @@ export default function PlayerPage() {
   });
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => searchParams.get("welcome") === "1");
+  const [analysisStatus, setAnalysisStatus] = useState<{ pending: number; analyzing: number; complete: number; failed: number; total: number } | null>(null);
+  const [showProgressBanner, setShowProgressBanner] = useState(true);
+  const [puzzleRating, setPuzzleRating] = useState<number | null>(null);
+  const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   function processResult(result: any): DashboardData {
     return {
@@ -150,6 +155,46 @@ export default function PlayerPage() {
     router.replace(`?months=${m}`, { scroll: false });
   };
 
+  // Fetch analysis progress + poll while games are pending
+  useEffect(() => {
+    async function fetchStatus() {
+      try {
+        const res = await fetch(`/api/games/${encodeURIComponent(username)}/analysis-status`);
+        if (!res.ok) return;
+        const status = await res.json();
+        setAnalysisStatus(status);
+        // Auto-dismiss when all done
+        if (status.total > 0 && status.pending === 0 && status.analyzing === 0) {
+          setShowProgressBanner(false);
+        }
+      } catch {}
+    }
+
+    fetchStatus();
+
+    // Poll every 30s while there are pending/analyzing games
+    progressPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/games/${encodeURIComponent(username)}/analysis-status`);
+        if (!res.ok) return;
+        const status = await res.json();
+        setAnalysisStatus(status);
+        if (status.total > 0 && status.pending === 0 && status.analyzing === 0) {
+          clearInterval(progressPollRef.current!);
+        }
+      } catch {}
+    }, 30_000);
+
+    return () => { if (progressPollRef.current) clearInterval(progressPollRef.current); };
+  }, [username]);
+
+  // Fetch puzzle rating once
+  useEffect(() => {
+    getUserPuzzleRating(username).then((r) => {
+      if (r > 1200) setPuzzleRating(r); // 1200 = default (never played puzzles)
+    }).catch(() => {});
+  }, [username]);
+
   // Memoized derived stats — only recompute when data changes
   const { totalGames, wins, losses, draws, winRate, avgAccuracy, ratings } = useMemo(() => {
     const games = data?.games ?? [];
@@ -189,6 +234,48 @@ export default function PlayerPage() {
       {data && (
         <>
           <SectionNav username={username} />
+
+          {/* Analysis progress banner */}
+          {showProgressBanner && analysisStatus && analysisStatus.total > 0 && (analysisStatus.pending + analysisStatus.analyzing) > 0 && (
+            <div style={{
+              background: "linear-gradient(90deg, rgba(93,143,187,0.10) 0%, rgba(93,143,187,0.06) 100%)",
+              borderBottom: "1px solid rgba(93,143,187,0.2)",
+              padding: "10px 0",
+            }}>
+              <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: "18px", flexShrink: 0 }}>⚙</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-1)" }}>
+                        Analysing your games
+                      </span>
+                      <span style={{ fontSize: "12px", color: "var(--text-3)" }}>
+                        {analysisStatus.complete} of {analysisStatus.total} complete
+                      </span>
+                    </div>
+                    {/* Progress bar */}
+                    <div style={{ height: "4px", background: "var(--border)", borderRadius: "2px", overflow: "hidden", maxWidth: "320px" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${Math.round((analysisStatus.complete / analysisStatus.total) * 100)}%`,
+                        background: "#5d8fbb",
+                        borderRadius: "2px",
+                        transition: "width 0.6s ease",
+                      }} />
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowProgressBanner(false)}
+                  style={{ background: "none", border: "none", color: "var(--text-3)", fontSize: "18px", cursor: "pointer", padding: "0 4px", lineHeight: 1, flexShrink: 0 }}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* First-login welcome banner */}
           {showWelcomeBanner && (
@@ -353,6 +440,7 @@ export default function PlayerPage() {
                 worstLossStreak={data.streaks.worstLossStreak}
                 ratings={ratings}
                 periodLabel={rangeLabel}
+                puzzleRating={puzzleRating ?? undefined}
               />
             </div>
 

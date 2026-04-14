@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { ParsedGame } from "@/lib/game-analysis";
 
 interface Props {
@@ -11,6 +11,23 @@ interface Props {
 export default function GamesList({ games, username }: Props) {
   const [filter, setFilter] = useState<"all" | "win" | "loss" | "draw">("all");
   const [page, setPage] = useState(0);
+  const [reanalyzeState, setReanalyzeState] = useState<Record<string, "idle" | "loading" | "queued" | "already">>({});
+
+  const handleReanalyze = useCallback(async (e: React.MouseEvent, gameId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!username || reanalyzeState[gameId] === "loading") return;
+    setReanalyzeState((s) => ({ ...s, [gameId]: "loading" }));
+    try {
+      const res = await fetch(`/api/games/${encodeURIComponent(username)}/${encodeURIComponent(gameId)}/reanalyze`, { method: "POST" });
+      const data = await res.json();
+      const next = data.status === "already_queued" ? "already" : "queued";
+      setReanalyzeState((s) => ({ ...s, [gameId]: next }));
+      setTimeout(() => setReanalyzeState((s) => ({ ...s, [gameId]: "idle" })), 2000);
+    } catch {
+      setReanalyzeState((s) => ({ ...s, [gameId]: "idle" }));
+    }
+  }, [username, reanalyzeState]);
   const perPage = 20;
 
   const filtered = filter === "all" ? games : games.filter((g) => g.result === filter);
@@ -187,6 +204,30 @@ export default function GamesList({ games, username }: Props) {
                 <div style={{ fontSize: "11px", color: "var(--text-3)" }}>{dateStr}</div>
               </div>
 
+              {username && (
+                <button
+                  onClick={(e) => handleReanalyze(e, g.id)}
+                  title="Re-analyze with Stockfish"
+                  style={{
+                    flexShrink: 0,
+                    background: "none",
+                    border: "none",
+                    padding: "2px 4px",
+                    cursor: reanalyzeState[g.id] === "loading" ? "wait" : "pointer",
+                    fontSize: "13px",
+                    color: reanalyzeState[g.id] === "queued" ? "var(--win)"
+                         : reanalyzeState[g.id] === "already" ? "var(--text-3)"
+                         : "var(--text-3)",
+                    lineHeight: 1,
+                    transition: "color 0.2s",
+                  }}
+                >
+                  {reanalyzeState[g.id] === "loading" ? "…"
+                   : reanalyzeState[g.id] === "queued" ? "✓"
+                   : reanalyzeState[g.id] === "already" ? "✓"
+                   : "↻"}
+                </button>
+              )}
               <div style={{ color: "var(--text-3)", fontSize: "12px", flexShrink: 0 }}>↗</div>
             </a>
           );

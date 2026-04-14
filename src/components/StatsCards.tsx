@@ -115,6 +115,7 @@ interface Props {
   worstLossStreak: number;
   ratings: { timeClass: string; current: number; best: number }[];
   periodLabel?: string;
+  puzzleRating?: number;
 }
 
 export default function StatsCards({
@@ -126,6 +127,7 @@ export default function StatsCards({
   worstLossStreak,
   ratings,
   periodLabel = "Last 6 months",
+  puzzleRating,
 }: Props) {
   const streakAccent =
     currentStreak.type === "win" ? "var(--win)" :
@@ -175,6 +177,15 @@ export default function StatsCards({
           delay={0.16 + i * 0.04}
         />
       ))}
+      {puzzleRating != null && (
+        <StatCard
+          label="Puzzle Rating"
+          value={puzzleRating.toLocaleString()}
+          sub="Tactics"
+          accent="#26c9c3"
+          delay={0.16 + ratings.length * 0.04}
+        />
+      )}
     </div>
   );
 }
