@@ -40,7 +40,13 @@ export default function SectionNav({ username }: Props) {
   };
 
   const items = [
-    ...SECTIONS.map((s) => ({ id: s.id, label: s.label, href: undefined })),
+    ...SECTIONS.map((s) => ({
+      id: s.id,
+      label: s.label,
+      href: s.id === "openings" && username
+        ? `/player/${encodeURIComponent(username)}/openings`
+        : undefined,
+    })),
     ...(username ? [{ id: "puzzles", label: "Puzzles ↗", href: `/player/${encodeURIComponent(username)}/puzzles` }] : []),
   ];
 
