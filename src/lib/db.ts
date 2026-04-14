@@ -12,7 +12,8 @@ export function getPool(): Pool {
     pool = new Pool({
       connectionString: databaseUrl,
       ssl: { rejectUnauthorized: false }, // Required for Railway
-      max: 30,                            // Enough headroom for 100+ concurrent users
+      // Default 25. Set DB_MAX_CONNECTIONS=10 in Railway once PgBouncer is in front.
+      max: parseInt(process.env.DB_MAX_CONNECTIONS ?? "25", 10),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 10_000,
     });
