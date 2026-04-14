@@ -15,6 +15,9 @@ import { AccuracyOverTime, AccuracyVsRating } from "@/components/AccuracyChart";
 import { AccuracyByPhase } from "@/components/AccuracyPhaseChart";
 import OpeningTable from "@/components/OpeningTable";
 import GamesList from "@/components/GamesList";
+import ColorStatsPanel from "@/components/ColorStats";
+import TimePressurePanel from "@/components/TimePressurePanel";
+import ConversionRateCard from "@/components/ConversionRateCard";
 import { getUserPuzzleRating } from "@/lib/puzzle-api";
 import type {
   ParsedGame,
@@ -22,6 +25,7 @@ import type {
   RatingDataPoint,
   ResultBreakdown,
   TimeControlStats,
+  ColorStats,
 } from "@/lib/game-analysis";
 import type { ChessComProfile, ChessComStats } from "@/lib/chess-com-api";
 
@@ -33,6 +37,7 @@ interface DashboardData {
   ratingHistory: RatingDataPoint[];
   resultBreakdown: ResultBreakdown[];
   timeControlStats: TimeControlStats[];
+  colorStats: ColorStats[];
   streaks: {
     currentStreak: { type: "win" | "loss" | "draw"; count: number };
     bestWinStreak: number;
@@ -579,6 +584,32 @@ export default function PlayerPage() {
               <ErrorBoundary>
                 <AccuracyByPhase />
               </ErrorBoundary>
+            </div>
+
+            {/* White vs Black */}
+            {data.colorStats?.length > 0 && (
+              <div className="card" style={{ padding: "22px", marginBottom: "12px" }}>
+                <h2 style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>White vs Black</h2>
+                <ErrorBoundary>
+                  <ColorStatsPanel colorStats={data.colorStats} />
+                </ErrorBoundary>
+              </div>
+            )}
+
+            {/* Time Pressure + Conversion Rate */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "12px", marginBottom: "12px" }}>
+              <div className="card" style={{ padding: "22px" }}>
+                <h2 style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Time Pressure Analysis</h2>
+                <ErrorBoundary>
+                  <TimePressurePanel username={username} />
+                </ErrorBoundary>
+              </div>
+              <div className="card" style={{ padding: "22px" }}>
+                <h2 style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Winning Position Conversion</h2>
+                <ErrorBoundary>
+                  <ConversionRateCard username={username} />
+                </ErrorBoundary>
+              </div>
             </div>
 
             {/* Openings */}
