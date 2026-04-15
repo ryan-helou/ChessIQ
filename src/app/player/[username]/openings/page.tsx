@@ -35,29 +35,23 @@ interface PersonalMoveStats {
   losses: number;
 }
 
-interface LichessMove {
+interface ExplorerMove {
   san: string;
   uci: string;
-  white: number;
-  draws: number;
-  black: number;
+  winrate: number;  // win% for the side that made this move
+  rank: number;     // 2=best, 1=good, 0=questionable
 }
 
-interface TopGame {
+// ──  kept for "My Games" notable games panel
+interface PositionGame {
   id: string;
-  winner: "white" | "black" | null;
-  white: { name: string; rating: number };
-  black: { name: string; rating: number };
-  year: number;
-}
-
-interface LichessData {
-  white: number;
-  draws: number;
-  black: number;
-  moves: LichessMove[];
-  opening: { eco: string; name: string } | null;
-  topGames: TopGame[];
+  url: string;
+  date: Date;
+  result: "win" | "loss" | "draw";
+  playerColor: "white" | "black";
+  opponentName: string;
+  opponentRating: number;
+  opening: string;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,14 +62,37 @@ function fmtCount(n: number): string {
   return String(n);
 }
 
-function buildPersonalStatsMap(games: ParsedGame[]): Map<string, PersonalMoveStats[]> {
-  const map = new Map<string, PersonalMoveStats[]>();
+function buildPersonalMaps(games: ParsedGame[]): {
+  moveMap: Map<string, PersonalMoveStats[]>;
+  gamesMap: Map<string, PositionGame[]>;
+} {
+  const moveMap = new Map<string, PersonalMoveStats[]>();
+  const gamesMap = new Map<string, PositionGame[]>();
+
   for (const game of games) {
     const chess = new Chess();
+    const seenFens = new Set<string>(); // track visited FENs in this game
+
     for (const san of game.moves) {
       const fen = chess.fen();
-      let moveList = map.get(fen);
-      if (!moveList) { moveList = []; map.set(fen, moveList); }
+
+      // Record this game reached this FEN (once per game)
+      if (!seenFens.has(fen)) {
+        seenFens.add(fen);
+        let gl = gamesMap.get(fen);
+        if (!gl) { gl = []; gamesMap.set(fen, gl); }
+        if (gl.length < 20) { // cap at 20 per position
+          gl.push({
+            id: game.id, url: game.url, date: game.date,
+            result: game.result, playerColor: game.playerColor,
+            opponentName: game.opponentName, opponentRating: game.opponentRating,
+            opening: game.opening,
+          });
+        }
+      }
+
+      let moveList = moveMap.get(fen);
+      if (!moveList) { moveList = []; moveMap.set(fen, moveList); }
       let entry: PersonalMoveStats | undefined;
       try {
         const result = chess.move(san);
@@ -90,7 +107,7 @@ function buildPersonalStatsMap(games: ParsedGame[]): Map<string, PersonalMoveSta
       }
     }
   }
-  return map;
+  return { moveMap, gamesMap };
 }
 
 function getCommonPrefix(games: ParsedGame[]): string[] {
@@ -185,16 +202,13 @@ export default function OpeningsPage() {
   const [engineLoading, setEngineLoading] = useState(false);
   const engineControllerRef = useRef<AbortController | null>(null);
 
-  // Lichess data
-  const [lichessData, setLichessData] = useState<LichessData | null>(null);
-  const [lichessLoading, setLichessLoading] = useState(false);
+  // Explorer (chessdb.cn) data
+  const [explorerMoves, setExplorerMoves] = useState<ExplorerMove[]>([]);
+  const [explorerLoading, setExplorerLoading] = useState(false);
 
-  // Loaded master game banner
-  const [loadedGame, setLoadedGame] = useState<TopGame | null>(null);
-  const [gameLoadingId, setGameLoadingId] = useState<string | null>(null);
-
-  // Personal stats map, built once when games load
+  // Personal stats map + position→games map, built once when games load
   const personalStatsMapRef = useRef<Map<string, PersonalMoveStats[]>>(new Map());
+  const positionGamesRef = useRef<Map<string, PositionGame[]>>(new Map());
 
   // Derived FEN from moves
   const fen = useMemo(() => {
@@ -213,14 +227,16 @@ export default function OpeningsPage() {
   const pendingSquareRef = useRef<string | null>(null);
   pendingSquareRef.current = pendingSquare;
 
-  // Load games and build personal stats map
+  // Load games and build personal stats + position-games maps
   useEffect(() => {
     fetch(`/api/games/${encodeURIComponent(username)}?months=6`)
       .then(r => r.json())
       .then(data => {
         const games: ParsedGame[] = data.games ?? [];
         setAllGames(games);
-        personalStatsMapRef.current = buildPersonalStatsMap(games);
+        const { moveMap, gamesMap } = buildPersonalMaps(games);
+        personalStatsMapRef.current = moveMap;
+        positionGamesRef.current = gamesMap;
       })
       .catch(err => setLoadError(err instanceof Error ? err.message : "Failed to load games"))
       .finally(() => setLoading(false));
@@ -240,39 +256,31 @@ export default function OpeningsPage() {
       .slice(0, 6);
   }, [allGames]);
 
-  // Fetch Lichess master data directly from browser (Lichess has CORS open)
+  // Fetch engine analysis from chessdb.cn (public API, no auth needed)
   useEffect(() => {
-    setLichessData(null);
-    setLichessLoading(true);
+    setExplorerMoves([]);
+    setExplorerLoading(true);
     const controller = new AbortController();
-    fetch(`https://explorer.lichess.ovh/masters?fen=${encodeURIComponent(fen)}`, {
-      signal: controller.signal,
-      headers: { "Accept": "application/json" },
-    })
+    fetch(
+      `https://www.chessdb.cn/cdb.php?action=queryall&board=${encodeURIComponent(fen)}&json=1`,
+      { signal: controller.signal }
+    )
       .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then((data: {
-        white: number; draws: number; black: number;
-        moves: { san: string; uci: string; white: number; draws: number; black: number }[];
-        opening?: { eco: string; name: string } | null;
-        topGames?: { id: string; winner: string | null; white: { name: string; rating: number }; black: { name: string; rating: number }; year?: number; month?: string }[];
-      }) => {
-        setLichessData({
-          white: data.white ?? 0,
-          draws: data.draws ?? 0,
-          black: data.black ?? 0,
-          moves: (data.moves ?? []).slice(0, 10).map(m => ({ san: m.san, uci: m.uci, white: m.white, draws: m.draws, black: m.black })),
-          opening: data.opening ?? null,
-          topGames: (data.topGames ?? []).slice(0, 5).map(g => ({
-            id: g.id,
-            winner: (g.winner ?? null) as "white" | "black" | null,
-            white: { name: g.white?.name ?? "?", rating: g.white?.rating ?? 0 },
-            black: { name: g.black?.name ?? "?", rating: g.black?.rating ?? 0 },
-            year: g.year ?? parseInt(g.month?.slice(0, 4) ?? "0"),
-          })),
-        });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then((data: any) => {
+        if (data?.status === "ok" && Array.isArray(data.moves)) {
+          setExplorerMoves(
+            data.moves.slice(0, 12).map((m: { san: string; uci: string; rank?: number; winrate?: string }) => ({
+              san: m.san,
+              uci: m.uci,
+              rank: m.rank ?? 0,
+              winrate: parseFloat(m.winrate ?? "50"),
+            }))
+          );
+        }
       })
-      .catch(() => { /* silently ignore aborts / network errors */ })
-      .finally(() => setLichessLoading(false));
+      .catch(() => { /* ignore aborts / errors */ })
+      .finally(() => setExplorerLoading(false));
     return () => controller.abort();
   }, [fen]);
 
@@ -333,7 +341,6 @@ export default function OpeningsPage() {
     setEvalCp(null);
     setCurrentDepth(0);
     setFutureMoves([]);
-    setLoadedGame(null);
     setMovesPlayed(prev => [...prev, san]);
   }, []);
 
@@ -417,42 +424,6 @@ export default function OpeningsPage() {
     setPendingSquare(null);
   }, []);
 
-  // Load a master game onto the board (fetch PGN directly from Lichess)
-  const loadGame = useCallback(async (game: TopGame) => {
-    setGameLoadingId(game.id);
-    try {
-      const r = await fetch(`https://explorer.lichess.ovh/masters/pgn/${game.id}`, {
-        headers: { "Accept": "application/x-chess-pgn" },
-      });
-      if (!r.ok) return;
-      const pgn = await r.text();
-      const pgnChess = new Chess();
-      pgnChess.loadPgn(pgn);
-      const moves = pgnChess.history();
-      if (!moves || moves.length === 0) return;
-
-      // If we're already at a position inside this game, continue from here.
-      // Otherwise reset to start.
-      const current = movesPlayed;
-      const startsWithCurrent =
-        current.length <= moves.length &&
-        current.every((m, i) => moves[i] === m);
-
-      if (startsWithCurrent) {
-        setFutureMoves(moves.slice(current.length));
-      } else {
-        setMovesPlayed([]);
-        setFutureMoves(moves);
-      }
-      setPendingSquare(null);
-      setBestMoveUci(null);
-      setEvalCp(null);
-      setCurrentDepth(0);
-      setLoadedGame(game);
-    } finally {
-      setGameLoadingId(null);
-    }
-  }, [movesPlayed]);
 
   // Arrow key navigation
   useEffect(() => {
@@ -491,7 +462,8 @@ export default function OpeningsPage() {
     interface MergedRow {
       san: string; uci: string;
       personalWins: number; personalDraws: number; personalLosses: number;
-      lichessWhite: number; lichessDraws: number; lichessBlack: number;
+      explorerWinrate: number | null;
+      explorerRank: number;
     }
     const rowMap = new Map<string, MergedRow>();
 
@@ -499,38 +471,39 @@ export default function OpeningsPage() {
       rowMap.set(pm.san, {
         san: pm.san, uci: pm.uci,
         personalWins: pm.wins, personalDraws: pm.draws, personalLosses: pm.losses,
-        lichessWhite: 0, lichessDraws: 0, lichessBlack: 0,
+        explorerWinrate: null, explorerRank: 0,
       });
     }
-    for (const lm of lichessData?.moves ?? []) {
-      const existing = rowMap.get(lm.san);
+    for (const em of explorerMoves) {
+      const existing = rowMap.get(em.san);
       if (existing) {
-        existing.lichessWhite = lm.white;
-        existing.lichessDraws = lm.draws;
-        existing.lichessBlack = lm.black;
+        existing.explorerWinrate = em.winrate;
+        existing.explorerRank = em.rank;
       } else {
-        rowMap.set(lm.san, {
-          san: lm.san, uci: lm.uci,
+        rowMap.set(em.san, {
+          san: em.san, uci: em.uci,
           personalWins: 0, personalDraws: 0, personalLosses: 0,
-          lichessWhite: lm.white, lichessDraws: lm.draws, lichessBlack: lm.black,
+          explorerWinrate: em.winrate, explorerRank: em.rank,
         });
       }
     }
 
     return Array.from(rowMap.values()).sort((a, b) => {
+      // Explorer rank first (best moves at top), then personal, then rest
+      if (a.explorerRank !== b.explorerRank) return b.explorerRank - a.explorerRank;
       const aP = a.personalWins + a.personalDraws + a.personalLosses;
       const bP = b.personalWins + b.personalDraws + b.personalLosses;
-      if (aP > 0 && bP === 0) return -1;
-      if (bP > 0 && aP === 0) return 1;
       if (aP !== bP) return bP - aP;
-      return (b.lichessWhite + b.lichessDraws + b.lichessBlack) - (a.lichessWhite + a.lichessDraws + a.lichessBlack);
+      if (a.explorerWinrate !== null && b.explorerWinrate !== null) return b.explorerWinrate - a.explorerWinrate;
+      return 0;
     });
-  }, [personalMoves, lichessData]);
+  }, [personalMoves, explorerMoves]);
 
-  // Sum of all master game counts at this position — used for popularity %
-  const totalLichessGames = useMemo(
-    () => mergedMoves.reduce((s, r) => s + r.lichessWhite + r.lichessDraws + r.lichessBlack, 0),
-    [mergedMoves]
+  // Games at current position (from user's history)
+  const gamesAtPosition = useMemo(
+    () => positionGamesRef.current.get(fen) ?? [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fen, loading]
   );
 
   const evalDisplay = evalCp !== null
@@ -687,7 +660,7 @@ export default function OpeningsPage() {
                 ⇅
               </button>
               <button
-                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); setLoadedGame(null); }}
+                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
                 style={{ padding: "3px 9px", borderRadius: 5, fontSize: 11, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-3)", cursor: "pointer" }}
               >
                 ↺
@@ -746,34 +719,6 @@ export default function OpeningsPage() {
             )}
           </div>
 
-          {/* Opening name */}
-          {lichessData?.opening && (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green)", fontFamily: "var(--font-mono)", background: "rgba(129,182,76,0.1)", border: "1px solid rgba(129,182,76,0.25)", borderRadius: 3, padding: "1px 6px" }}>
-                {lichessData.opening.eco}
-              </span>
-              <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500 }}>{lichessData.opening.name}</span>
-            </div>
-          )}
-
-          {/* Loaded game banner */}
-          {loadedGame && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 16px", background: "rgba(34,197,94,0.07)", borderBottom: "1px solid rgba(34,197,94,0.2)", flexShrink: 0 }}>
-              <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700, letterSpacing: "0.04em" }}>VIEWING</span>
-              <span style={{ fontSize: 12, color: "var(--text-1)", fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {loadedGame.white.name} vs {loadedGame.black.name} · {loadedGame.year}
-              </span>
-              <span style={{ fontSize: 11, color: "var(--text-4)", flexShrink: 0 }}>
-                {futureMoves.length > 0 ? `${movesPlayed.length} / ${movesPlayed.length + futureMoves.length} moves` : "End of game"}
-              </span>
-              <button
-                onClick={() => { setLoadedGame(null); setFutureMoves([]); }}
-                style={{ background: "none", border: "none", color: "var(--text-4)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}
-              >
-                ×
-              </button>
-            </div>
-          )}
 
           {/* Position summary bar */}
           {positionSummary.total > 0 && (
@@ -805,17 +750,30 @@ export default function OpeningsPage() {
           <div style={{ flex: 1, overflowY: "auto" }}>
 
             {/* Header */}
-            <div style={{ display: "grid", gridTemplateColumns: "52px 36px 52px 1fr", gap: 6, padding: "7px 16px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: activeTab === "masters" ? "52px 44px 1fr" : "52px 36px 52px 1fr",
+              gap: 6, padding: "7px 16px",
+              background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)",
+              position: "sticky", top: 0, zIndex: 1,
+            }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>%</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>Games</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                {activeTab === "masters" ? "W · D · L" : "W · D · L"}
-              </span>
+              {activeTab === "masters" ? (
+                <>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Quality</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Win %</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>%</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>Games</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>W · D · L</span>
+                </>
+              )}
             </div>
 
             {/* Rows */}
-            {mergedMoves.length === 0 && !lichessLoading ? (
+            {mergedMoves.length === 0 && !explorerLoading ? (
               <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--text-4)", fontSize: 13 }}>
                 No moves — drag a piece or click a square to explore
               </div>
@@ -823,21 +781,16 @@ export default function OpeningsPage() {
               <>
                 {mergedMoves.map((row, i) => {
                   const pTotal = row.personalWins + row.personalDraws + row.personalLosses;
-                  const lTotal = row.lichessWhite + row.lichessDraws + row.lichessBlack;
-                  const lWPct = lTotal > 0 ? (row.lichessWhite / lTotal) * 100 : 0;
-                  const lDPct = lTotal > 0 ? (row.lichessDraws / lTotal) * 100 : 0;
-                  const lBPct = lTotal > 0 ? (row.lichessBlack / lTotal) * 100 : 0;
                   const pWPct = pTotal > 0 ? (row.personalWins / pTotal) * 100 : 0;
                   const pDPct = pTotal > 0 ? (row.personalDraws / pTotal) * 100 : 0;
                   const pLPct = pTotal > 0 ? (row.personalLosses / pTotal) * 100 : 0;
 
                   const isMasters = activeTab === "masters";
-                  const displayTotal = isMasters ? lTotal : pTotal;
-                  const popularity = totalLichessGames > 0 && lTotal > 0
-                    ? Math.round((lTotal / totalLichessGames) * 100)
-                    : pTotal > 0 && !isMasters
-                      ? null
-                      : null;
+
+                  // Rank badge: 2=Best, 1=Good, 0=OK
+                  const rankLabel = row.explorerRank === 2 ? "Best" : row.explorerRank === 1 ? "Good" : "OK";
+                  const rankColor = row.explorerRank === 2 ? "#81b64c" : row.explorerRank === 1 ? "#60a5fa" : "var(--text-5)";
+                  const rankBg = row.explorerRank === 2 ? "rgba(129,182,76,0.12)" : row.explorerRank === 1 ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)";
 
                   return (
                     <button
@@ -847,7 +800,7 @@ export default function OpeningsPage() {
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
                       style={{
                         width: "100%", display: "grid",
-                        gridTemplateColumns: "52px 36px 52px 1fr",
+                        gridTemplateColumns: isMasters ? "52px 44px 1fr" : "52px 36px 52px 1fr",
                         gap: 6, padding: "9px 16px",
                         background: "none", border: "none",
                         borderBottom: i < mergedMoves.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
@@ -859,62 +812,78 @@ export default function OpeningsPage() {
                         {row.san}
                       </span>
 
-                      {/* Popularity % */}
-                      <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                        {popularity !== null ? `${popularity}%` : "—"}
-                      </span>
-
-                      {/* Count */}
-                      <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                        {displayTotal > 0 ? fmtCount(displayTotal) : "—"}
-                      </span>
-
-                      {/* W/D/L bar + text */}
                       {isMasters ? (
-                        lTotal > 0 ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                            <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
-                              <div style={{ width: `${lWPct}%`, background: "#d4d0ca" }} />
-                              <div style={{ width: `${lDPct}%`, background: "#555" }} />
-                              <div style={{ width: `${lBPct}%`, background: "#2a2725" }} />
-                            </div>
-                            <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                              <span style={{ color: "#d4d0ca" }}>{lWPct.toFixed(0)}%</span>
-                              <span style={{ color: "var(--text-5)" }}> · {lDPct.toFixed(0)}% · </span>
-                              <span style={{ color: "#888" }}>{lBPct.toFixed(0)}%</span>
+                        <>
+                          {/* Rank badge */}
+                          {row.explorerWinrate !== null ? (
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, color: rankColor,
+                              background: rankBg, border: `1px solid ${rankColor}33`,
+                              borderRadius: 3, padding: "1px 5px", textAlign: "center",
+                              whiteSpace: "nowrap", alignSelf: "center",
+                            }}>
+                              {rankLabel}
                             </span>
-                          </div>
-                        ) : lichessLoading ? (
-                          <div style={{ height: 6, width: 80, background: "var(--border)", borderRadius: 3, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
-                        ) : (
-                          <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
-                        )
+                          ) : explorerLoading ? (
+                            <div style={{ height: 14, width: 32, background: "var(--border)", borderRadius: 3, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
+                          ) : (
+                            <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
+                          )}
+
+                          {/* Win% bar */}
+                          {row.explorerWinrate !== null ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                              <div style={{ position: "relative", height: 6, borderRadius: 3, overflow: "hidden", width: 80, flexShrink: 0, background: "rgba(255,255,255,0.08)" }}>
+                                <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${row.explorerWinrate}%`, background: "#81b64c", borderRadius: 3 }} />
+                              </div>
+                              <span style={{ fontSize: 10, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                                {row.explorerWinrate.toFixed(0)}% win
+                              </span>
+                            </div>
+                          ) : explorerLoading ? (
+                            <div style={{ height: 6, width: 80, background: "var(--border)", borderRadius: 3, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
+                          ) : (
+                            <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
+                          )}
+                        </>
                       ) : (
-                        pTotal > 0 ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                            <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
-                              <div style={{ width: `${pWPct}%`, background: "#81b64c" }} />
-                              <div style={{ width: `${pDPct}%`, background: "#555" }} />
-                              <div style={{ width: `${pLPct}%`, background: "#ca3431" }} />
+                        <>
+                          {/* My Games: % popularity */}
+                          <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                            —
+                          </span>
+
+                          {/* My Games: game count */}
+                          <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                            {pTotal > 0 ? fmtCount(pTotal) : "—"}
+                          </span>
+
+                          {/* My Games: W/D/L bar */}
+                          {pTotal > 0 ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                              <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
+                                <div style={{ width: `${pWPct}%`, background: "#81b64c" }} />
+                                <div style={{ width: `${pDPct}%`, background: "#555" }} />
+                                <div style={{ width: `${pLPct}%`, background: "#ca3431" }} />
+                              </div>
+                              <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                                <span style={{ color: "#81b64c" }}>{pWPct.toFixed(0)}%</span>
+                                <span style={{ color: "var(--text-5)" }}> · {pDPct.toFixed(0)}% · </span>
+                                <span style={{ color: "#ca3431" }}>{pLPct.toFixed(0)}%</span>
+                              </span>
                             </div>
-                            <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                              <span style={{ color: "#81b64c" }}>{pWPct.toFixed(0)}%</span>
-                              <span style={{ color: "var(--text-5)" }}> · {pDPct.toFixed(0)}% · </span>
-                              <span style={{ color: "#ca3431" }}>{pLPct.toFixed(0)}%</span>
-                            </span>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 11, color: "var(--text-5)" }}>No games</span>
-                        )
+                          ) : (
+                            <span style={{ fontSize: 11, color: "var(--text-5)" }}>No games</span>
+                          )}
+                        </>
                       )}
                     </button>
                   );
                 })}
 
-                {activeTab === "masters" && lichessLoading && mergedMoves.length === 0 && [1, 2, 3, 4].map(k => (
-                  <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 36px 52px 1fr", gap: 6, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                {activeTab === "masters" && explorerLoading && mergedMoves.length === 0 && [1, 2, 3, 4].map(k => (
+                  <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 44px 1fr", gap: 6, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ height: 14, width: 28, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ height: 14, width: 24, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                     <div style={{ height: 14, width: 32, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                     <div style={{ height: 6, background: "var(--border)", borderRadius: 3, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                   </div>
@@ -922,68 +891,54 @@ export default function OpeningsPage() {
               </>
             )}
 
-            {/* Notable games table */}
-            {activeTab === "masters" && lichessData && (lichessData.topGames ?? []).length > 0 && (
+            {/* Your games at this position */}
+            {gamesAtPosition.length > 0 && (
               <div style={{ borderTop: "1px solid var(--border)" }}>
-                {/* Section header */}
                 <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>Notable games in this position</span>
-                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>click to replay</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>Your games at this position</span>
+                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>{gamesAtPosition.length} game{gamesAtPosition.length !== 1 ? "s" : ""}</span>
                 </div>
-                {/* Column headers */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr 40px 58px 36px", gap: 4, padding: "4px 16px", borderBottom: "1px solid var(--border)" }}>
-                  {["Player", "Rtg", "Player", "Rtg", "Result", "Year"].map(h => (
+                <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 36px 56px", gap: 4, padding: "4px 16px", borderBottom: "1px solid var(--border)" }}>
+                  {["Result", "Opponent", "Rtg", "Date"].map(h => (
                     <span key={h} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
                   ))}
                 </div>
-                {/* Game rows */}
-                {lichessData.topGames.map(game => {
-                  const isLoading = gameLoadingId === game.id;
-                  const isActive = loadedGame?.id === game.id;
-                  const resultSymbol = game.winner === "white" ? "1-0" : game.winner === "black" ? "0-1" : "½-½";
-                  const winnerArrow = game.winner === "white" ? "▲ " : game.winner === "black" ? "▼ " : "";
-                  const resultColor = game.winner === "white" ? "#d4d0ca" : game.winner === "black" ? "#999" : "var(--text-4)";
+                {gamesAtPosition.slice(0, 10).map((g, i) => {
+                  const resultColor = g.result === "win" ? "#81b64c" : g.result === "loss" ? "#ca3431" : "var(--text-4)";
+                  const resultLabel = g.result === "win" ? "▲ Win" : g.result === "loss" ? "▼ Loss" : "½ Draw";
+                  const dateStr = g.date instanceof Date && !isNaN(g.date.getTime())
+                    ? g.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+                    : "";
                   return (
-                    <button
-                      key={game.id}
-                      onClick={() => loadGame(game)}
-                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isActive ? "rgba(34,197,94,0.07)" : "none"; }}
-                      disabled={isLoading}
+                    <a
+                      key={g.id + i}
+                      href={g.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.04)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "none"; }}
                       style={{
-                        width: "100%", display: "grid",
-                        gridTemplateColumns: "1fr 40px 1fr 40px 58px 36px",
+                        display: "grid", gridTemplateColumns: "48px 1fr 36px 56px",
                         gap: 4, padding: "8px 16px",
-                        background: isActive ? "rgba(34,197,94,0.07)" : "none",
-                        border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
-                        borderLeft: isActive ? "2px solid #22c55e" : "2px solid transparent",
-                        cursor: isLoading ? "wait" : "pointer", textAlign: "left", alignItems: "center",
+                        background: "none", textDecoration: "none",
+                        borderBottom: i < Math.min(gamesAtPosition.length, 10) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                        alignItems: "center",
                       }}
                     >
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#d4d0ca", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {game.white.name}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.white.rating}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {game.black.name}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.black.rating}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-                        {winnerArrow}{resultSymbol}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>
-                        {isLoading ? "…" : game.year}
-                      </span>
-                    </button>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, whiteSpace: "nowrap" }}>{resultLabel}</span>
+                      <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.opponentName}</span>
+                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{g.opponentRating || "—"}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-5)", textAlign: "right" }}>{dateStr}</span>
+                    </a>
                   );
                 })}
               </div>
             )}
 
-            {/* Lichess source note */}
-            {lichessData && (lichessData.white + lichessData.draws + lichessData.black) > 0 && (
+            {/* ChessDB source note */}
+            {explorerMoves.length > 0 && (
               <div style={{ padding: "6px 16px", fontSize: 10, color: "var(--text-5)", textAlign: "right", borderTop: "1px solid var(--border)" }}>
-                {Math.round((lichessData.white + lichessData.draws + lichessData.black) / 1000)}k master games · Lichess
+                Engine data · ChessDB
               </div>
             )}
 
