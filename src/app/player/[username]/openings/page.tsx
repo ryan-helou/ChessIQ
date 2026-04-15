@@ -43,12 +43,21 @@ interface LichessMove {
   black: number;
 }
 
+interface TopGame {
+  id: string;
+  winner: "white" | "black" | null;
+  white: { name: string; rating: number };
+  black: { name: string; rating: number };
+  year: number;
+}
+
 interface LichessData {
   white: number;
   draws: number;
   black: number;
   moves: LichessMove[];
   opening: { eco: string; name: string } | null;
+  topGames: TopGame[];
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -174,6 +183,10 @@ export default function OpeningsPage() {
   const [lichessData, setLichessData] = useState<LichessData | null>(null);
   const [lichessLoading, setLichessLoading] = useState(false);
 
+  // Loaded master game banner
+  const [loadedGame, setLoadedGame] = useState<TopGame | null>(null);
+  const [gameLoadingId, setGameLoadingId] = useState<string | null>(null);
+
   // Personal stats map, built once when games load
   const personalStatsMapRef = useRef<Map<string, PersonalMoveStats[]>>(new Map());
 
@@ -291,6 +304,7 @@ export default function OpeningsPage() {
     setEvalCp(null);
     setCurrentDepth(0);
     setFutureMoves([]);
+    setLoadedGame(null);
     setMovesPlayed(prev => [...prev, san]);
   }, []);
 
@@ -373,6 +387,37 @@ export default function OpeningsPage() {
     });
     setPendingSquare(null);
   }, []);
+
+  // Load a master game onto the board
+  const loadGame = useCallback(async (game: TopGame) => {
+    setGameLoadingId(game.id);
+    try {
+      const r = await fetch(`/api/lichess-explorer/game?id=${encodeURIComponent(game.id)}`);
+      const { moves } = await r.json() as { moves: string[] };
+      if (!moves || moves.length === 0) return;
+
+      // If we're already at a position inside this game, continue from here.
+      // Otherwise reset to start.
+      const current = movesPlayed;
+      const startsWithCurrent =
+        current.length <= moves.length &&
+        current.every((m, i) => moves[i] === m);
+
+      if (startsWithCurrent) {
+        setFutureMoves(moves.slice(current.length));
+      } else {
+        setMovesPlayed([]);
+        setFutureMoves(moves);
+      }
+      setPendingSquare(null);
+      setBestMoveUci(null);
+      setEvalCp(null);
+      setCurrentDepth(0);
+      setLoadedGame(game);
+    } finally {
+      setGameLoadingId(null);
+    }
+  }, [movesPlayed]);
 
   // Arrow key navigation
   useEffect(() => {
@@ -592,7 +637,7 @@ export default function OpeningsPage() {
                 ⇅
               </button>
               <button
-                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
+                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); setLoadedGame(null); }}
                 style={{ padding: "3px 9px", borderRadius: 5, fontSize: 11, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-3)", cursor: "pointer" }}
               >
                 ↺
@@ -658,6 +703,25 @@ export default function OpeningsPage() {
                 {lichessData.opening.eco}
               </span>
               <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500 }}>{lichessData.opening.name}</span>
+            </div>
+          )}
+
+          {/* Loaded game banner */}
+          {loadedGame && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 16px", background: "rgba(34,197,94,0.07)", borderBottom: "1px solid rgba(34,197,94,0.2)", flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 700, letterSpacing: "0.04em" }}>VIEWING</span>
+              <span style={{ fontSize: 12, color: "var(--text-1)", fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {loadedGame.white.name} vs {loadedGame.black.name} · {loadedGame.year}
+              </span>
+              <span style={{ fontSize: 11, color: "var(--text-4)", flexShrink: 0 }}>
+                {futureMoves.length > 0 ? `${movesPlayed.length} / ${movesPlayed.length + futureMoves.length} moves` : "End of game"}
+              </span>
+              <button
+                onClick={() => { setLoadedGame(null); setFutureMoves([]); }}
+                style={{ background: "none", border: "none", color: "var(--text-4)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "0 2px", flexShrink: 0 }}
+              >
+                ×
+              </button>
             </div>
           )}
 
@@ -786,10 +850,65 @@ export default function OpeningsPage() {
               </>
             )}
 
+            {/* Top master games */}
+            {activeTab === "masters" && lichessData && (lichessData.topGames ?? []).length > 0 && (
+              <div style={{ borderTop: "1px solid var(--border)" }}>
+                <div style={{ padding: "8px 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Top Games</span>
+                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>click to replay →</span>
+                </div>
+                {lichessData.topGames.map(game => {
+                  const isLoading = gameLoadingId === game.id;
+                  const isActive = loadedGame?.id === game.id;
+                  const resultSymbol = game.winner === "white" ? "1-0" : game.winner === "black" ? "0-1" : "½-½";
+                  const resultColor = game.winner === "white" ? "#d4d0ca" : game.winner === "black" ? "#888" : "#888";
+                  return (
+                    <button
+                      key={game.id}
+                      onClick={() => loadGame(game)}
+                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                      onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = isActive ? "rgba(34,197,94,0.07)" : "none"; }}
+                      disabled={isLoading}
+                      style={{
+                        width: "100%", display: "flex", alignItems: "center", gap: 8,
+                        padding: "8px 16px", background: isActive ? "rgba(34,197,94,0.07)" : "none",
+                        border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        cursor: isLoading ? "wait" : "pointer", textAlign: "left",
+                        borderLeft: isActive ? "2px solid #22c55e" : "2px solid transparent",
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#d4d0ca", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {game.white.name}
+                          </span>
+                          <span style={{ fontSize: 10, color: "var(--text-5)", flexShrink: 0 }}>({game.white.rating})</span>
+                          <span style={{ fontSize: 11, color: "var(--text-4)", flexShrink: 0, margin: "0 2px" }}>vs</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {game.black.name}
+                          </span>
+                          <span style={{ fontSize: 10, color: "var(--text-5)", flexShrink: 0 }}>({game.black.rating})</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, fontFamily: "var(--font-mono)" }}>{resultSymbol}</span>
+                          <span style={{ fontSize: 10, color: "var(--text-5)" }}>{game.year}</span>
+                        </div>
+                      </div>
+                      {isLoading ? (
+                        <span style={{ fontSize: 11, color: "var(--text-4)", flexShrink: 0 }}>Loading…</span>
+                      ) : (
+                        <span style={{ fontSize: 14, color: isActive ? "#22c55e" : "var(--text-5)", flexShrink: 0 }}>▶</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Lichess source note */}
             {lichessData && (lichessData.white + lichessData.draws + lichessData.black) > 0 && (
               <div style={{ padding: "6px 16px", fontSize: 10, color: "var(--text-5)", textAlign: "right", borderTop: "1px solid var(--border)" }}>
-                {Math.round((lichessData.white + lichessData.draws + lichessData.black) / 1000)}k master games · Lichess Explorer
+                {Math.round((lichessData.white + lichessData.draws + lichessData.black) / 1000)}k master games · Lichess
               </div>
             )}
 

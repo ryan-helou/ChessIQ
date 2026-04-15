@@ -6,9 +6,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ white: 0, draws: 0, black: 0, moves: [] });
   }
 
-  const url =
-    `https://explorer.lichess.ovh/lichess?variant=standard&speeds=rapid,blitz,bullet` +
-    `&ratings=2000,2200&fen=${encodeURIComponent(fen)}`;
+  const url = `https://explorer.lichess.ovh/masters?fen=${encodeURIComponent(fen)}`;
 
   try {
     const res = await fetch(url, {
@@ -23,6 +21,15 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = await res.json();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const topGames = (data.topGames ?? []).slice(0, 5).map((g: any) => ({
+      id: g.id as string,
+      winner: (g.winner ?? null) as "white" | "black" | null,
+      white: { name: g.white?.name ?? "?", rating: g.white?.rating ?? 0 },
+      black: { name: g.black?.name ?? "?", rating: g.black?.rating ?? 0 },
+      year: (g.year ?? g.month?.slice(0, 4) ?? 0) as number,
+    }));
+
     return NextResponse.json({
       white: data.white ?? 0,
       draws: data.draws ?? 0,
@@ -35,6 +42,7 @@ export async function GET(request: NextRequest) {
         black: m.black,
       })),
       opening: data.opening ?? null,
+      topGames,
     });
   } catch {
     return NextResponse.json({ white: 0, draws: 0, black: 0, moves: [] });
