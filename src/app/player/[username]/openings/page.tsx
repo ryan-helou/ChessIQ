@@ -155,6 +155,7 @@ export default function OpeningsPage() {
 
   // Board navigation state
   const [movesPlayed, setMovesPlayed] = useState<string[]>([]);
+  const [futureMoves, setFutureMoves] = useState<string[]>([]); // for → key
   const [boardFlipped, setBoardFlipped] = useState(false);
   const [pendingSquare, setPendingSquare] = useState<string | null>(null);
 
@@ -280,12 +281,13 @@ export default function OpeningsPage() {
     };
   }, [engineOn, movesPlayed]);
 
-  // Play a move (SAN)
+  // Play a move (SAN) — clears future when a new branch is taken
   const playMoveSan = useCallback((san: string) => {
     setPendingSquare(null);
     setBestMoveUci(null);
     setEvalCp(null);
     setCurrentDepth(0);
+    setFutureMoves([]);
     setMovesPlayed(prev => [...prev, san]);
   }, []);
 
@@ -362,7 +364,10 @@ export default function OpeningsPage() {
 
   // Navigate to a specific ply via breadcrumb
   const navigateTo = useCallback((ply: number) => {
-    setMovesPlayed(prev => prev.slice(0, ply));
+    setMovesPlayed(prev => {
+      setFutureMoves(prev.slice(ply));
+      return prev.slice(0, ply);
+    });
     setPendingSquare(null);
   }, []);
 
@@ -372,10 +377,20 @@ export default function OpeningsPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        setMovesPlayed(prev => prev.slice(0, Math.max(0, prev.length - 1)));
+        setMovesPlayed(prev => {
+          if (prev.length === 0) return prev;
+          setFutureMoves(f => [prev[prev.length - 1], ...f]);
+          return prev.slice(0, prev.length - 1);
+        });
         setPendingSquare(null);
       } else if (e.key === "ArrowRight") {
-        // no-op: we don't have a future move list to go forward into
+        e.preventDefault();
+        setFutureMoves(f => {
+          if (f.length === 0) return f;
+          setMovesPlayed(prev => [...prev, f[0]]);
+          return f.slice(1);
+        });
+        setPendingSquare(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -437,19 +452,7 @@ export default function OpeningsPage() {
   // right panel min width = 320px + eval bar = ~336px horizontal overhead
   const BOARD_SIZE = "min(calc(100vh - 100px), calc(100vw - 336px))";
 
-  // ─── Loading / error states ───────────────────────────────────────────────────
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg-page)" }}>
-        <PageHeader username={username} />
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
-          <span style={{ fontSize: 32 }}>♟</span>
-          <span style={{ color: "var(--text-3)", fontSize: 14 }}>Loading games…</span>
-        </div>
-      </div>
-    );
-  }
+  // ─── Error state ─────────────────────────────────────────────────────────────
 
   if (loadError) {
     return (
@@ -560,7 +563,7 @@ export default function OpeningsPage() {
                 ⇅
               </button>
               <button
-                onClick={() => { setMovesPlayed([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
+                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
                 style={{ padding: "3px 9px", borderRadius: 5, fontSize: 11, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-3)", cursor: "pointer" }}
               >
                 ↺
@@ -575,7 +578,7 @@ export default function OpeningsPage() {
               {quickJumps.map(j => (
                 <button
                   key={j.name}
-                  onClick={() => { setMovesPlayed(j.moves); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
+                  onClick={() => { setMovesPlayed(j.moves); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
                   style={{ padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-2)", cursor: "pointer" }}
