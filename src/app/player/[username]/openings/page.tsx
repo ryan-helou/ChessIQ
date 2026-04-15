@@ -366,6 +366,22 @@ export default function OpeningsPage() {
     setPendingSquare(null);
   }, []);
 
+  // Arrow key navigation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setMovesPlayed(prev => prev.slice(0, Math.max(0, prev.length - 1)));
+        setPendingSquare(null);
+      } else if (e.key === "ArrowRight") {
+        // no-op: we don't have a future move list to go forward into
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // Personal moves at current FEN
   const personalMoves = useMemo(
     () => personalStatsMapRef.current.get(fen) ?? [],
