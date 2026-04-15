@@ -159,6 +159,9 @@ export default function OpeningsPage() {
   const [boardFlipped, setBoardFlipped] = useState(false);
   const [pendingSquare, setPendingSquare] = useState<string | null>(null);
 
+  // Panel tab
+  const [activeTab, setActiveTab] = useState<"masters" | "my-games">("masters");
+
   // Engine state
   const [engineOn, setEngineOn] = useState(false);
   const [bestMoveUci, setBestMoveUci] = useState<string | null>(null);
@@ -551,7 +554,24 @@ export default function OpeningsPage() {
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "10px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0, gap: 8,
           }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-1)" }}>Opening Study</span>
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: 2 }}>
+              {(["masters", "my-games"] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: "4px 12px", borderRadius: 5, fontSize: 12, fontWeight: 600,
+                    border: "none", cursor: "pointer",
+                    background: activeTab === tab ? "rgba(129,182,76,0.15)" : "none",
+                    color: activeTab === tab ? "var(--green)" : "var(--text-3)",
+                    borderBottom: activeTab === tab ? "2px solid var(--green)" : "2px solid transparent",
+                  }}
+                >
+                  {tab === "masters" ? "Master Games" : "My Games"}
+                </button>
+              ))}
+            </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <button
                 onClick={() => setEngineOn(p => !p)}
@@ -671,10 +691,11 @@ export default function OpeningsPage() {
           <div style={{ flex: 1, overflowY: "auto" }}>
 
             {/* Header */}
-            <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 1fr", gap: 8, padding: "7px 16px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "48px 1fr", gap: 8, padding: "7px 16px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Your games</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Master games</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {activeTab === "masters" ? "Master games" : "Your games"}
+              </span>
             </div>
 
             {/* Rows */}
@@ -700,7 +721,7 @@ export default function OpeningsPage() {
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
                       style={{
                         width: "100%", display: "grid",
-                        gridTemplateColumns: "48px 1fr 1fr",
+                        gridTemplateColumns: "48px 1fr",
                         gap: 8, padding: "9px 16px",
                         background: "none", border: "none",
                         borderBottom: i < mergedMoves.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
@@ -711,53 +732,54 @@ export default function OpeningsPage() {
                         {row.san}
                       </span>
 
-                      {pTotal > 0 ? (
-                        <div>
-                          <div style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "center" }}>
-                            <span style={{ fontSize: 10, color: "#81b64c", fontWeight: 600 }}>{row.personalWins}W</span>
-                            <span style={{ fontSize: 10, color: "var(--text-4)" }}>{row.personalDraws}D</span>
-                            <span style={{ fontSize: 10, color: "#ca3431", fontWeight: 600 }}>{row.personalLosses}L</span>
-                            <span style={{ fontSize: 10, color: "var(--text-4)", marginLeft: 2 }}>· {pWinPct.toFixed(0)}%</span>
+                      {activeTab === "my-games" ? (
+                        pTotal > 0 ? (
+                          <div>
+                            <div style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "center" }}>
+                              <span style={{ fontSize: 10, color: "#81b64c", fontWeight: 600 }}>{row.personalWins}W</span>
+                              <span style={{ fontSize: 10, color: "var(--text-4)" }}>{row.personalDraws}D</span>
+                              <span style={{ fontSize: 10, color: "#ca3431", fontWeight: 600 }}>{row.personalLosses}L</span>
+                              <span style={{ fontSize: 10, color: "var(--text-4)", marginLeft: 2 }}>· {pWinPct.toFixed(0)}%</span>
+                            </div>
+                            <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,0.06)" }}>
+                              {row.personalWins > 0 && <div style={{ flex: row.personalWins, background: "#81b64c" }} />}
+                              {row.personalDraws > 0 && <div style={{ flex: row.personalDraws, background: "#555" }} />}
+                              {row.personalLosses > 0 && <div style={{ flex: row.personalLosses, background: "#ca3431" }} />}
+                            </div>
                           </div>
-                          <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,0.06)" }}>
-                            {row.personalWins > 0 && <div style={{ flex: row.personalWins, background: "#81b64c" }} />}
-                            {row.personalDraws > 0 && <div style={{ flex: row.personalDraws, background: "#555" }} />}
-                            {row.personalLosses > 0 && <div style={{ flex: row.personalLosses, background: "#ca3431" }} />}
-                          </div>
-                        </div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "var(--text-5)" }}>No games</span>
+                        )
                       ) : (
-                        <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
-                      )}
-
-                      {lTotal > 0 ? (
-                        <div>
-                          <div style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "center" }}>
-                            <span style={{ fontSize: 10, color: "#d4d0ca", fontWeight: 600 }}>{lWPct.toFixed(0)}%</span>
-                            <span style={{ fontSize: 10, color: "var(--text-4)" }}>{lDPct.toFixed(0)}%</span>
-                            <span style={{ fontSize: 10, color: "#888" }}>{lBPct.toFixed(0)}%</span>
-                            <span style={{ fontSize: 10, color: "var(--text-5)", marginLeft: "auto" }}>
-                              {lTotal >= 1000 ? `${(lTotal / 1000).toFixed(0)}k` : lTotal}
-                            </span>
+                        lTotal > 0 ? (
+                          <div>
+                            <div style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "center" }}>
+                              <span style={{ fontSize: 10, color: "#d4d0ca", fontWeight: 600 }}>{lWPct.toFixed(0)}%</span>
+                              <span style={{ fontSize: 10, color: "var(--text-4)" }}>{lDPct.toFixed(0)}%</span>
+                              <span style={{ fontSize: 10, color: "#888" }}>{lBPct.toFixed(0)}%</span>
+                              <span style={{ fontSize: 10, color: "var(--text-5)", marginLeft: "auto" }}>
+                                {lTotal >= 1000 ? `${(lTotal / 1000).toFixed(1)}k` : lTotal}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden" }}>
+                              <div style={{ flex: row.lichessWhite || 0, background: "#d4d0ca", minWidth: row.lichessWhite > 0 ? 2 : 0 }} />
+                              <div style={{ flex: row.lichessDraws || 0, background: "#555", minWidth: row.lichessDraws > 0 ? 1 : 0 }} />
+                              <div style={{ flex: row.lichessBlack || 0, background: "#262522", minWidth: row.lichessBlack > 0 ? 2 : 0 }} />
+                            </div>
                           </div>
-                          <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden" }}>
-                            <div style={{ flex: row.lichessWhite || 0, background: "#d4d0ca", minWidth: row.lichessWhite > 0 ? 2 : 0 }} />
-                            <div style={{ flex: row.lichessDraws || 0, background: "#555", minWidth: row.lichessDraws > 0 ? 1 : 0 }} />
-                            <div style={{ flex: row.lichessBlack || 0, background: "#262522", minWidth: row.lichessBlack > 0 ? 2 : 0 }} />
-                          </div>
-                        </div>
-                      ) : lichessLoading ? (
-                        <div style={{ height: 12, background: "var(--border)", borderRadius: 2, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
-                      ) : (
-                        <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
+                        ) : lichessLoading ? (
+                          <div style={{ height: 12, background: "var(--border)", borderRadius: 2, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
+                        ) : (
+                          <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
+                        )
                       )}
                     </button>
                   );
                 })}
 
-                {lichessLoading && mergedMoves.length === 0 && [1, 2, 3, 4].map(k => (
-                  <div key={k} style={{ display: "grid", gridTemplateColumns: "48px 1fr 1fr", gap: 8, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                {activeTab === "masters" && lichessLoading && mergedMoves.length === 0 && [1, 2, 3, 4].map(k => (
+                  <div key={k} style={{ display: "grid", gridTemplateColumns: "48px 1fr", gap: 8, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ height: 14, width: 28, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ height: 14, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                     <div style={{ height: 14, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                   </div>
                 ))}
