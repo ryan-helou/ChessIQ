@@ -417,7 +417,9 @@ export default function OpeningsPage() {
     ? (evalCp >= 0 ? "+" : "") + (evalCp / 100).toFixed(1)
     : null;
 
-  const BOARD_SIZE = 380;
+  // header(44) + engine status(24) + padding(32) = ~100px vertical overhead
+  // right panel min width = 320px + eval bar = ~336px horizontal overhead
+  const BOARD_SIZE = "min(calc(100vh - 100px), calc(100vw - 336px))";
 
   // ─── Loading / error states ───────────────────────────────────────────────────
 
@@ -457,12 +459,13 @@ export default function OpeningsPage() {
         <div style={{
           flexShrink: 0,
           display: "flex", flexDirection: "column", justifyContent: "center",
-          padding: "16px 8px 16px 16px",
+          padding: "16px 12px 16px 16px",
           borderRight: "1px solid var(--border)",
+          background: "var(--bg-page)",
         }}>
           {/* Board + eval bar */}
           <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-            <div style={{ width: BOARD_SIZE }}>
+            <div style={{ width: BOARD_SIZE, height: BOARD_SIZE }}>
               <Chessboard options={{
                 position: fen,
                 pieces: neoPieces,
