@@ -62,6 +62,12 @@ interface LichessData {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+function fmtCount(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+  return String(n);
+}
+
 function buildPersonalStatsMap(games: ParsedGame[]): Map<string, PersonalMoveStats[]> {
   const map = new Map<string, PersonalMoveStats[]>();
   for (const game of games) {
@@ -492,6 +498,12 @@ export default function OpeningsPage() {
     });
   }, [personalMoves, lichessData]);
 
+  // Sum of all master game counts at this position — used for popularity %
+  const totalLichessGames = useMemo(
+    () => mergedMoves.reduce((s, r) => s + r.lichessWhite + r.lichessDraws + r.lichessBlack, 0),
+    [mergedMoves]
+  );
+
   const evalDisplay = evalCp !== null
     ? (evalCp >= 0 ? "+" : "") + (evalCp / 100).toFixed(1)
     : null;
@@ -630,6 +642,15 @@ export default function OpeningsPage() {
               >
                 ⚡ Engine {engineOn ? "ON" : "OFF"}
               </button>
+              {engineOn && currentDepth > 0 && (
+                <span style={{
+                  fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600,
+                  color: "var(--text-4)", background: "rgba(255,255,255,0.06)",
+                  border: "1px solid var(--border)", borderRadius: 4, padding: "2px 7px",
+                }}>
+                  depth={currentDepth}
+                </span>
+              )}
               <button
                 onClick={() => setBoardFlipped(p => !p)}
                 style={{ padding: "3px 9px", borderRadius: 5, fontSize: 11, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-3)", cursor: "pointer" }}
@@ -755,10 +776,12 @@ export default function OpeningsPage() {
           <div style={{ flex: 1, overflowY: "auto" }}>
 
             {/* Header */}
-            <div style={{ display: "grid", gridTemplateColumns: "48px 1fr", gap: 8, padding: "7px 16px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "52px 36px 52px 1fr", gap: 6, padding: "7px 16px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>%</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>Games</span>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                {activeTab === "masters" ? "Master games" : "Your games"}
+                {activeTab === "masters" ? "W · D · L" : "W · D · L"}
               </span>
             </div>
 
@@ -771,11 +794,21 @@ export default function OpeningsPage() {
               <>
                 {mergedMoves.map((row, i) => {
                   const pTotal = row.personalWins + row.personalDraws + row.personalLosses;
-                  const pWinPct = pTotal > 0 ? (row.personalWins / pTotal) * 100 : 0;
                   const lTotal = row.lichessWhite + row.lichessDraws + row.lichessBlack;
                   const lWPct = lTotal > 0 ? (row.lichessWhite / lTotal) * 100 : 0;
                   const lDPct = lTotal > 0 ? (row.lichessDraws / lTotal) * 100 : 0;
                   const lBPct = lTotal > 0 ? (row.lichessBlack / lTotal) * 100 : 0;
+                  const pWPct = pTotal > 0 ? (row.personalWins / pTotal) * 100 : 0;
+                  const pDPct = pTotal > 0 ? (row.personalDraws / pTotal) * 100 : 0;
+                  const pLPct = pTotal > 0 ? (row.personalLosses / pTotal) * 100 : 0;
+
+                  const isMasters = activeTab === "masters";
+                  const displayTotal = isMasters ? lTotal : pTotal;
+                  const popularity = totalLichessGames > 0 && lTotal > 0
+                    ? Math.round((lTotal / totalLichessGames) * 100)
+                    : pTotal > 0 && !isMasters
+                      ? null
+                      : null;
 
                   return (
                     <button
@@ -785,56 +818,64 @@ export default function OpeningsPage() {
                       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
                       style={{
                         width: "100%", display: "grid",
-                        gridTemplateColumns: "48px 1fr",
-                        gap: 8, padding: "9px 16px",
+                        gridTemplateColumns: "52px 36px 52px 1fr",
+                        gap: 6, padding: "9px 16px",
                         background: "none", border: "none",
                         borderBottom: i < mergedMoves.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                         cursor: "pointer", textAlign: "left", alignItems: "center",
                       }}
                     >
+                      {/* Move */}
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>
                         {row.san}
                       </span>
 
-                      {activeTab === "my-games" ? (
+                      {/* Popularity % */}
+                      <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        {popularity !== null ? `${popularity}%` : "—"}
+                      </span>
+
+                      {/* Count */}
+                      <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        {displayTotal > 0 ? fmtCount(displayTotal) : "—"}
+                      </span>
+
+                      {/* W/D/L bar + text */}
+                      {isMasters ? (
+                        lTotal > 0 ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                            <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
+                              <div style={{ width: `${lWPct}%`, background: "#d4d0ca" }} />
+                              <div style={{ width: `${lDPct}%`, background: "#555" }} />
+                              <div style={{ width: `${lBPct}%`, background: "#2a2725" }} />
+                            </div>
+                            <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                              <span style={{ color: "#d4d0ca" }}>{lWPct.toFixed(0)}%</span>
+                              <span style={{ color: "var(--text-5)" }}> · {lDPct.toFixed(0)}% · </span>
+                              <span style={{ color: "#888" }}>{lBPct.toFixed(0)}%</span>
+                            </span>
+                          </div>
+                        ) : lichessLoading ? (
+                          <div style={{ height: 6, width: 80, background: "var(--border)", borderRadius: 3, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
+                        ) : (
+                          <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
+                        )
+                      ) : (
                         pTotal > 0 ? (
-                          <div>
-                            <div style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "center" }}>
-                              <span style={{ fontSize: 10, color: "#81b64c", fontWeight: 600 }}>{row.personalWins}W</span>
-                              <span style={{ fontSize: 10, color: "var(--text-4)" }}>{row.personalDraws}D</span>
-                              <span style={{ fontSize: 10, color: "#ca3431", fontWeight: 600 }}>{row.personalLosses}L</span>
-                              <span style={{ fontSize: 10, color: "var(--text-4)", marginLeft: 2 }}>· {pWinPct.toFixed(0)}%</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                            <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
+                              <div style={{ width: `${pWPct}%`, background: "#81b64c" }} />
+                              <div style={{ width: `${pDPct}%`, background: "#555" }} />
+                              <div style={{ width: `${pLPct}%`, background: "#ca3431" }} />
                             </div>
-                            <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden", background: "rgba(255,255,255,0.06)" }}>
-                              {row.personalWins > 0 && <div style={{ flex: row.personalWins, background: "#81b64c" }} />}
-                              {row.personalDraws > 0 && <div style={{ flex: row.personalDraws, background: "#555" }} />}
-                              {row.personalLosses > 0 && <div style={{ flex: row.personalLosses, background: "#ca3431" }} />}
-                            </div>
+                            <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                              <span style={{ color: "#81b64c" }}>{pWPct.toFixed(0)}%</span>
+                              <span style={{ color: "var(--text-5)" }}> · {pDPct.toFixed(0)}% · </span>
+                              <span style={{ color: "#ca3431" }}>{pLPct.toFixed(0)}%</span>
+                            </span>
                           </div>
                         ) : (
                           <span style={{ fontSize: 11, color: "var(--text-5)" }}>No games</span>
-                        )
-                      ) : (
-                        lTotal > 0 ? (
-                          <div>
-                            <div style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "center" }}>
-                              <span style={{ fontSize: 10, color: "#d4d0ca", fontWeight: 600 }}>{lWPct.toFixed(0)}%</span>
-                              <span style={{ fontSize: 10, color: "var(--text-4)" }}>{lDPct.toFixed(0)}%</span>
-                              <span style={{ fontSize: 10, color: "#888" }}>{lBPct.toFixed(0)}%</span>
-                              <span style={{ fontSize: 10, color: "var(--text-5)", marginLeft: "auto" }}>
-                                {lTotal >= 1000 ? `${(lTotal / 1000).toFixed(1)}k` : lTotal}
-                              </span>
-                            </div>
-                            <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden" }}>
-                              <div style={{ flex: row.lichessWhite || 0, background: "#d4d0ca", minWidth: row.lichessWhite > 0 ? 2 : 0 }} />
-                              <div style={{ flex: row.lichessDraws || 0, background: "#555", minWidth: row.lichessDraws > 0 ? 1 : 0 }} />
-                              <div style={{ flex: row.lichessBlack || 0, background: "#262522", minWidth: row.lichessBlack > 0 ? 2 : 0 }} />
-                            </div>
-                          </div>
-                        ) : lichessLoading ? (
-                          <div style={{ height: 12, background: "var(--border)", borderRadius: 2, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
-                        ) : (
-                          <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
                         )
                       )}
                     </button>
@@ -842,63 +883,68 @@ export default function OpeningsPage() {
                 })}
 
                 {activeTab === "masters" && lichessLoading && mergedMoves.length === 0 && [1, 2, 3, 4].map(k => (
-                  <div key={k} style={{ display: "grid", gridTemplateColumns: "48px 1fr", gap: 8, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 36px 52px 1fr", gap: 6, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ height: 14, width: 28, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ height: 14, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
+                    <div style={{ height: 14, width: 24, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
+                    <div style={{ height: 14, width: 32, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
+                    <div style={{ height: 6, background: "var(--border)", borderRadius: 3, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                   </div>
                 ))}
               </>
             )}
 
-            {/* Top master games */}
+            {/* Notable games table */}
             {activeTab === "masters" && lichessData && (lichessData.topGames ?? []).length > 0 && (
               <div style={{ borderTop: "1px solid var(--border)" }}>
-                <div style={{ padding: "8px 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Top Games</span>
-                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>click to replay →</span>
+                {/* Section header */}
+                <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>Notable games in this position</span>
+                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>click to replay</span>
                 </div>
+                {/* Column headers */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr 40px 58px 36px", gap: 4, padding: "4px 16px", borderBottom: "1px solid var(--border)" }}>
+                  {["Player", "Rtg", "Player", "Rtg", "Result", "Year"].map(h => (
+                    <span key={h} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
+                  ))}
+                </div>
+                {/* Game rows */}
                 {lichessData.topGames.map(game => {
                   const isLoading = gameLoadingId === game.id;
                   const isActive = loadedGame?.id === game.id;
                   const resultSymbol = game.winner === "white" ? "1-0" : game.winner === "black" ? "0-1" : "½-½";
-                  const resultColor = game.winner === "white" ? "#d4d0ca" : game.winner === "black" ? "#888" : "#888";
+                  const winnerArrow = game.winner === "white" ? "▲ " : game.winner === "black" ? "▼ " : "";
+                  const resultColor = game.winner === "white" ? "#d4d0ca" : game.winner === "black" ? "#999" : "var(--text-4)";
                   return (
                     <button
                       key={game.id}
                       onClick={() => loadGame(game)}
                       onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
-                      onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = isActive ? "rgba(34,197,94,0.07)" : "none"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isActive ? "rgba(34,197,94,0.07)" : "none"; }}
                       disabled={isLoading}
                       style={{
-                        width: "100%", display: "flex", alignItems: "center", gap: 8,
-                        padding: "8px 16px", background: isActive ? "rgba(34,197,94,0.07)" : "none",
+                        width: "100%", display: "grid",
+                        gridTemplateColumns: "1fr 40px 1fr 40px 58px 36px",
+                        gap: 4, padding: "8px 16px",
+                        background: isActive ? "rgba(34,197,94,0.07)" : "none",
                         border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
-                        cursor: isLoading ? "wait" : "pointer", textAlign: "left",
                         borderLeft: isActive ? "2px solid #22c55e" : "2px solid transparent",
+                        cursor: isLoading ? "wait" : "pointer", textAlign: "left", alignItems: "center",
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "#d4d0ca", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {game.white.name}
-                          </span>
-                          <span style={{ fontSize: 10, color: "var(--text-5)", flexShrink: 0 }}>({game.white.rating})</span>
-                          <span style={{ fontSize: 11, color: "var(--text-4)", flexShrink: 0, margin: "0 2px" }}>vs</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {game.black.name}
-                          </span>
-                          <span style={{ fontSize: 10, color: "var(--text-5)", flexShrink: 0 }}>({game.black.rating})</span>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, fontFamily: "var(--font-mono)" }}>{resultSymbol}</span>
-                          <span style={{ fontSize: 10, color: "var(--text-5)" }}>{game.year}</span>
-                        </div>
-                      </div>
-                      {isLoading ? (
-                        <span style={{ fontSize: 11, color: "var(--text-4)", flexShrink: 0 }}>Loading…</span>
-                      ) : (
-                        <span style={{ fontSize: 14, color: isActive ? "#22c55e" : "var(--text-5)", flexShrink: 0 }}>▶</span>
-                      )}
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#d4d0ca", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {game.white.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.white.rating}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {game.black.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.black.rating}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+                        {winnerArrow}{resultSymbol}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>
+                        {isLoading ? "…" : game.year}
+                      </span>
                     </button>
                   );
                 })}

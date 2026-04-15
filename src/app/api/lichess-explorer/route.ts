@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(url, {
       next: { revalidate: 3600 },
-      headers: { "Accept": "application/json" },
+      headers: { "Accept": "application/json", "User-Agent": "ChessIQ/1.0" },
     });
 
     if (!res.ok) {
