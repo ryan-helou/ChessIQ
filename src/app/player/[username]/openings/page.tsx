@@ -42,6 +42,14 @@ interface ExplorerMove {
   rank: number;     // 2=best, 1=good, 0=questionable
 }
 
+interface TopGame {
+  id: string;
+  winner: "white" | "black" | null;
+  white: { name: string; rating: number };
+  black: { name: string; rating: number };
+  year: number;
+}
+
 // ──  kept for "My Games" notable games panel
 interface PositionGame {
   id: string;
@@ -206,6 +214,11 @@ export default function OpeningsPage() {
   const [explorerMoves, setExplorerMoves] = useState<ExplorerMove[]>([]);
   const [explorerLoading, setExplorerLoading] = useState(false);
 
+  // Lichess master games for this position
+  const [masterGames, setMasterGames] = useState<TopGame[]>([]);
+  const [gameLoadingId, setGameLoadingId] = useState<string | null>(null);
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
+
   // Personal stats map + position→games map, built once when games load
   const personalStatsMapRef = useRef<Map<string, PersonalMoveStats[]>>(new Map());
   const positionGamesRef = useRef<Map<string, PositionGame[]>>(new Map());
@@ -284,6 +297,20 @@ export default function OpeningsPage() {
     return () => controller.abort();
   }, [fen]);
 
+  // Fetch Lichess master games for this position
+  useEffect(() => {
+    setMasterGames([]);
+    setActiveGameId(null);
+    const controller = new AbortController();
+    fetch(`/api/lichess-explorer?fen=${encodeURIComponent(fen)}`, { signal: controller.signal })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(r => r.json()).then((data: any) => {
+        setMasterGames(data.topGames ?? []);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [fen]);
+
   // Progressive engine deepening
   useEffect(() => {
     setBestMoveUci(null);
@@ -341,8 +368,39 @@ export default function OpeningsPage() {
     setEvalCp(null);
     setCurrentDepth(0);
     setFutureMoves([]);
+    setActiveGameId(null);
     setMovesPlayed(prev => [...prev, san]);
   }, []);
+
+  // Load a master game — fetches PGN via our proxy, then loads moves into futureMoves
+  const loadGame = useCallback(async (game: TopGame) => {
+    setGameLoadingId(game.id);
+    try {
+      const r = await fetch(`/api/lichess-explorer/game?id=${encodeURIComponent(game.id)}`);
+      const data = await r.json();
+      const moves: string[] = data.moves ?? [];
+      if (moves.length === 0) return;
+
+      const current = movesPlayed;
+      const startsWithCurrent =
+        current.length <= moves.length &&
+        current.every((m, idx) => moves[idx] === m);
+
+      if (startsWithCurrent) {
+        setFutureMoves(moves.slice(current.length));
+      } else {
+        setMovesPlayed([]);
+        setFutureMoves(moves);
+      }
+      setPendingSquare(null);
+      setBestMoveUci(null);
+      setEvalCp(null);
+      setCurrentDepth(0);
+      setActiveGameId(game.id);
+    } finally {
+      setGameLoadingId(null);
+    }
+  }, [movesPlayed]);
 
   // Drag-to-move — uses fenRef so the closure never goes stale
   const onPieceDrop = useCallback(
@@ -660,7 +718,7 @@ export default function OpeningsPage() {
                 ⇅
               </button>
               <button
-                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
+                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); setActiveGameId(null); }}
                 style={{ padding: "3px 9px", borderRadius: 5, fontSize: 11, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-3)", cursor: "pointer" }}
               >
                 ↺
@@ -930,6 +988,59 @@ export default function OpeningsPage() {
                       <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{g.opponentRating || "—"}</span>
                       <span style={{ fontSize: 10, color: "var(--text-5)", textAlign: "right" }}>{dateStr}</span>
                     </a>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Master games table */}
+            {activeTab === "masters" && masterGames.length > 0 && (
+              <div style={{ borderTop: "1px solid var(--border)" }}>
+                <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>Notable master games</span>
+                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>click to replay · ← → to navigate</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr 40px 56px 36px", gap: 4, padding: "4px 16px", borderBottom: "1px solid var(--border)" }}>
+                  {["White", "Rtg", "Black", "Rtg", "Result", "Year"].map((h, i) => (
+                    <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
+                  ))}
+                </div>
+                {masterGames.map(game => {
+                  const isLoading = gameLoadingId === game.id;
+                  const isActive = activeGameId === game.id;
+                  const resultSymbol = game.winner === "white" ? "1-0" : game.winner === "black" ? "0-1" : "½-½";
+                  const winnerArrow = game.winner === "white" ? "▲ " : game.winner === "black" ? "▼ " : "";
+                  const resultColor = game.winner === "white" ? "#d4d0ca" : game.winner === "black" ? "#999" : "var(--text-4)";
+                  return (
+                    <button
+                      key={game.id}
+                      onClick={() => loadGame(game)}
+                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isActive ? "rgba(34,197,94,0.07)" : "none"; }}
+                      disabled={isLoading}
+                      style={{
+                        width: "100%", display: "grid",
+                        gridTemplateColumns: "1fr 40px 1fr 40px 56px 36px",
+                        gap: 4, padding: "8px 16px",
+                        background: isActive ? "rgba(34,197,94,0.07)" : "none",
+                        border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        borderLeft: isActive ? "2px solid #22c55e" : "2px solid transparent",
+                        cursor: isLoading ? "wait" : "pointer", textAlign: "left", alignItems: "center",
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#d4d0ca", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {game.white.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.white.rating}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {game.black.name}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.black.rating}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+                        {isLoading ? "…" : `${winnerArrow}${resultSymbol}`}
+                      </span>
+                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.year}</span>
+                    </button>
                   );
                 })}
               </div>
