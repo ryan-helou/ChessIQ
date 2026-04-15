@@ -127,7 +127,10 @@ export async function POST(request: NextRequest) {
         }
 
         const lastMove = movesArr[movesArr.length - 1];
-        return NextResponse.json({ bestMove: lastMove?.bestMove ?? null });
+        return NextResponse.json({
+          bestMove: lastMove?.bestMove ?? null,
+          evalCp: typeof lastMove?.engineEval === "number" ? lastMove.engineEval : null,
+        });
       } catch (err) {
         lastError = err;
       }
