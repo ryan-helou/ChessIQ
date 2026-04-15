@@ -240,15 +240,38 @@ export default function OpeningsPage() {
       .slice(0, 6);
   }, [allGames]);
 
-  // Fetch Lichess master data whenever position changes
+  // Fetch Lichess master data directly from browser (Lichess has CORS open)
   useEffect(() => {
     setLichessData(null);
     setLichessLoading(true);
     const controller = new AbortController();
-    fetch(`/api/lichess-explorer?fen=${encodeURIComponent(fen)}`, { signal: controller.signal })
-      .then(r => r.json())
-      .then(setLichessData)
-      .catch(() => { /* ignore */ })
+    fetch(`https://explorer.lichess.ovh/masters?fen=${encodeURIComponent(fen)}`, {
+      signal: controller.signal,
+      headers: { "Accept": "application/json" },
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then((data: {
+        white: number; draws: number; black: number;
+        moves: { san: string; uci: string; white: number; draws: number; black: number }[];
+        opening?: { eco: string; name: string } | null;
+        topGames?: { id: string; winner: string | null; white: { name: string; rating: number }; black: { name: string; rating: number }; year?: number; month?: string }[];
+      }) => {
+        setLichessData({
+          white: data.white ?? 0,
+          draws: data.draws ?? 0,
+          black: data.black ?? 0,
+          moves: (data.moves ?? []).slice(0, 10).map(m => ({ san: m.san, uci: m.uci, white: m.white, draws: m.draws, black: m.black })),
+          opening: data.opening ?? null,
+          topGames: (data.topGames ?? []).slice(0, 5).map(g => ({
+            id: g.id,
+            winner: (g.winner ?? null) as "white" | "black" | null,
+            white: { name: g.white?.name ?? "?", rating: g.white?.rating ?? 0 },
+            black: { name: g.black?.name ?? "?", rating: g.black?.rating ?? 0 },
+            year: g.year ?? parseInt(g.month?.slice(0, 4) ?? "0"),
+          })),
+        });
+      })
+      .catch(() => { /* silently ignore aborts / network errors */ })
       .finally(() => setLichessLoading(false));
     return () => controller.abort();
   }, [fen]);
@@ -394,12 +417,18 @@ export default function OpeningsPage() {
     setPendingSquare(null);
   }, []);
 
-  // Load a master game onto the board
+  // Load a master game onto the board (fetch PGN directly from Lichess)
   const loadGame = useCallback(async (game: TopGame) => {
     setGameLoadingId(game.id);
     try {
-      const r = await fetch(`/api/lichess-explorer/game?id=${encodeURIComponent(game.id)}`);
-      const { moves } = await r.json() as { moves: string[] };
+      const r = await fetch(`https://explorer.lichess.ovh/masters/pgn/${game.id}`, {
+        headers: { "Accept": "application/x-chess-pgn" },
+      });
+      if (!r.ok) return;
+      const pgn = await r.text();
+      const pgnChess = new Chess();
+      pgnChess.loadPgn(pgn);
+      const moves = pgnChess.history();
       if (!moves || moves.length === 0) return;
 
       // If we're already at a position inside this game, continue from here.
