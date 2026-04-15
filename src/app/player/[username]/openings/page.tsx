@@ -38,8 +38,17 @@ interface PersonalMoveStats {
 interface ExplorerMove {
   san: string;
   uci: string;
-  winrate: number;  // win% for the side that made this move
-  rank: number;     // 2=best, 1=good, 0=questionable
+  winrate: number;      // win% for the side that made this move
+  rank: number;         // 2=best, 1=good, 0=questionable
+  score: number | null; // centipawns from side-to-move perspective
+}
+
+interface LichessMove {
+  san: string;
+  uci: string;
+  white: number;  // games won by white
+  draws: number;
+  black: number;  // games won by black
 }
 
 interface TopGame {
@@ -214,8 +223,10 @@ export default function OpeningsPage() {
   const [explorerMoves, setExplorerMoves] = useState<ExplorerMove[]>([]);
   const [explorerLoading, setExplorerLoading] = useState(false);
 
-  // Lichess master games for this position
+  // Lichess master games + moves for this position
   const [masterGames, setMasterGames] = useState<TopGame[]>([]);
+  const [lichessMoves, setLichessMoves] = useState<LichessMove[]>([]);
+  const [lichessTotal, setLichessTotal] = useState(0);
   const [gameLoadingId, setGameLoadingId] = useState<string | null>(null);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
 
@@ -283,11 +294,12 @@ export default function OpeningsPage() {
       .then((data: any) => {
         if (data?.status === "ok" && Array.isArray(data.moves)) {
           setExplorerMoves(
-            data.moves.slice(0, 12).map((m: { san: string; uci: string; rank?: number; winrate?: string }) => ({
+            data.moves.slice(0, 12).map((m: { san: string; uci: string; rank?: number; winrate?: string; score?: number }) => ({
               san: m.san,
               uci: m.uci,
               rank: m.rank ?? 0,
               winrate: parseFloat(m.winrate ?? "50"),
+              score: typeof m.score === "number" ? m.score : null,
             }))
           );
         }
@@ -297,15 +309,19 @@ export default function OpeningsPage() {
     return () => controller.abort();
   }, [fen]);
 
-  // Fetch Lichess master games for this position
+  // Fetch Lichess master games + moves for this position
   useEffect(() => {
     setMasterGames([]);
+    setLichessMoves([]);
+    setLichessTotal(0);
     setActiveGameId(null);
     const controller = new AbortController();
     fetch(`/api/lichess-explorer?fen=${encodeURIComponent(fen)}`, { signal: controller.signal })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(r => r.json()).then((data: any) => {
         setMasterGames(data.topGames ?? []);
+        setLichessMoves(data.moves ?? []);
+        setLichessTotal((data.white ?? 0) + (data.draws ?? 0) + (data.black ?? 0));
       })
       .catch(() => {});
     return () => controller.abort();
@@ -509,53 +525,14 @@ export default function OpeningsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Side to move — read directly from FEN string (field 2)
+  const sideToMove = useMemo(() => fen.split(" ")[1] as "w" | "b", [fen]);
+
   // Personal moves at current FEN
   const personalMoves = useMemo(
     () => personalStatsMapRef.current.get(fen) ?? [],
     [fen]
   );
-
-  // Merged move table rows
-  const mergedMoves = useMemo(() => {
-    interface MergedRow {
-      san: string; uci: string;
-      personalWins: number; personalDraws: number; personalLosses: number;
-      explorerWinrate: number | null;
-      explorerRank: number;
-    }
-    const rowMap = new Map<string, MergedRow>();
-
-    for (const pm of personalMoves) {
-      rowMap.set(pm.san, {
-        san: pm.san, uci: pm.uci,
-        personalWins: pm.wins, personalDraws: pm.draws, personalLosses: pm.losses,
-        explorerWinrate: null, explorerRank: 0,
-      });
-    }
-    for (const em of explorerMoves) {
-      const existing = rowMap.get(em.san);
-      if (existing) {
-        existing.explorerWinrate = em.winrate;
-        existing.explorerRank = em.rank;
-      } else {
-        rowMap.set(em.san, {
-          san: em.san, uci: em.uci,
-          personalWins: 0, personalDraws: 0, personalLosses: 0,
-          explorerWinrate: em.winrate, explorerRank: em.rank,
-        });
-      }
-    }
-
-    return Array.from(rowMap.values()).sort((a, b) => {
-      // Explorer rank first (best moves at top), then personal, then rest
-      if (a.explorerRank !== b.explorerRank) return b.explorerRank - a.explorerRank;
-      const aP = a.personalWins + a.personalDraws + a.personalLosses;
-      const bP = b.personalWins + b.personalDraws + b.personalLosses;
-      if (aP !== bP) return bP - aP;
-      if (a.explorerWinrate !== null && b.explorerWinrate !== null) return b.explorerWinrate - a.explorerWinrate;
-      return 0;
-    });
-  }, [personalMoves, explorerMoves]);
 
   // Games at current position (from user's history)
   const gamesAtPosition = useMemo(
@@ -564,11 +541,56 @@ export default function OpeningsPage() {
     [fen, loading]
   );
 
-  const evalDisplay = evalCp !== null
-    ? (evalCp >= 0 ? "+" : "") + (evalCp / 100).toFixed(1)
-    : null;
+  // Top 3 engine moves for "Best Moves" section (ChessDB ranked, cross-ref Lichess for W/D/L)
+  const bestThreeMoves = useMemo(() => {
+    return [...explorerMoves]
+      .sort((a, b) => b.rank - a.rank || b.winrate - a.winrate)
+      .slice(0, 3)
+      .map(em => {
+        const lm = lichessMoves.find(l => l.san === em.san);
+        const lTotal = lm ? lm.white + lm.draws + lm.black : 0;
+        const wPct = lTotal > 0
+          ? ((sideToMove === "w" ? lm!.white : lm!.black) / lTotal) * 100
+          : em.winrate;
+        const dPct = lTotal > 0 ? (lm!.draws / lTotal) * 100 : null;
+        const lPct = lTotal > 0
+          ? ((sideToMove === "w" ? lm!.black : lm!.white) / lTotal) * 100
+          : null;
+        return { san: em.san, score: em.score, wPct, dPct, lPct, hasLichess: lTotal > 0 };
+      });
+  }, [explorerMoves, lichessMoves, sideToMove]);
 
-  // Aggregate personal stats across all moves at this position
+  // Master games most-likely moves: Lichess frequency, W/D/L from side-to-move perspective
+  const masterMovesTable = useMemo(() => {
+    if (lichessMoves.length === 0) return [];
+    return [...lichessMoves]
+      .map(m => {
+        const total = m.white + m.draws + m.black;
+        const freqPct = lichessTotal > 0 ? (total / lichessTotal) * 100 : 0;
+        const wPct = total > 0 ? ((sideToMove === "w" ? m.white : m.black) / total) * 100 : 0;
+        const dPct = total > 0 ? (m.draws / total) * 100 : 0;
+        const lPct = total > 0 ? ((sideToMove === "w" ? m.black : m.white) / total) * 100 : 0;
+        return { san: m.san, uci: m.uci, freqPct, total, wPct, dPct, lPct };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [lichessMoves, lichessTotal, sideToMove]);
+
+  // My games most-likely moves: personal frequency, W/D/L
+  const myMovesTable = useMemo(() => {
+    const totalAtPos = personalMoves.reduce((s, m) => s + m.wins + m.draws + m.losses, 0);
+    return [...personalMoves]
+      .map(m => {
+        const total = m.wins + m.draws + m.losses;
+        const freqPct = totalAtPos > 0 ? (total / totalAtPos) * 100 : 0;
+        const wPct = total > 0 ? (m.wins / total) * 100 : 0;
+        const dPct = total > 0 ? (m.draws / total) * 100 : 0;
+        const lPct = total > 0 ? (m.losses / total) * 100 : 0;
+        return { san: m.san, uci: m.uci, freqPct, total, wPct, dPct, lPct };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [personalMoves]);
+
+  // Aggregate personal stats across all moves at this position (for position summary)
   const positionSummary = useMemo(() => {
     const wins = personalMoves.reduce((s, m) => s + m.wins, 0);
     const draws = personalMoves.reduce((s, m) => s + m.draws, 0);
@@ -576,6 +598,10 @@ export default function OpeningsPage() {
     const total = wins + draws + losses;
     return { wins, draws, losses, total };
   }, [personalMoves]);
+
+  const evalDisplay = evalCp !== null
+    ? (evalCp >= 0 ? "+" : "") + (evalCp / 100).toFixed(1)
+    : null;
 
   // header(44) + engine status(24) + padding(32) = ~100px vertical overhead
   // right panel min width = 320px + eval bar = ~336px horizontal overhead
@@ -778,279 +804,346 @@ export default function OpeningsPage() {
           </div>
 
 
-          {/* Position summary bar */}
-          {positionSummary.total > 0 && (
-            <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>Your results at this position</span>
-                <span style={{ fontSize: 11, color: "var(--text-4)" }}>{positionSummary.total} games</span>
-              </div>
-              <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 5 }}>
-                {positionSummary.wins > 0 && <div style={{ flex: positionSummary.wins, background: "#81b64c" }} />}
-                {positionSummary.draws > 0 && <div style={{ flex: positionSummary.draws, background: "#555" }} />}
-                {positionSummary.losses > 0 && <div style={{ flex: positionSummary.losses, background: "#ca3431" }} />}
-              </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                <span style={{ fontSize: 11, color: "#81b64c", fontWeight: 600 }}>
-                  {((positionSummary.wins / positionSummary.total) * 100).toFixed(0)}% W
+          {/* ── Best Moves — always visible, above tab content ── */}
+          {(bestThreeMoves.length > 0 || explorerLoading) && (
+            <div style={{ flexShrink: 0, borderBottom: "2px solid var(--border)", background: "rgba(129,182,76,0.03)" }}>
+              {/* Section header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 16px 4px" }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  ★ Best Moves
                 </span>
-                <span style={{ fontSize: 11, color: "var(--text-4)" }}>
-                  {((positionSummary.draws / positionSummary.total) * 100).toFixed(0)}% D
-                </span>
-                <span style={{ fontSize: 11, color: "#ca3431", fontWeight: 600 }}>
-                  {((positionSummary.losses / positionSummary.total) * 100).toFixed(0)}% L
-                </span>
+                <span style={{ fontSize: 9, color: "var(--text-5)" }}>engine · click to play</span>
               </div>
+              {/* Column header */}
+              <div style={{ display: "grid", gridTemplateColumns: "52px 52px 1fr", gap: 6, padding: "3px 16px 4px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Eval</span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>W · D · L</span>
+              </div>
+              {/* Skeleton while loading */}
+              {explorerLoading && bestThreeMoves.length === 0 && [1, 2, 3].map(k => (
+                <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 52px 1fr", gap: 6, padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <div style={{ height: 14, width: 28, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div style={{ height: 14, width: 36, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div style={{ height: 6, background: "var(--border)", borderRadius: 3, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
+                </div>
+              ))}
+              {/* Move rows */}
+              {bestThreeMoves.map((bm, i) => {
+                const evalStr = bm.score !== null
+                  ? (bm.score >= 0 ? "+" : "") + (bm.score / 100).toFixed(2)
+                  : "—";
+                return (
+                  <button
+                    key={bm.san}
+                    onClick={() => playMoveSan(bm.san)}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                    style={{
+                      width: "100%", display: "grid", gridTemplateColumns: "52px 52px 1fr",
+                      gap: 6, padding: "8px 16px", background: "none", border: "none",
+                      borderBottom: i < bestThreeMoves.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                      cursor: "pointer", textAlign: "left", alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{bm.san}</span>
+                    <span style={{
+                      fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600,
+                      color: bm.score !== null && bm.score > 0 ? "#d4d0ca" : bm.score !== null && bm.score < 0 ? "#888" : "var(--text-3)",
+                    }}>{evalStr}</span>
+                    {bm.hasLichess && bm.dPct !== null && bm.lPct !== null ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                        <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 72, flexShrink: 0 }}>
+                          <div style={{ width: `${bm.wPct}%`, background: "#d4d0ca" }} />
+                          <div style={{ width: `${bm.dPct}%`, background: "#555" }} />
+                          <div style={{ width: `${bm.lPct}%`, background: "#8b8b8b" }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                          <span style={{ color: "#d4d0ca" }}>{bm.wPct.toFixed(0)}%</span>
+                          <span style={{ color: "var(--text-5)" }}> · {bm.dPct.toFixed(0)}% · </span>
+                          <span style={{ color: "#888" }}>{bm.lPct.toFixed(0)}%</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                        <div style={{ position: "relative", height: 6, borderRadius: 3, overflow: "hidden", width: 72, flexShrink: 0, background: "rgba(255,255,255,0.08)" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${bm.wPct}%`, background: "#81b64c", borderRadius: 3 }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{bm.wPct.toFixed(0)}% win</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          {/* Move table — scrollable */}
+          {/* ── Tab content — scrollable ── */}
           <div style={{ flex: 1, overflowY: "auto" }}>
 
-            {/* Header */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: activeTab === "masters" ? "52px 44px 1fr" : "52px 36px 52px 1fr",
-              gap: 6, padding: "7px 16px",
-              background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)",
-              position: "sticky", top: 0, zIndex: 1,
-            }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
-              {activeTab === "masters" ? (
-                <>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Quality</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Win %</span>
-                </>
-              ) : (
-                <>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>%</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "right" }}>Games</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>W · D · L</span>
-                </>
-              )}
-            </div>
-
-            {/* Rows */}
-            {mergedMoves.length === 0 && !explorerLoading ? (
-              <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--text-4)", fontSize: 13 }}>
-                No moves — drag a piece or click a square to explore
-              </div>
-            ) : (
+            {/* ── MASTERS TAB ── */}
+            {activeTab === "masters" && (
               <>
-                {mergedMoves.map((row, i) => {
-                  const pTotal = row.personalWins + row.personalDraws + row.personalLosses;
-                  const pWPct = pTotal > 0 ? (row.personalWins / pTotal) * 100 : 0;
-                  const pDPct = pTotal > 0 ? (row.personalDraws / pTotal) * 100 : 0;
-                  const pLPct = pTotal > 0 ? (row.personalLosses / pTotal) * 100 : 0;
+                {/* Section label */}
+                <div style={{ padding: "8px 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                    {masterMovesTable.length > 0 ? "Master Most Likely Moves" : "Engine Suggestions"}
+                  </span>
+                  {lichessTotal > 0 && (
+                    <span style={{ fontSize: 9, color: "var(--text-5)" }}>{fmtCount(lichessTotal)} games</span>
+                  )}
+                </div>
 
-                  const isMasters = activeTab === "masters";
+                {/* Column header */}
+                {masterMovesTable.length > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
+                    {["Move", "%", "Count", "W · D · L"].map((h, i) => (
+                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: i === 1 || i === 2 ? "right" : "left" }}>{h}</span>
+                    ))}
+                  </div>
+                )}
 
-                  // Rank badge: 2=Best, 1=Good, 0=OK
-                  const rankLabel = row.explorerRank === 2 ? "Best" : row.explorerRank === 1 ? "Good" : "OK";
-                  const rankColor = row.explorerRank === 2 ? "#81b64c" : row.explorerRank === 1 ? "#60a5fa" : "var(--text-5)";
-                  const rankBg = row.explorerRank === 2 ? "rgba(129,182,76,0.12)" : row.explorerRank === 1 ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)";
-
-                  return (
-                    <button
-                      key={row.san}
-                      onClick={() => playMoveSan(row.san)}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-                      style={{
-                        width: "100%", display: "grid",
-                        gridTemplateColumns: isMasters ? "52px 44px 1fr" : "52px 36px 52px 1fr",
-                        gap: 6, padding: "9px 16px",
-                        background: "none", border: "none",
-                        borderBottom: i < mergedMoves.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                        cursor: "pointer", textAlign: "left", alignItems: "center",
-                      }}
-                    >
-                      {/* Move */}
-                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>
-                        {row.san}
+                {/* Master move rows (Lichess data) */}
+                {masterMovesTable.map((row, i) => (
+                  <button
+                    key={row.san}
+                    onClick={() => playMoveSan(row.san)}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                    style={{
+                      width: "100%", display: "grid", gridTemplateColumns: "52px 40px 52px 1fr",
+                      gap: 6, padding: "9px 16px", background: "none", border: "none",
+                      borderBottom: i < masterMovesTable.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                      cursor: "pointer", textAlign: "left", alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{row.san}</span>
+                    <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.freqPct.toFixed(0)}%</span>
+                    <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtCount(row.total)}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                      <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
+                        <div style={{ width: `${row.wPct}%`, background: "#d4d0ca" }} />
+                        <div style={{ width: `${row.dPct}%`, background: "#555" }} />
+                        <div style={{ width: `${row.lPct}%`, background: "#8b8b8b" }} />
+                      </div>
+                      <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                        <span style={{ color: "#d4d0ca" }}>{row.wPct.toFixed(0)}%</span>
+                        <span style={{ color: "var(--text-5)" }}> · {row.dPct.toFixed(0)}% · </span>
+                        <span style={{ color: "#888" }}>{row.lPct.toFixed(0)}%</span>
                       </span>
+                    </div>
+                  </button>
+                ))}
 
-                      {isMasters ? (
-                        <>
-                          {/* Rank badge */}
-                          {row.explorerWinrate !== null ? (
-                            <span style={{
-                              fontSize: 9, fontWeight: 700, color: rankColor,
-                              background: rankBg, border: `1px solid ${rankColor}33`,
-                              borderRadius: 3, padding: "1px 5px", textAlign: "center",
-                              whiteSpace: "nowrap", alignSelf: "center",
-                            }}>
-                              {rankLabel}
-                            </span>
-                          ) : explorerLoading ? (
-                            <div style={{ height: 14, width: 32, background: "var(--border)", borderRadius: 3, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
-                          ) : (
-                            <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
-                          )}
-
-                          {/* Win% bar */}
-                          {row.explorerWinrate !== null ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                              <div style={{ position: "relative", height: 6, borderRadius: 3, overflow: "hidden", width: 80, flexShrink: 0, background: "rgba(255,255,255,0.08)" }}>
-                                <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${row.explorerWinrate}%`, background: "#81b64c", borderRadius: 3 }} />
-                              </div>
-                              <span style={{ fontSize: 10, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                                {row.explorerWinrate.toFixed(0)}% win
-                              </span>
+                {/* Fallback: no Lichess data — show ChessDB quality moves */}
+                {masterMovesTable.length === 0 && explorerMoves.length > 0 && (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "52px 48px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
+                      {["Move", "Quality", "Win %"].map((h, i) => (
+                        <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
+                      ))}
+                    </div>
+                    {explorerMoves.map((em, i) => {
+                      const rankLabel = em.rank === 2 ? "Best" : em.rank === 1 ? "Good" : "OK";
+                      const rankColor = em.rank === 2 ? "#81b64c" : em.rank === 1 ? "#60a5fa" : "var(--text-5)";
+                      const rankBg = em.rank === 2 ? "rgba(129,182,76,0.12)" : em.rank === 1 ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)";
+                      return (
+                        <button
+                          key={em.san}
+                          onClick={() => playMoveSan(em.san)}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                          style={{ width: "100%", display: "grid", gridTemplateColumns: "52px 48px 1fr", gap: 6, padding: "9px 16px", background: "none", border: "none", borderBottom: i < explorerMoves.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", cursor: "pointer", textAlign: "left", alignItems: "center" }}
+                        >
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{em.san}</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: rankColor, background: rankBg, border: `1px solid ${rankColor}33`, borderRadius: 3, padding: "1px 5px", textAlign: "center", whiteSpace: "nowrap", alignSelf: "center" }}>{rankLabel}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                            <div style={{ position: "relative", height: 6, borderRadius: 3, overflow: "hidden", width: 72, flexShrink: 0, background: "rgba(255,255,255,0.08)" }}>
+                              <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${em.winrate}%`, background: "#81b64c", borderRadius: 3 }} />
                             </div>
-                          ) : explorerLoading ? (
-                            <div style={{ height: 6, width: 80, background: "var(--border)", borderRadius: 3, opacity: 0.35, animation: "pulse 1.5s ease-in-out infinite" }} />
-                          ) : (
-                            <span style={{ fontSize: 11, color: "var(--text-5)" }}>—</span>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          {/* My Games: % popularity */}
-                          <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                            —
-                          </span>
+                            <span style={{ fontSize: 10, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{em.winrate.toFixed(0)}%</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
 
-                          {/* My Games: game count */}
-                          <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                            {pTotal > 0 ? fmtCount(pTotal) : "—"}
-                          </span>
-
-                          {/* My Games: W/D/L bar */}
-                          {pTotal > 0 ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                              <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
-                                <div style={{ width: `${pWPct}%`, background: "#81b64c" }} />
-                                <div style={{ width: `${pDPct}%`, background: "#555" }} />
-                                <div style={{ width: `${pLPct}%`, background: "#ca3431" }} />
-                              </div>
-                              <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                                <span style={{ color: "#81b64c" }}>{pWPct.toFixed(0)}%</span>
-                                <span style={{ color: "var(--text-5)" }}> · {pDPct.toFixed(0)}% · </span>
-                                <span style={{ color: "#ca3431" }}>{pLPct.toFixed(0)}%</span>
-                              </span>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: 11, color: "var(--text-5)" }}>No games</span>
-                          )}
-                        </>
-                      )}
-                    </button>
-                  );
-                })}
-
-                {activeTab === "masters" && explorerLoading && mergedMoves.length === 0 && [1, 2, 3, 4].map(k => (
-                  <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 44px 1fr", gap: 6, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                {/* Loading skeleton */}
+                {masterMovesTable.length === 0 && explorerMoves.length === 0 && explorerLoading && [1, 2, 3, 4].map(k => (
+                  <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 1fr", gap: 6, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <div style={{ height: 14, width: 28, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
+                    <div style={{ height: 14, width: 24, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                     <div style={{ height: 14, width: 32, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                     <div style={{ height: 6, background: "var(--border)", borderRadius: 3, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
                   </div>
                 ))}
+
+                {/* Notable master games */}
+                {masterGames.length > 0 && (
+                  <div style={{ borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                    <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Notable Master Games</span>
+                      <span style={{ fontSize: 9, color: "var(--text-5)" }}>click to replay · ← → navigate</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr 40px 56px 36px", gap: 4, padding: "4px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      {["White", "Rtg", "Black", "Rtg", "Result", "Year"].map((h, i) => (
+                        <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
+                      ))}
+                    </div>
+                    {masterGames.map(game => {
+                      const isLoading = gameLoadingId === game.id;
+                      const isActive = activeGameId === game.id;
+                      const resultSymbol = game.winner === "white" ? "1-0" : game.winner === "black" ? "0-1" : "½-½";
+                      const winnerArrow = game.winner === "white" ? "▲ " : game.winner === "black" ? "▼ " : "";
+                      const resultColor = game.winner === "white" ? "#d4d0ca" : game.winner === "black" ? "#999" : "var(--text-4)";
+                      return (
+                        <button
+                          key={game.id}
+                          onClick={() => loadGame(game)}
+                          onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isActive ? "rgba(34,197,94,0.07)" : "none"; }}
+                          disabled={isLoading}
+                          style={{
+                            width: "100%", display: "grid", gridTemplateColumns: "1fr 40px 1fr 40px 56px 36px",
+                            gap: 4, padding: "8px 16px",
+                            background: isActive ? "rgba(34,197,94,0.07)" : "none",
+                            border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                            borderLeft: isActive ? "2px solid #22c55e" : "2px solid transparent",
+                            cursor: isLoading ? "wait" : "pointer", textAlign: "left", alignItems: "center",
+                          }}
+                        >
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#d4d0ca", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.white.name}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.white.rating}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.black.name}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.black.rating}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>{isLoading ? "…" : `${winnerArrow}${resultSymbol}`}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.year}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {explorerMoves.length > 0 && (
+                  <div style={{ padding: "6px 16px", fontSize: 9, color: "var(--text-5)", textAlign: "right", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                    Engine · ChessDB{lichessTotal > 0 ? " · Games · Lichess" : ""}
+                  </div>
+                )}
               </>
             )}
 
-            {/* Your games at this position */}
-            {gamesAtPosition.length > 0 && (
-              <div style={{ borderTop: "1px solid var(--border)" }}>
-                <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>Your games at this position</span>
-                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>{gamesAtPosition.length} game{gamesAtPosition.length !== 1 ? "s" : ""}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 36px 56px", gap: 4, padding: "4px 16px", borderBottom: "1px solid var(--border)" }}>
-                  {["Result", "Opponent", "Rtg", "Date"].map(h => (
-                    <span key={h} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
-                  ))}
-                </div>
-                {gamesAtPosition.slice(0, 10).map((g, i) => {
-                  const resultColor = g.result === "win" ? "#81b64c" : g.result === "loss" ? "#ca3431" : "var(--text-4)";
-                  const resultLabel = g.result === "win" ? "▲ Win" : g.result === "loss" ? "▼ Loss" : "½ Draw";
-                  const dateStr = g.date instanceof Date && !isNaN(g.date.getTime())
-                    ? g.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
-                    : "";
-                  return (
-                    <a
-                      key={g.id + i}
-                      href={g.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.04)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "none"; }}
-                      style={{
-                        display: "grid", gridTemplateColumns: "48px 1fr 36px 56px",
-                        gap: 4, padding: "8px 16px",
-                        background: "none", textDecoration: "none",
-                        borderBottom: i < Math.min(gamesAtPosition.length, 10) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                        alignItems: "center",
-                      }}
-                    >
-                      <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, whiteSpace: "nowrap" }}>{resultLabel}</span>
-                      <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.opponentName}</span>
-                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{g.opponentRating || "—"}</span>
-                      <span style={{ fontSize: 10, color: "var(--text-5)", textAlign: "right" }}>{dateStr}</span>
-                    </a>
-                  );
-                })}
-              </div>
-            )}
+            {/* ── MY GAMES TAB ── */}
+            {activeTab === "my-games" && (
+              <>
+                {/* Position summary bar */}
+                {positionSummary.total > 0 && (
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>Your results at this position</span>
+                      <span style={{ fontSize: 11, color: "var(--text-4)" }}>{positionSummary.total} games</span>
+                    </div>
+                    <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 5 }}>
+                      {positionSummary.wins > 0 && <div style={{ flex: positionSummary.wins, background: "#81b64c" }} />}
+                      {positionSummary.draws > 0 && <div style={{ flex: positionSummary.draws, background: "#555" }} />}
+                      {positionSummary.losses > 0 && <div style={{ flex: positionSummary.losses, background: "#ca3431" }} />}
+                    </div>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <span style={{ fontSize: 11, color: "#81b64c", fontWeight: 600 }}>{((positionSummary.wins / positionSummary.total) * 100).toFixed(0)}% W</span>
+                      <span style={{ fontSize: 11, color: "var(--text-4)" }}>{((positionSummary.draws / positionSummary.total) * 100).toFixed(0)}% D</span>
+                      <span style={{ fontSize: 11, color: "#ca3431", fontWeight: 600 }}>{((positionSummary.losses / positionSummary.total) * 100).toFixed(0)}% L</span>
+                    </div>
+                  </div>
+                )}
 
-            {/* Master games table */}
-            {activeTab === "masters" && masterGames.length > 0 && (
-              <div style={{ borderTop: "1px solid var(--border)" }}>
-                <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>Notable master games</span>
-                  <span style={{ fontSize: 10, color: "var(--text-5)" }}>click to replay · ← → to navigate</span>
+                {/* Section label */}
+                <div style={{ padding: "8px 16px 4px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>My Most Likely Moves</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr 40px 56px 36px", gap: 4, padding: "4px 16px", borderBottom: "1px solid var(--border)" }}>
-                  {["White", "Rtg", "Black", "Rtg", "Result", "Year"].map((h, i) => (
-                    <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
-                  ))}
-                </div>
-                {masterGames.map(game => {
-                  const isLoading = gameLoadingId === game.id;
-                  const isActive = activeGameId === game.id;
-                  const resultSymbol = game.winner === "white" ? "1-0" : game.winner === "black" ? "0-1" : "½-½";
-                  const winnerArrow = game.winner === "white" ? "▲ " : game.winner === "black" ? "▼ " : "";
-                  const resultColor = game.winner === "white" ? "#d4d0ca" : game.winner === "black" ? "#999" : "var(--text-4)";
-                  return (
-                    <button
-                      key={game.id}
-                      onClick={() => loadGame(game)}
-                      onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isActive ? "rgba(34,197,94,0.07)" : "none"; }}
-                      disabled={isLoading}
-                      style={{
-                        width: "100%", display: "grid",
-                        gridTemplateColumns: "1fr 40px 1fr 40px 56px 36px",
-                        gap: 4, padding: "8px 16px",
-                        background: isActive ? "rgba(34,197,94,0.07)" : "none",
-                        border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)",
-                        borderLeft: isActive ? "2px solid #22c55e" : "2px solid transparent",
-                        cursor: isLoading ? "wait" : "pointer", textAlign: "left", alignItems: "center",
-                      }}
-                    >
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#d4d0ca", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {game.white.name}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.white.rating}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {game.black.name}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.black.rating}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-                        {isLoading ? "…" : `${winnerArrow}${resultSymbol}`}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right" }}>{game.year}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
 
-            {/* ChessDB source note */}
-            {explorerMoves.length > 0 && (
-              <div style={{ padding: "6px 16px", fontSize: 10, color: "var(--text-5)", textAlign: "right", borderTop: "1px solid var(--border)" }}>
-                Engine data · ChessDB
-              </div>
+                {/* Column header */}
+                {myMovesTable.length > 0 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
+                    {["Move", "%", "Count", "W · D · L"].map((h, i) => (
+                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: i === 1 || i === 2 ? "right" : "left" }}>{h}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* My move rows */}
+                {myMovesTable.length === 0 ? (
+                  <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--text-4)", fontSize: 13 }}>
+                    {loading ? "Loading games…" : "No personal games at this position"}
+                  </div>
+                ) : myMovesTable.map((row, i) => (
+                  <button
+                    key={row.san}
+                    onClick={() => playMoveSan(row.san)}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                    style={{
+                      width: "100%", display: "grid", gridTemplateColumns: "52px 40px 52px 1fr",
+                      gap: 6, padding: "9px 16px", background: "none", border: "none",
+                      borderBottom: i < myMovesTable.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                      cursor: "pointer", textAlign: "left", alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{row.san}</span>
+                    <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.freqPct.toFixed(0)}%</span>
+                    <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.total}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+                      <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
+                        <div style={{ width: `${row.wPct}%`, background: "#81b64c" }} />
+                        <div style={{ width: `${row.dPct}%`, background: "#555" }} />
+                        <div style={{ width: `${row.lPct}%`, background: "#ca3431" }} />
+                      </div>
+                      <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                        <span style={{ color: "#81b64c" }}>{row.wPct.toFixed(0)}%</span>
+                        <span style={{ color: "var(--text-5)" }}> · {row.dPct.toFixed(0)}% · </span>
+                        <span style={{ color: "#ca3431" }}>{row.lPct.toFixed(0)}%</span>
+                      </span>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Your games at this position */}
+                {gamesAtPosition.length > 0 && (
+                  <div style={{ borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                    <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Your Games Here</span>
+                      <span style={{ fontSize: 9, color: "var(--text-5)" }}>{gamesAtPosition.length} game{gamesAtPosition.length !== 1 ? "s" : ""}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 36px 56px", gap: 4, padding: "4px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      {["Result", "Opponent", "Rtg", "Date"].map(h => (
+                        <span key={h} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
+                      ))}
+                    </div>
+                    {gamesAtPosition.slice(0, 10).map((g, i) => {
+                      const resultColor = g.result === "win" ? "#81b64c" : g.result === "loss" ? "#ca3431" : "var(--text-4)";
+                      const resultLabel = g.result === "win" ? "▲ Win" : g.result === "loss" ? "▼ Loss" : "½ Draw";
+                      const dateStr = g.date instanceof Date && !isNaN(g.date.getTime())
+                        ? g.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+                        : "";
+                      return (
+                        <a
+                          key={g.id + i}
+                          href={g.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.04)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "none"; }}
+                          style={{ display: "grid", gridTemplateColumns: "48px 1fr 36px 56px", gap: 4, padding: "8px 16px", background: "none", textDecoration: "none", borderBottom: i < Math.min(gamesAtPosition.length, 10) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems: "center" }}
+                        >
+                          <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, whiteSpace: "nowrap" }}>{resultLabel}</span>
+                          <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.opponentName}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{g.opponentRating || "—"}</span>
+                          <span style={{ fontSize: 10, color: "var(--text-5)", textAlign: "right" }}>{dateStr}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
 
           </div>
