@@ -448,6 +448,15 @@ export default function OpeningsPage() {
     ? (evalCp >= 0 ? "+" : "") + (evalCp / 100).toFixed(1)
     : null;
 
+  // Aggregate personal stats across all moves at this position
+  const positionSummary = useMemo(() => {
+    const wins = personalMoves.reduce((s, m) => s + m.wins, 0);
+    const draws = personalMoves.reduce((s, m) => s + m.draws, 0);
+    const losses = personalMoves.reduce((s, m) => s + m.losses, 0);
+    const total = wins + draws + losses;
+    return { wins, draws, losses, total };
+  }, [personalMoves]);
+
   // header(44) + engine status(24) + padding(32) = ~100px vertical overhead
   // right panel min width = 320px + eval bar = ~336px horizontal overhead
   const BOARD_SIZE = "min(calc(100vh - 100px), calc(100vw - 336px))";
@@ -632,6 +641,32 @@ export default function OpeningsPage() {
             </div>
           )}
 
+          {/* Position summary bar */}
+          {positionSummary.total > 0 && (
+            <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>Your results at this position</span>
+                <span style={{ fontSize: 11, color: "var(--text-4)" }}>{positionSummary.total} games</span>
+              </div>
+              <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 5 }}>
+                {positionSummary.wins > 0 && <div style={{ flex: positionSummary.wins, background: "#81b64c" }} />}
+                {positionSummary.draws > 0 && <div style={{ flex: positionSummary.draws, background: "#555" }} />}
+                {positionSummary.losses > 0 && <div style={{ flex: positionSummary.losses, background: "#ca3431" }} />}
+              </div>
+              <div style={{ display: "flex", gap: 12 }}>
+                <span style={{ fontSize: 11, color: "#81b64c", fontWeight: 600 }}>
+                  {((positionSummary.wins / positionSummary.total) * 100).toFixed(0)}% W
+                </span>
+                <span style={{ fontSize: 11, color: "var(--text-4)" }}>
+                  {((positionSummary.draws / positionSummary.total) * 100).toFixed(0)}% D
+                </span>
+                <span style={{ fontSize: 11, color: "#ca3431", fontWeight: 600 }}>
+                  {((positionSummary.losses / positionSummary.total) * 100).toFixed(0)}% L
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Move table — scrollable */}
           <div style={{ flex: 1, overflowY: "auto" }}>
 
@@ -639,7 +674,7 @@ export default function OpeningsPage() {
             <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 1fr", gap: 8, padding: "7px 16px", background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 1 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
               <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Your games</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Masters</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Master games</span>
             </div>
 
             {/* Rows */}
@@ -700,6 +735,9 @@ export default function OpeningsPage() {
                             <span style={{ fontSize: 10, color: "#d4d0ca", fontWeight: 600 }}>{lWPct.toFixed(0)}%</span>
                             <span style={{ fontSize: 10, color: "var(--text-4)" }}>{lDPct.toFixed(0)}%</span>
                             <span style={{ fontSize: 10, color: "#888" }}>{lBPct.toFixed(0)}%</span>
+                            <span style={{ fontSize: 10, color: "var(--text-5)", marginLeft: "auto" }}>
+                              {lTotal >= 1000 ? `${(lTotal / 1000).toFixed(0)}k` : lTotal}
+                            </span>
                           </div>
                           <div style={{ display: "flex", height: 4, borderRadius: 2, overflow: "hidden" }}>
                             <div style={{ flex: row.lichessWhite || 0, background: "#d4d0ca", minWidth: row.lichessWhite > 0 ? 2 : 0 }} />
