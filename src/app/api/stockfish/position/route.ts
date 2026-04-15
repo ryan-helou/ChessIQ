@@ -135,11 +135,10 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ bestMove: null });
         }
 
-        // We appended a probe move, so the target position analysis is at
-        // the second-to-last entry. If no probe move was appended, use last.
-        const targetEntry = probeMove
-          ? movesArr[movesArr.length - 2] ?? movesArr[movesArr.length - 1]
-          : movesArr[movesArr.length - 1];
+        // moves[i].bestMove = best move from position BEFORE move i.
+        // By appending a probe move, our target position becomes "before the probe",
+        // which is moves[N] where N = validMoves.length = movesArr.length - 1 (last entry).
+        const targetEntry = movesArr[movesArr.length - 1];
         return NextResponse.json({
           bestMove: targetEntry?.bestMove ?? null,
           evalCp: typeof targetEntry?.engineEval === "number" ? targetEntry.engineEval : null,
