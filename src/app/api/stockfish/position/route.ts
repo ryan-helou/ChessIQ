@@ -89,14 +89,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ bestMove: null });
     }
 
-    // Build PGN from valid moves
+    // Build PGN from valid moves, then append one probe move so the backend
+    // analyzes the position AFTER our last move (not before it).
+    // The backend returns moves[i].bestMove = best move from position BEFORE move i,
+    // so we need one extra move to get analysis of our target position.
     const pgnChess = new Chess();
+    for (const san of validMoves) pgnChess.move(san);
+    const probeMoves = pgnChess.moves();
+    const probeMove = probeMoves.length > 0 ? pgnChess.move(probeMoves[0]).san : null;
+    const allMoves = probeMove ? [...validMoves, probeMove] : validMoves;
+
+    const pgnChess2 = new Chess();
     let pgn = "";
-    for (let i = 0; i < validMoves.length; i++) {
+    for (let i = 0; i < allMoves.length; i++) {
       const moveNum = Math.floor(i / 2) + 1;
       if (i % 2 === 0) pgn += `${moveNum}. `;
-      pgnChess.move(validMoves[i]);
-      pgn += validMoves[i] + " ";
+      pgnChess2.move(allMoves[i]);
+      pgn += allMoves[i] + " ";
     }
     pgn = pgn.trim();
 
@@ -126,10 +135,14 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ bestMove: null });
         }
 
-        const lastMove = movesArr[movesArr.length - 1];
+        // We appended a probe move, so the target position analysis is at
+        // the second-to-last entry. If no probe move was appended, use last.
+        const targetEntry = probeMove
+          ? movesArr[movesArr.length - 2] ?? movesArr[movesArr.length - 1]
+          : movesArr[movesArr.length - 1];
         return NextResponse.json({
-          bestMove: lastMove?.bestMove ?? null,
-          evalCp: typeof lastMove?.engineEval === "number" ? lastMove.engineEval : null,
+          bestMove: targetEntry?.bestMove ?? null,
+          evalCp: typeof targetEntry?.engineEval === "number" ? targetEntry.engineEval : null,
         });
       } catch (err) {
         lastError = err;
