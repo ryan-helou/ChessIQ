@@ -692,29 +692,11 @@ export default function OpeningsPage() {
         {/* ── RIGHT: Panel ───────────────────────────────────────────────────────── */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-          {/* Panel header: title + controls */}
+          {/* Panel header: controls only */}
           <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "10px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0, gap: 8,
+            display: "flex", alignItems: "center", justifyContent: "flex-end",
+            padding: "8px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0, gap: 8,
           }}>
-            {/* Tabs */}
-            <div style={{ display: "flex", gap: 2 }}>
-              {(["masters", "my-games"] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    padding: "4px 12px", borderRadius: 5, fontSize: 12, fontWeight: 600,
-                    border: "none", cursor: "pointer",
-                    background: activeTab === tab ? "rgba(129,182,76,0.15)" : "none",
-                    color: activeTab === tab ? "var(--green)" : "var(--text-3)",
-                    borderBottom: activeTab === tab ? "2px solid var(--green)" : "2px solid transparent",
-                  }}
-                >
-                  {tab === "masters" ? "Master Games" : "My Games"}
-                </button>
-              ))}
-            </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <button
                 onClick={() => setEngineOn(p => !p)}
@@ -750,6 +732,28 @@ export default function OpeningsPage() {
                 ↺
               </button>
             </div>
+          </div>
+
+          {/* Tab bar */}
+          <div style={{ display: "flex", flexShrink: 0, borderBottom: "1px solid var(--border)" }}>
+            {(["masters", "my-games"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  flex: 1, padding: "10px 0", fontSize: 13, fontWeight: 600,
+                  border: "none", cursor: "pointer",
+                  background: activeTab === tab ? "rgba(129,182,76,0.08)" : "none",
+                  color: activeTab === tab ? "var(--green)" : "var(--text-3)",
+                  borderBottom: activeTab === tab ? "2px solid var(--green)" : "2px solid transparent",
+                  transition: "color 0.15s, background 0.15s",
+                }}
+                onMouseEnter={e => { if (activeTab !== tab) (e.currentTarget as HTMLButtonElement).style.color = "var(--text-1)"; }}
+                onMouseLeave={e => { if (activeTab !== tab) (e.currentTarget as HTMLButtonElement).style.color = "var(--text-3)"; }}
+              >
+                {tab === "masters" ? "Master Games" : "My Games"}
+              </button>
+            ))}
           </div>
 
           {/* Quick-jump chips */}
