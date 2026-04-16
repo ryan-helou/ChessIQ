@@ -23,7 +23,7 @@ interface AnalysisJobData {
  * Process each game analysis job
  */
 analysisQueue.process(async (job) => {
-  const { games, username, depth = 18 } = job.data as AnalysisJobData;
+  const { games, username, depth = 12 } = job.data as AnalysisJobData;
 
   console.log(
     `[worker] Starting analysis of ${games.length} games for ${username}`

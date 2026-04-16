@@ -91,7 +91,7 @@ function calcGameAccuracy(moves: AnalyzedMove[], color: "white" | "black"): numb
  */
 export async function analyzeGame(
   pgn: string,
-  depth: number = 14,
+  depth: number = 12,
   chessComId?: string,
   signal?: AbortSignal
 ): Promise<GameAnalysisResult> {
@@ -162,6 +162,155 @@ export async function analyzeGame(
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Game analysis failed: ${errorMessage}`);
   }
+}
+
+export interface AnalysisProgressEvent {
+  moveIndex: number;
+  totalMoves: number;
+  eval: number;
+  mate: number | null;
+}
+
+/**
+ * Streaming game analysis — emits progress events as positions are evaluated,
+ * then returns the full result. Falls back to non-streaming if SSE fails.
+ */
+export async function analyzeGameStreaming(
+  pgn: string,
+  depth: number = 12,
+  chessComId?: string,
+  onProgress?: (event: AnalysisProgressEvent) => void,
+  signal?: AbortSignal,
+): Promise<GameAnalysisResult> {
+  // First check DB cache via the non-streaming route
+  if (chessComId) {
+    try {
+      const cacheCheck = await fetch(`/api/game-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pgn, depth, chessComId }),
+        signal,
+      });
+      if (cacheCheck.ok) {
+        const ct = cacheCheck.headers.get("content-type") || "";
+        if (ct.includes("application/json")) {
+          const analysis = await cacheCheck.json();
+          if (analysis.moves?.length > 0) {
+            return adaptAnalysis(pgn, depth, analysis);
+          }
+        }
+      }
+    } catch {
+      // Cache miss or error — proceed with streaming
+    }
+  }
+
+  // Stream from backend
+  return new Promise<GameAnalysisResult>((resolve, reject) => {
+    const controller = new AbortController();
+    if (signal) {
+      signal.addEventListener("abort", () => controller.abort());
+      if (signal.aborted) { reject(new Error("Aborted")); return; }
+    }
+
+    fetch(`/api/game-review/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pgn, depth }),
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok || !response.body) {
+        // Fall back to non-streaming
+        const result = await analyzeGame(pgn, depth, chessComId, signal);
+        resolve(result);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let currentEvent = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ") && currentEvent) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (currentEvent === "progress" && onProgress) {
+                onProgress(data);
+              } else if (currentEvent === "done") {
+                resolve(adaptAnalysis(pgn, depth, data));
+                return;
+              } else if (currentEvent === "error") {
+                reject(new Error(data.message || "Analysis failed"));
+                return;
+              }
+            } catch {}
+            currentEvent = "";
+          } else if (line === "") {
+            currentEvent = "";
+          }
+        }
+      }
+
+      reject(new Error("Stream ended without result"));
+    }).catch((err) => {
+      if (err instanceof Error && err.name === "AbortError") {
+        reject(err);
+      } else {
+        // Fall back to non-streaming
+        analyzeGame(pgn, depth, chessComId, signal).then(resolve).catch(reject);
+      }
+    });
+  });
+}
+
+function adaptAnalysis(pgn: string, depth: number, analysis: any): GameAnalysisResult {
+  const recalcedMoves: AnalyzedMove[] = analysis.moves.map((m: any) => ({
+    ...m,
+    accuracy: calcMoveAccuracy(m.evalDrop, m.classification),
+    isBlunder: m.classification === "blunder",
+    isMistake: m.classification === "mistake",
+    isInaccuracy: m.classification === "inaccuracy",
+    tacticalThemes: m.tacticalThemes || [],
+  }));
+
+  const whiteAccuracy = calcGameAccuracy(recalcedMoves, "white");
+  const blackAccuracy = calcGameAccuracy(recalcedMoves, "black");
+
+  const blunderMoves = recalcedMoves.filter((m) => m.classification === "blunder");
+
+  return {
+    gameId: "",
+    pgn,
+    moves: recalcedMoves,
+    blunders: blunderMoves.map((m) => ({
+      moveNumber: m.moveNumber,
+      playerMove: m.move,
+      bestMove: m.bestMove,
+      evalBeforeCp: m.evalBefore,
+      evalAfterCp: m.engineEval,
+      severity: m.classification as "blunder" | "mistake" | "inaccuracy",
+      missedTactic: null,
+      consequence: null,
+    })),
+    whiteAccuracy,
+    blackAccuracy,
+    evalGraph: analysis.evalGraph,
+    blunderCounts: analysis.blunders || analysis.blunderCounts || { white: 0, black: 0 },
+    mistakeCounts: analysis.mistakes || analysis.mistakeCounts || { white: 0, black: 0 },
+    inaccuracyCounts: analysis.inaccuracies || analysis.inaccuracyCounts || { white: 0, black: 0 },
+    analysisDepth: depth,
+  };
 }
 
 /**

@@ -43,7 +43,7 @@ export interface GameAnalysis {
 
 export async function analyzeGame(
   pgn: string,
-  depth: number = 18,
+  depth: number = 12,
   signal?: AbortSignal
 ): Promise<GameAnalysis> {
   // Validate PGN

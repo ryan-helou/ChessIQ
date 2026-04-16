@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PGN too large" }, { status: 413 });
     }
     const body = JSON.parse(rawBody);
-    const { pgn, depth = 14, chessComId } = body;
+    const { pgn, depth = 12, chessComId } = body;
 
     if (!pgn || typeof pgn !== "string") {
       return NextResponse.json(

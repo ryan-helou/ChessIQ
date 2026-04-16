@@ -311,7 +311,10 @@ export default function OpeningsPage() {
     fetch(`/api/games/${encodeURIComponent(username)}?months=6`)
       .then(r => r.json())
       .then(data => {
-        const games: ParsedGame[] = data.games ?? [];
+        const games: ParsedGame[] = (data.games ?? []).map((g: ParsedGame & { date: string | Date }) => ({
+          ...g,
+          date: typeof g.date === "string" ? new Date(g.date) : g.date,
+        }));
         setAllGames(games);
       })
       .catch(err => setLoadError(err instanceof Error ? err.message : "Failed to load games"))

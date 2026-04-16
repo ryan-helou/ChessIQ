@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { Chess } from "chess.js";
-import { analyzeGame } from "../modules/game-analyzer.js";
+import { analyzeGame, type AnalysisProgress } from "../modules/game-analyzer.js";
 import { analyzeStreaming } from "../lib/stockfish.js";
 
 const router = Router();
@@ -11,7 +11,7 @@ const FEN_RE = /^[rnbqkpRNBQKP1-8]+(?:\/[rnbqkpRNBQKP1-8]+){7} [wb] (?:-|[KQkq]+
 // POST /api/analyze/game - Analyze a game PGN
 router.post("/game", async (req: Request, res: Response) => {
   try {
-    const { pgn, depth = 18 } = req.body as { pgn: string; depth?: number };
+    const { pgn, depth = 12 } = req.body as { pgn: string; depth?: number };
 
     if (!pgn || typeof pgn !== "string" || pgn.length > 200_000) {
       res.status(400).json({ error: "Invalid or missing PGN" });
@@ -34,7 +34,7 @@ router.post("/game", async (req: Request, res: Response) => {
     const startTime = Date.now();
 
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Analysis timed out")), 120_000)
+      setTimeout(() => reject(new Error("Analysis timed out")), 60_000)
     );
     const analysis = await Promise.race([analyzeGame(pgn, depth), timeout]);
 
@@ -53,6 +53,74 @@ router.post("/game", async (req: Request, res: Response) => {
       error: "Analysis failed",
       message: error instanceof Error ? error.message : "Unknown error",
     });
+  }
+});
+
+// POST /api/analyze/game-stream - SSE streaming game analysis
+// Emits progress events as each position is evaluated, then the full result.
+router.post("/game-stream", async (req: Request, res: Response) => {
+  const { pgn, depth = 12 } = req.body as { pgn: string; depth?: number };
+
+  if (!pgn || typeof pgn !== "string" || pgn.length > 200_000) {
+    res.status(400).json({ error: "Invalid or missing PGN" });
+    return;
+  }
+
+  try {
+    const chess = new Chess();
+    chess.loadPgn(pgn);
+    if (chess.history().length === 0) {
+      res.status(400).json({ error: "PGN contains no moves" });
+      return;
+    }
+  } catch {
+    res.status(400).json({ error: "Malformed PGN" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  const send = (event: string, data: unknown) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const heartbeat = setInterval(() => {
+    res.write(": ping\n\n");
+  }, 15000);
+
+  let closed = false;
+  const maxLifetime = setTimeout(() => close(), 3 * 60 * 1000);
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(heartbeat);
+    clearTimeout(maxLifetime);
+    try { res.end(); } catch {}
+  };
+
+  req.on("close", close);
+  req.on("aborted", close);
+
+  try {
+    const analysis = await analyzeGame(pgn, depth, (progress: AnalysisProgress) => {
+      if (closed) return;
+      send("progress", progress);
+    });
+
+    if (!closed) {
+      send("done", analysis);
+      close();
+    }
+  } catch (err) {
+    if (!closed) {
+      send("error", { message: err instanceof Error ? err.message : "Analysis failed" });
+      close();
+    }
   }
 });
 
@@ -129,7 +197,7 @@ router.get("/stream", async (req: Request, res: Response) => {
       fen,
       maxDepth,
       multiPv,
-      minEmitDepth: 8,
+      minEmitDepth: 4,
       signal: controller.signal,
       onQueued: (position) => {
         if (closed) return;

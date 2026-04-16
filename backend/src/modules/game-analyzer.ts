@@ -2,6 +2,7 @@ import { Chess, Square } from "chess.js";
 import { randomUUID } from "crypto";
 import { getEngine, EngineEval } from "../lib/stockfish.js";
 import { detectTactics } from "./tactic-detector.js";
+import { getCachedEval, insertPositionEval } from "../db/index.js";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -90,7 +91,7 @@ function getEvalLossThreshold(
   // deeper analysis — at lower depth, eval differences between moves
   // are smaller, so we need tighter thresholds to avoid over-promoting
   // moves to higher classifications.
-  const DEPTH_SCALE = 0.75;
+  const DEPTH_SCALE = 0.70;
 
   switch (classification) {
     case "best":
@@ -250,9 +251,17 @@ function moveAccuracyFromWinDiff(winDiff: number): number {
 // Main analysis function
 // ─────────────────────────────────────────────────────────────
 
+export interface AnalysisProgress {
+  moveIndex: number;
+  totalMoves: number;
+  eval: number;
+  mate: number | null;
+}
+
 export async function analyzeGame(
   pgn: string,
-  depth: number = 18,
+  depth: number = 12,
+  onProgress?: (event: AnalysisProgress) => void,
 ): Promise<GameAnalysis> {
   const gameId = randomUUID();
   const chess = new Chess();
@@ -291,7 +300,7 @@ export async function analyzeGame(
   await engine["waitFor"]("readyok", 5000);
 
   // Evaluate starting position (shallow for start pos, doesn't need MultiPV)
-  const startEval = await engine.evaluate(game.fen(), depth, 1, 15000);
+  const startEval = await engine.evaluate(game.fen(), depth, 1, 8000);
   const startBoard = new Chess(game.fen());
   positionEvals.push({
     fen: game.fen(),
@@ -311,6 +320,7 @@ export async function analyzeGame(
     const legalMoveCount = game.moves().length;
 
     if (isCheckmate) {
+      const mateEval = history[i].color === "w" ? 10000 : -10000;
       positionEvals.push({
         fen,
         topLine: { bestMove: "", eval: 0, mate: 0, depth: 0, pv: [] },
@@ -319,6 +329,7 @@ export async function analyzeGame(
         isStalemate: false,
         legalMoveCount: 0,
       });
+      try { onProgress?.({ moveIndex: i, totalMoves: history.length, eval: mateEval, mate: 0 }); } catch {}
     } else if (isStalemate || game.isDraw()) {
       positionEvals.push({
         fen,
@@ -328,23 +339,46 @@ export async function analyzeGame(
         isStalemate: true,
         legalMoveCount,
       });
+      try { onProgress?.({ moveIndex: i, totalMoves: history.length, eval: 0, mate: null }); } catch {}
     } else {
       // Skip deep analysis for book moves — use lower depth
-      const evalDepth = i < bookMoveCount ? Math.min(depth, 10) : depth;
+      const evalDepth = i < bookMoveCount ? Math.min(depth, 6) : depth;
 
       // Skip deep analysis for forced moves (only 1 legal move)
-      const useDepth = legalMoveCount <= 1 ? Math.min(evalDepth, 8) : evalDepth;
+      const useDepth = legalMoveCount <= 1 ? Math.min(evalDepth, 4) : evalDepth;
 
       try {
-        const result = await engine.evaluate(fen, useDepth, 1, 15000);
+        // Check position cache first
+        const cached = await getCachedEval(fen, useDepth).catch(() => null);
+        let topLine: EngineEval;
+        if (cached) {
+          topLine = {
+            bestMove: cached.bestMove,
+            eval: cached.evaluation_cp,
+            mate: null,
+            depth: useDepth,
+            pv: cached.principal_variation ? cached.principal_variation.split(" ") : [],
+          };
+        } else {
+          const result = await engine.evaluate(fen, useDepth, 1, 8000);
+          topLine = result.lines[0] || { bestMove: "", eval: 0, mate: null, depth: 0, pv: [] };
+          // Cache for future games (fire-and-forget)
+          insertPositionEval(fen, useDepth, topLine.bestMove, topLine.eval, topLine.pv.join(" ")).catch(() => {});
+        }
         positionEvals.push({
           fen,
-          topLine: result.lines[0] || { bestMove: "", eval: 0, mate: null, depth: 0, pv: [] },
+          topLine,
           secondLine: null,
           isCheckmate: false,
           isStalemate: false,
           legalMoveCount,
         });
+        // Emit progress: convert eval to white's perspective
+        // After a move, the side-to-move is the opponent, so the eval is from opponent's perspective
+        const sideToMove = fen.split(" ")[1]; // "w" or "b"
+        const evalWhite = sideToMove === "w" ? topLine.eval : -topLine.eval;
+        const mateWhite = topLine.mate !== null ? (sideToMove === "w" ? topLine.mate : -topLine.mate) : null;
+        try { onProgress?.({ moveIndex: i, totalMoves: history.length, eval: evalWhite, mate: mateWhite }); } catch {}
       } catch (error) {
         console.error(`Failed to evaluate position at move ${i + 1}:`, error);
         positionEvals.push({
@@ -355,34 +389,13 @@ export async function analyzeGame(
           isStalemate: false,
           legalMoveCount,
         });
+        try { onProgress?.({ moveIndex: i, totalMoves: history.length, eval: 0, mate: null }); } catch {}
       }
     }
   }
 
-  // ── Phase 1b: Selective MultiPV=2 re-evaluation ──
-  // Only re-evaluate positions where the player played the engine's top move
-  // (candidates for brilliant/great). This is much faster than doing MultiPV=2
-  // on every position since only ~30-50% of moves match the top move.
-  for (let i = 0; i < history.length; i++) {
-    const posBefore = positionEvals[i];
-    if (posBefore.isCheckmate || posBefore.isStalemate) continue;
-    if (posBefore.legalMoveCount <= 1) continue; // forced, no need
-    if (i < bookMoveCount) continue; // book moves, no need
-
-    const move = history[i];
-    const playerMoveUCI = `${move.from}${move.to}${move.promotion ?? ""}`;
-    const isTopMove = posBefore.topLine.bestMove === playerMoveUCI;
-
-    if (isTopMove) {
-      try {
-        const result = await engine.evaluate(posBefore.fen, depth, 2, 15000);
-        posBefore.topLine = result.lines[0] || posBefore.topLine;
-        posBefore.secondLine = result.lines[1] || null;
-      } catch {
-        // Keep existing eval
-      }
-    }
-  }
+  // Phase 1b (MultiPV=2 for brilliant/great detection) skipped for speed.
+  // Can be re-added later as a background "deep re-analysis" pass.
 
   // ── Phase 2: Classify every move ──
 

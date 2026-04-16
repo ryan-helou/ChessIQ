@@ -64,8 +64,8 @@ export function useEngineStream(
   options?: { enabled?: boolean; maxDepth?: number; multiPv?: number }
 ): EngineStreamState {
   const enabled = options?.enabled ?? true;
-  const maxDepth = options?.maxDepth ?? 22;
-  const multiPv = options?.multiPv ?? 8;
+  const maxDepth = options?.maxDepth ?? 18;
+  const multiPv = options?.multiPv ?? 5;
 
   const [state, setState] = useState<EngineStreamState>(INITIAL);
   const esRef = useRef<EventSource | null>(null);
@@ -141,7 +141,7 @@ export function useEngineStream(
         es?.close();
         if (esRef.current === es) esRef.current = null;
       });
-    }, 150);
+    }, 80);
 
     return () => {
       clearTimeout(debounceId);

@@ -299,7 +299,7 @@ export interface AnalyzeStreamingOptions {
 // simultaneous engines so a small Railway box can't be OOM-killed by traffic.
 const MAX_CONCURRENT_STREAMS = Math.max(
   1,
-  parseInt(process.env.STOCKFISH_MAX_CONCURRENT ?? "4", 10) || 4,
+  parseInt(process.env.STOCKFISH_MAX_CONCURRENT ?? "3", 10) || 3,
 );
 
 let activeStreams = 0;
@@ -357,7 +357,7 @@ export async function analyzeStreaming(opts: AnalyzeStreamingOptions): Promise<v
     fen,
     maxDepth = 22,
     multiPv = 8,
-    minEmitDepth = 8,
+    minEmitDepth = 4,
     onDepth,
     onDone,
     onError,
@@ -464,7 +464,7 @@ export async function analyzeStreaming(opts: AnalyzeStreamingOptions): Promise<v
     (async () => {
       try {
         await engine.start({
-          threads: parseInt(process.env.STOCKFISH_STREAM_THREADS ?? "2", 10),
+          threads: parseInt(process.env.STOCKFISH_STREAM_THREADS ?? "3", 10),
           hashMb: parseInt(process.env.STOCKFISH_STREAM_HASH_MB ?? "128", 10),
         });
         engine.send(`setoption name MultiPV value ${multiPv}`);

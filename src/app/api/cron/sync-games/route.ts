@@ -112,5 +112,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Immediately trigger analysis if we found new games (cache warming)
+  if (totalNewGames > 0) {
+    const secret = process.env.CRON_SECRET;
+    if (secret) {
+      fetch(`http://localhost:${process.env.PORT || 3000}/api/cron/analyze-pending`, {
+        headers: { Authorization: `Bearer ${secret}` },
+        signal: AbortSignal.timeout(90_000),
+      }).catch(() => {});
+    }
+  }
+
   return NextResponse.json({ synced: totalSynced, newGames: totalNewGames, errors });
 }

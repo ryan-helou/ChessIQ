@@ -12,10 +12,11 @@ import EvalBar from "@/components/game-review/EvalBar";
 import EvalGraph from "@/components/game-review/EvalGraph";
 import MoveList from "@/components/game-review/MoveList";
 import {
-  analyzeGame,
+  analyzeGameStreaming,
   type GameAnalysisResult,
   type MoveClassification,
   type AnalyzedMove,
+  type AnalysisProgressEvent,
 } from "@/lib/backend-api";
 import { annotateMove } from "@/lib/move-annotator";
 
@@ -893,19 +894,23 @@ function ShortcutsModal({ onClose }: { onClose: () => void }) {
 
 // ─── Analysis Progress ───
 
-function AnalysisProgress() {
+function AnalysisProgress({ progress }: { progress: { moveIndex: number; totalMoves: number } | null }) {
+  const pct = progress ? Math.round(((progress.moveIndex + 1) / progress.totalMoves) * 100) : 0;
+  const label = progress
+    ? `Analyzing move ${progress.moveIndex + 1} of ${progress.totalMoves}...`
+    : "Connecting to engine...";
   return (
     <div className="bg-[var(--bg-card)] rounded-xl p-6 flex flex-col items-center justify-center h-full min-h-[400px]">
       <div className="text-4xl mb-4 animate-pulse">♟</div>
-      <h3 className="text-lg font-bold text-white mb-2">Analyzing with Stockfish...</h3>
+      <h3 className="text-lg font-bold text-white mb-2">{label}</h3>
       <div className="w-48 h-1.5 bg-[var(--border)] rounded-full overflow-hidden mb-3">
         <div
-          className="h-full bg-[var(--green)] rounded-full animate-pulse"
-          style={{ width: "100%" }}
+          className="h-full bg-[var(--green)] rounded-full transition-all duration-300"
+          style={{ width: progress ? `${pct}%` : "0%" }}
         />
       </div>
-      <p className="text-xs text-[var(--text-1)]0 text-center">
-        Deep analysis of every move. This typically takes 1-3 minutes.
+      <p className="text-xs text-[var(--text-secondary)] text-center">
+        {progress ? `${pct}% complete` : "Deep analysis of every move"}
       </p>
     </div>
   );
@@ -948,6 +953,7 @@ export default function GameReviewPage() {
 
   const [analysis, setAnalysis] = useState<GameAnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState<{ moveIndex: number; totalMoves: number; evalGraph: { move: number; eval: number; mate: number | null }[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -1029,22 +1035,40 @@ export default function GameReviewPage() {
     fetchProfiles();
   }, [gameInfo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Step 2: Send PGN to backend for Stockfish analysis
+  // Step 2: Send PGN to backend for Stockfish analysis (streaming)
   useEffect(() => {
     if (!gameInfo?.pgn || analyzing || analysis) return;
 
     const controller = new AbortController();
     setAnalyzing(true);
+    setAnalysisProgress(null);
 
-    analyzeGame(gameInfo.pgn, 14, gameId, controller.signal)
+    const progressGraph: { move: number; eval: number; mate: number | null }[] = [];
+
+    analyzeGameStreaming(
+      gameInfo.pgn,
+      12,
+      gameId,
+      (event: AnalysisProgressEvent) => {
+        progressGraph.push({ move: event.moveIndex + 1, eval: event.eval, mate: event.mate });
+        setAnalysisProgress({
+          moveIndex: event.moveIndex,
+          totalMoves: event.totalMoves,
+          evalGraph: [...progressGraph],
+        });
+      },
+      controller.signal,
+    )
       .then((result) => {
         setAnalysis(result);
         setAnalyzing(false);
+        setAnalysisProgress(null);
       })
       .catch((err) => {
         if (err instanceof Error && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Analysis failed");
         setAnalyzing(false);
+        setAnalysisProgress(null);
       });
 
     return () => controller.abort();
@@ -1170,7 +1194,7 @@ export default function GameReviewPage() {
               zIndex: 10,
               overflow: "hidden",
               boxShadow: "0 2px 6px rgba(0,0,0,0.5)",
-              border: "2px solid rgba(255,255,255,0.3)",
+              border: "none",
               ...(!info.img ? {
                 backgroundColor: info.bg,
                 display: "flex",
@@ -1259,7 +1283,7 @@ export default function GameReviewPage() {
 
   const panelContent = (
     <>
-      {analyzing && !analysis && <AnalysisProgress />}
+      {analyzing && !analysis && <AnalysisProgress progress={analysisProgress} />}
       {analysis && gameInfo && !reviewStarted && (
         <GameReviewPanel
           analysis={analysis}

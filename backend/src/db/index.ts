@@ -231,9 +231,10 @@ export async function getCachedEval(fen: string, depth: number): Promise<{
   principal_variation: string;
 } | null> {
   const query = `
-    SELECT best_move, evaluation_cp, principal_variation
+    SELECT best_move AS "bestMove", evaluation_cp, principal_variation
     FROM position_evals
-    WHERE fen = $1 AND depth = $2
+    WHERE fen = $1 AND depth >= $2
+    LIMIT 1
   `;
 
   const result = await pool.query(query, [fen, depth]);

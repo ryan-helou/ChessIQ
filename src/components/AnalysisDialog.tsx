@@ -145,7 +145,7 @@ export default function AnalysisDialog({
         const nextRes = await fetch(`/api/games/${encodeURIComponent(username)}/analyze-next`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ depth: 14 }),
+          body: JSON.stringify({ depth: 12 }),
           signal: abortRef.current.signal,
         });
 

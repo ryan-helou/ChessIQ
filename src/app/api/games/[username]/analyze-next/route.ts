@@ -17,7 +17,7 @@ export async function POST(
   try {
     const { username } = await params;
     const body = await request.json().catch(() => ({}));
-    const depth = body.depth ?? 14;
+    const depth = body.depth ?? 12;
     const userId = usernameToUserId(username);
 
     // Atomically claim next pending game (or stale 'analyzing' job > 5 min old).

@@ -4,7 +4,7 @@ import { STOCKFISH_BACKEND_URL } from "@/lib/stockfish-backend";
 
 export async function POST(request: NextRequest) {
   try {
-    const { moves, depth = 14 } = await request.json() as { moves: string[]; depth?: number };
+    const { moves, depth = 12 } = await request.json() as { moves: string[]; depth?: number };
 
     if (!Array.isArray(moves)) {
       return NextResponse.json({ bestMove: null }, { status: 400 });
