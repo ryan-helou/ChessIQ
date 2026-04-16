@@ -30,7 +30,7 @@ export default function ConversionRateCard({ username }: Props) {
     return (
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         {[1, 2, 3].map((i) => (
-          <div key={i} style={{ height: 80, flex: 1, minWidth: 100, background: "var(--border)", borderRadius: 8, opacity: 0.5, animation: "pulse 1.5s ease-in-out infinite" }} />
+          <div key={i} className="skeleton" aria-hidden style={{ height: 80, flex: 1, minWidth: 100, borderRadius: 10, border: "1px solid var(--border)" }} />
         ))}
       </div>
     );
@@ -38,14 +38,26 @@ export default function ConversionRateCard({ username }: Props) {
 
   if (!data || data.gamesWithAdvantage === 0) {
     return (
-      <div style={{ color: "var(--text-3)", fontSize: 13, textAlign: "center", padding: "24px 0" }}>
-        Not enough analysed games yet to compute conversion rate.
+      <div style={{
+        textAlign: "center",
+        padding: "32px 16px",
+        border: "1px dashed var(--border)",
+        borderRadius: 10,
+        color: "var(--text-3)",
+      }}>
+        <div style={{ fontSize: 22, opacity: 0.5, marginBottom: 6 }}>♛</div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-2)", marginBottom: 4 }}>
+          Not enough analyzed games yet
+        </div>
+        <div style={{ fontSize: 12 }}>
+          Conversion rate appears once we&apos;ve analyzed a handful of your games with clear advantages.
+        </div>
       </div>
     );
   }
 
   const rate = data.conversionRate ?? 0;
-  const rateColor = rate >= 70 ? "#81b64c" : rate >= 50 ? "#f6c700" : "#ca3431";
+  const rateColor = rate >= 70 ? "var(--win)" : rate >= 50 ? "var(--gold)" : "var(--loss)";
 
   return (
     <div>
@@ -76,7 +88,7 @@ export default function ConversionRateCard({ username }: Props) {
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
             Converted
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#81b64c", lineHeight: 1 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "var(--win)", lineHeight: 1 }}>
             {data.converted}
             <span style={{ fontSize: 14, color: "var(--text-3)", fontWeight: 400, marginLeft: 5 }}>
               / {data.gamesWithAdvantage}
@@ -94,7 +106,7 @@ export default function ConversionRateCard({ username }: Props) {
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
             Squandered
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#ca3431", lineHeight: 1 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "var(--loss)", lineHeight: 1 }}>
             {data.squandered}
           </div>
         </div>
@@ -102,8 +114,8 @@ export default function ConversionRateCard({ username }: Props) {
 
       {/* Insight callout */}
       <div style={{
-        background: rate >= 70 ? "rgba(129,182,76,0.07)" : rate >= 50 ? "rgba(246,199,0,0.07)" : "rgba(202,52,49,0.07)",
-        border: `1px solid ${rate >= 70 ? "rgba(129,182,76,0.2)" : rate >= 50 ? "rgba(246,199,0,0.2)" : "rgba(202,52,49,0.2)"}`,
+        background: rate >= 70 ? "var(--green-glow)" : rate >= 50 ? "var(--gold-glow)" : "var(--loss-dim)",
+        border: `1px solid ${rate >= 70 ? "var(--green-line)" : rate >= 50 ? "var(--gold-line)" : "rgba(202,52,49,0.22)"}`,
         borderRadius: 10,
         padding: "12px 16px",
         display: "flex",

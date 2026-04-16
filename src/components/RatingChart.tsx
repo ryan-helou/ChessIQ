@@ -12,14 +12,15 @@ import {
 } from "recharts";
 import type { RatingDataPoint } from "@/lib/game-analysis";
 
-// Match design tokens from globals.css
-const C = { bg: "#262522", border: "#454340", text2: "#a0998c", text3: "#706e6b" };
+// Recharts takes raw SVG stroke/fill values, so we mirror globals.css hex here.
+// Keep in sync with --bg, --border, --text-2, --text-3, --loss, --gold, --win, --blue.
+const C = { bg: "#262522", border: "#454340", text1: "#e8e6e1", text2: "#a0998c", text3: "#706e6b" };
 
 const TIME_CLASS_COLORS: Record<string, string> = {
-  bullet: "#ca3431",
-  blitz:  "#f6c700",
-  rapid:  "#81b64c",
-  daily:  "#5d8fbb",
+  bullet: "#ca3431", // --loss
+  blitz:  "#f6c700", // --gold
+  rapid:  "#81b64c", // --win
+  daily:  "#5d8fbb", // --blue
 };
 
 interface Props {
@@ -78,14 +79,15 @@ export default function RatingChart({ data, filter }: Props) {
               backgroundColor: C.bg,
               border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: C.text1,
               fontSize: "12px",
               fontFamily: "var(--font-mono)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
             }}
           />
           <Legend
             formatter={(value) => (
-              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "monospace" }}>
+              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "var(--font-mono)" }}>
                 {value}
               </span>
             )}

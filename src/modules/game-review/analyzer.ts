@@ -1,4 +1,5 @@
 import { Chess } from "chess.js";
+import { STOCKFISH_BACKEND_URL } from "@/lib/stockfish-backend";
 
 export interface AnalyzedMove {
   moveNumber: number;
@@ -55,7 +56,6 @@ export async function analyzeGame(
   }
 
   // Call Railway backend for game analysis, with exponential backoff retry
-  const RAILWAY_BACKEND_URL = "https://chessiq-production.up.railway.app";
   const MAX_ATTEMPTS = 3;
   let lastError: Error = new Error("Unknown error");
 
@@ -64,7 +64,7 @@ export async function analyzeGame(
       await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1))); // 1s, 2s
     }
     try {
-      const response = await fetch(`${RAILWAY_BACKEND_URL}/api/analyze/game`, {
+      const response = await fetch(`${STOCKFISH_BACKEND_URL}/api/analyze/game`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pgn, depth }),

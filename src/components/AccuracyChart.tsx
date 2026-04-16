@@ -14,7 +14,8 @@ import {
 } from "recharts";
 import type { ParsedGame } from "@/lib/game-analysis";
 
-const C = { bg: "#262522", border: "#454340", text2: "#a0998c", text3: "#706e6b" };
+// Recharts takes raw SVG values, mirror globals.css hex tokens here.
+const C = { bg: "#262522", border: "#454340", text1: "#e8e6e1", text2: "#a0998c", text3: "#706e6b" };
 
 interface Props {
   games: ParsedGame[];
@@ -61,9 +62,10 @@ export function AccuracyOverTime({ games }: Props) {
               backgroundColor: C.bg,
               border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: C.text1,
               fontSize: "12px",
-              fontFamily: "monospace",
+              fontFamily: "var(--font-mono)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
             }}
             formatter={(value, name) => [
               `${Number(value).toFixed(1)}%`,
@@ -72,7 +74,7 @@ export function AccuracyOverTime({ games }: Props) {
           />
           <Legend
             formatter={(value) => (
-              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "monospace" }}>
+              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "var(--font-mono)" }}>
                 {value}
               </span>
             )}
@@ -150,9 +152,10 @@ export function AccuracyVsRating({ games }: Props) {
               backgroundColor: C.bg,
               border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: C.text1,
               fontSize: "12px",
-              fontFamily: "monospace",
+              fontFamily: "var(--font-mono)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
             }}
             formatter={(value, name) => [
               name === "accuracy" ? `${Number(value).toFixed(1)}%` : value,
@@ -161,7 +164,7 @@ export function AccuracyVsRating({ games }: Props) {
           />
           <Legend
             formatter={(value) => (
-              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "monospace" }}>{value}</span>
+              <span style={{ color: C.text2, fontSize: "11px", fontFamily: "var(--font-mono)" }}>{value}</span>
             )}
           />
           <Scatter name="Wins"   data={wins}   fill="#81b64c" opacity={0.55} />

@@ -66,10 +66,17 @@ html {
 body {
   background: var(--bg);
   color: var(--text-1);
-  font-family: var(--font-sans), "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-sans), "Montserrat", "Segoe UI", system-ui, sans-serif;
   font-size: 15px;
+  font-weight: 500;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 800;
+  letter-spacing: -0.015em;
 }
 
 /* ─── Scrollbar ───────────────────────────────────────────────────── */

@@ -791,7 +791,7 @@ Timeline showing:
 
 ### API Routes (`/src/app/api`)
 - Files must export named HTTP method handlers: `GET`, `POST`, `PUT`, `DELETE`
-- Use `nextConfig.experimental.maxDuration` for long-running requests
+- No request timeout limits (Railway runs a persistent Node process)
 - Request/Response types: `NextRequest`, `NextResponse`
 - Async params: `params: Promise<{...}>` — always await
 
@@ -879,8 +879,6 @@ src/app/                # Pages & API routes
 ### API Route Pattern (`/src/app/api/[route]/route.ts`)
 
 ```typescript
-export const maxDuration = 30; // Vercel timeout (seconds)
-
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -1086,8 +1084,6 @@ GET /pub/player/{username}/games/{year}/{month}
 3. **API Route for Analysis**
    ```typescript
    // src/app/api/analyze/route.ts
-   export const maxDuration = 60; // Can take time
-
    export async function POST(request: NextRequest) {
      const { fen } = await request.json();
      const evaluation = await evaluatePosition(fen);
@@ -1290,23 +1286,24 @@ const recentGames = games
 
 ## Deployment
 
-### Vercel (Recommended)
-- Connect GitHub repo to Vercel
-- Environment variables in Vercel dashboard
-- Auto-deploy on main branch push
-- Edge Functions for performance (future optimization)
+### Railway (Production)
+- Frontend: Next.js app served via `server.mjs` custom server
+- Backend: Express + Stockfish in a separate Railway service (see `backend/`)
+- Environment variables in Railway dashboard
+- Auto-deploy on main branch push via Railway GitHub integration
+- Cron jobs run via `setInterval` in `server.mjs` (not external scheduler)
 
 ### Build Process
 ```bash
 npm run build  # Creates optimized Next.js build
-npm start      # Runs production server
+npm start      # Runs production server (node server.mjs)
 npm run dev    # Development server with HMR
 ```
 
 ### Performance Monitoring
-- Vercel Analytics (Web Vitals)
-- Monitor API response times
-- Track cache hit/miss rates
+- Sentry for error tracking and performance traces
+- Railway dashboard for container metrics (CPU, memory, network)
+- `/api/health` endpoint for uptime monitoring
 
 ---
 
@@ -1319,8 +1316,8 @@ npm run dev    # Development server with HMR
 
 ### Server-Side
 - Check terminal output during `npm run dev`
-- Use `console.error()` for logging (visible in Vercel logs)
-- Add error tracking: Sentry or similar (future)
+- Use the structured logger (`src/lib/logger.ts`) — JSON in production, readable in dev
+- Sentry is configured for error tracking and performance monitoring
 
 ### PGN Parsing Issues
 - Validate PGN format with chess.js before processing

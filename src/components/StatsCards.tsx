@@ -43,17 +43,18 @@ function StatCard({ label, value, sub, accent, delay = 0, tooltip }: StatCardPro
       }}
     >
       {tooltip && hovered && (
-        <div style={{
+        <div role="tooltip" style={{
           position: "absolute",
           bottom: "calc(100% + 6px)",
           left: "50%",
           transform: "translateX(-50%)",
-          background: "#1a1917",
+          background: "var(--bg-surface)",
           border: "1px solid var(--border-strong)",
           borderRadius: "6px",
-          padding: "6px 10px",
+          padding: "8px 12px",
           fontSize: "11px",
           color: "var(--text-2)",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
           whiteSpace: "nowrap",
           zIndex: 100,
           pointerEvents: "none",
@@ -174,7 +175,7 @@ export default function StatsCards({
   const winAccent = winRate >= 50 ? "var(--win)" : "var(--loss)";
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))", gap: "8px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "8px" }}>
       <StatCard
         label="Games Played"
         value={totalGames.toLocaleString()}
@@ -218,7 +219,7 @@ export default function StatsCards({
           label="Puzzle Rating"
           value={puzzleRating.toLocaleString()}
           sub="Tactics"
-          accent="#26c9c3"
+          accent="var(--blue)"
           delay={0.16 + ratings.length * 0.04}
           tooltip="Your puzzle rating based on tactical training sessions. Starts at 1200."
         />

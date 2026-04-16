@@ -1,9 +1,6 @@
-export const maxDuration = 60;
-
 import { NextRequest, NextResponse } from "next/server";
 import { Chess } from "chess.js";
-
-const RAILWAY_BACKEND_URL = "https://chessiq-production.up.railway.app";
+import { STOCKFISH_BACKEND_URL } from "@/lib/stockfish-backend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -115,7 +112,7 @@ export async function POST(request: NextRequest) {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
       try {
-        const response = await fetch(`${RAILWAY_BACKEND_URL}/api/analyze/game`, {
+        const response = await fetch(`${STOCKFISH_BACKEND_URL}/api/analyze/game`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body,

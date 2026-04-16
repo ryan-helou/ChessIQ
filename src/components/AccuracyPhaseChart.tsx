@@ -18,9 +18,9 @@ interface Props {
 }
 
 function phaseColor(avg: number): string {
-  if (avg >= 85) return "#81b64c";
-  if (avg >= 70) return "#f6c700";
-  return "#ca3431";
+  if (avg >= 85) return "var(--win)";
+  if (avg >= 70) return "var(--gold)";
+  return "var(--loss)";
 }
 
 function PhaseBar({ label, stats, maxAvg }: { label: string; stats: PhaseStats | null; maxAvg: number }) {
@@ -75,12 +75,12 @@ export function AccuracyByPhase({ username }: Props) {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }} aria-hidden>
         {[1, 2, 3].map((i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 96, height: 12, background: "var(--border)", borderRadius: 4, opacity: 0.5, animation: "pulse 1.5s ease-in-out infinite" }} />
-            <div style={{ flex: 1, height: 10, background: "var(--border)", borderRadius: 5, opacity: 0.5, animation: "pulse 1.5s ease-in-out infinite" }} />
-            <div style={{ width: 60, height: 12, background: "var(--border)", borderRadius: 4, opacity: 0.5, animation: "pulse 1.5s ease-in-out infinite" }} />
+            <div className="skeleton" style={{ width: 96, height: 12, borderRadius: 4 }} />
+            <div className="skeleton" style={{ flex: 1, height: 10, borderRadius: 5 }} />
+            <div className="skeleton" style={{ width: 60, height: 12, borderRadius: 4 }} />
           </div>
         ))}
       </div>
@@ -119,8 +119,8 @@ export function AccuracyByPhase({ username }: Props) {
 
       {endgameWeaker && data.endgame && (
         <div style={{
-          background: "rgba(202,52,49,0.07)",
-          border: "1px solid rgba(202,52,49,0.2)",
+          background: "var(--loss-dim)",
+          border: "1px solid rgba(202,52,49,0.22)",
           borderRadius: 10,
           padding: "11px 14px",
           display: "flex",

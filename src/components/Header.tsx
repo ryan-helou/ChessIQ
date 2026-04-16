@@ -84,22 +84,27 @@ export default function Header({ username: usernameProp }: Props) {
           </a>
 
           {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1 max-w-[280px]" style={{ position: "relative" }}>
+          <form onSubmit={handleSearch} className="flex-1 max-w-[280px]" style={{ position: "relative" }} role="search">
+            <label htmlFor="player-search" className="sr-only">Search for a player</label>
             <div className="relative">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none"
                 style={{ color: focused ? "var(--green)" : "var(--text-3)", transition: "color 0.2s" }}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
               <input
+                id="player-search"
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onFocus={handleFocus}
                 onBlur={() => setTimeout(() => setFocused(false), 150)}
                 placeholder="Search player…"
+                aria-label="Search for a chess.com player by username"
+                autoComplete="off"
                 className="input-base w-full pl-9 pr-4 py-2 rounded-lg text-sm"
                 style={{ fontSize: "13px" }}
               />
@@ -162,7 +167,9 @@ export default function Header({ username: usernameProp }: Props) {
               </div>
               {session && (
                 <button
+                  type="button"
                   onClick={() => signOut({ callbackUrl: "/" })}
+                  aria-label="Sign out of ChessIQ"
                   style={{
                     background: "none",
                     border: "1px solid var(--border)",
@@ -173,7 +180,7 @@ export default function Header({ username: usernameProp }: Props) {
                     color: "var(--text-3)",
                     cursor: "pointer",
                     letterSpacing: "0.04em",
-                    transition: "border-color 0.2s, color 0.2s",
+                    transition: "all 0.18s",
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--border-strong)"; e.currentTarget.style.color = "var(--text-2)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-3)"; }}

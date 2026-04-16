@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Chess } from "chess.js";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
-
-const RAILWAY_BACKEND_URL = "https://chessiq-production.up.railway.app";
+import { STOCKFISH_BACKEND_URL } from "@/lib/stockfish-backend";
 const ACCEPTABLE = new Set(["brilliant", "great", "best", "excellent", "good"]);
 
 async function getCachedGoodMoves(fen: string): Promise<string[] | null> {
@@ -48,7 +47,7 @@ function classifyMove(fen: string, uci: string): Promise<string> {
 
   const pgn = `[SetUp "1"]\n[FEN "${fen}"]\n\n${chess.pgn()}`;
 
-  return fetch(`${RAILWAY_BACKEND_URL}/api/analyze/game`, {
+  return fetch(`${STOCKFISH_BACKEND_URL}/api/analyze/game`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pgn, depth: 12 }),

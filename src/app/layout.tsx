@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Source_Sans_3, Geist_Mono } from "next/font/google";
+import { Montserrat, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
-const sourceSans = Source_Sans_3({
+const montserrat = Montserrat({
   variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "600", "700", "900"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   display: "swap",
 });
 
@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sourceSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${montserrat.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <SessionProvider>

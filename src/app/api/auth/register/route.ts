@@ -5,10 +5,20 @@ import { ensureDbInit } from "@/lib/db-init";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
-  // 5 registration attempts per IP per 15 minutes
+  // 5 registration attempts per IP per 15 minutes — fail closed if Redis is down
   const ip = getClientIp(req.headers);
-  if (!await checkRateLimit(`register:${ip}`, 5, 15 * 60 * 1000)) {
-    return NextResponse.json({ error: "Too many attempts. Please try again later." }, { status: 429 });
+  const rl = await checkRateLimit(`register:${ip}`, 5, 15 * 60 * 1000, { failOpen: false });
+  if (!rl.allowed) {
+    if (rl.reason === "unavailable") {
+      return NextResponse.json(
+        { error: "Service temporarily unavailable. Please try again." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json(
+      { error: "Too many attempts. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
+    );
   }
 
   await ensureDbInit();

@@ -27,16 +27,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const borderColor = (type: ToastType) =>
-    type === "error" ? "#ca3431" : type === "success" ? "#81b64c" : "#5d8fbb";
+    type === "error" ? "var(--loss)" : type === "success" ? "var(--win)" : "var(--blue)";
 
   const iconFor = (type: ToastType) =>
     type === "error" ? "✕" : type === "success" ? "✓" : "ℹ";
+
+  const ariaRole = (type: ToastType) => (type === "error" ? "alert" : "status");
 
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
       {toasts.length > 0 && (
         <div
+          aria-live="polite"
+          aria-atomic="true"
           style={{
             position: "fixed",
             bottom: "24px",
@@ -51,6 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           {toasts.map((t) => (
             <div
               key={t.id}
+              role={ariaRole(t.type)}
               style={{
                 display: "flex",
                 alignItems: "center",

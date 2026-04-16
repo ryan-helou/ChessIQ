@@ -52,21 +52,42 @@ process.on("SIGINT",  () => shutdown("SIGINT"));
 
 // ─── Internal cron runner ──────────────────────────────────────────────────────
 
-function callCron(path) {
+// Per-job in-flight guard. If a tick fires while the previous run is still
+// going, skip it instead of double-charging Stockfish / Chess.com.
+const inFlight = new Map();
+
+async function callCron(path) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     console.error(`[cron] CRON_SECRET not set — cron jobs will not run`);
     return;
   }
-  fetch(`http://localhost:${port}${path}`, {
-    headers: { Authorization: `Bearer ${secret}` },
-    signal: AbortSignal.timeout(90_000),
-  })
-    .then((res) => {
-      if (!res.ok) console.error(`[cron] ${path} responded ${res.status}`);
-      else res.json().then((d) => console.log(`[cron] ${path}`, d)).catch(() => {});
-    })
-    .catch((err) => console.error(`[cron] ${path} failed:`, err.message));
+  if (inFlight.get(path)) {
+    console.log(`[cron] ${path} skipped — prior run still in flight`);
+    return;
+  }
+  inFlight.set(path, true);
+  const startedAt = Date.now();
+  try {
+    const res = await fetch(`http://localhost:${port}${path}`, {
+      headers: { Authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!res.ok) {
+      console.error(`[cron] ${path} responded ${res.status} (${Date.now() - startedAt}ms)`);
+    } else {
+      try {
+        const d = await res.json();
+        console.log(`[cron] ${path} ok in ${Date.now() - startedAt}ms`, d);
+      } catch {
+        console.log(`[cron] ${path} ok in ${Date.now() - startedAt}ms (no body)`);
+      }
+    }
+  } catch (err) {
+    console.error(`[cron] ${path} failed after ${Date.now() - startedAt}ms:`, err.message);
+  } finally {
+    inFlight.delete(path);
+  }
 }
 
 function startCrons() {

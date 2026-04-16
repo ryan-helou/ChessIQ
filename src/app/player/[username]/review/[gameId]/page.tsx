@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useToast } from "@/components/Toast";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import ChessLoader from "@/components/ChessLoader";
 import { neoPieces } from "@/lib/chess-pieces";
 import EvalBar from "@/components/game-review/EvalBar";
@@ -165,8 +166,8 @@ function PanelAvatar({ profile, username }: { profile: PlayerProfile | null; use
       border: "2px solid var(--border-strong)", flexShrink: 0,
     }}>
       {profile?.avatar && !err ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={profile.avatar} alt={username} onError={() => setErr(true)}
+        <Image src={profile.avatar} alt={username} width={64} height={64} unoptimized
+          onError={() => setErr(true)}
           style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
         <div style={{
@@ -615,10 +616,12 @@ function PlayerBar({
     >
       {/* Avatar */}
       {profile?.avatar && !imgError ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={profile.avatar}
           alt={username}
+          width={36}
+          height={36}
+          unoptimized
           onError={() => setImgError(true)}
           style={{ width: 36, height: 36, borderRadius: 4, objectFit: "cover", flexShrink: 0 }}
         />

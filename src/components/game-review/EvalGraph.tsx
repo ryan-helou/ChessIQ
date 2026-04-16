@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import {
   AreaChart,
   Area,
@@ -24,33 +24,39 @@ interface Props {
   mini?: boolean;
 }
 
-export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Props) {
+function EvalGraph({ data, currentMove, onMoveClick, mini }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Clamp eval for display (-500 to 500 centipawns)
-  const chartData = data.map((d) => ({
-    ...d,
-    displayEval: d.mate !== null
-      ? d.mate > 0
-        ? 500   // white can mate → white winning
-        : d.mate < 0
-          ? -500  // black can mate → black winning
-          // mate === 0: game over, side to move was just mated
-          // odd move number = white just moved = black is mated = white wins
-          : d.move % 2 === 1 ? 500 : -500
-      : Math.max(-500, Math.min(500, d.eval)),
-    isCurrent: d.move === currentMove,
-  }));
+  // Clamp eval for display (-500 to 500 centipawns). Memoized so scrubbing
+  // through moves (which only changes currentMove) doesn't rebuild the array.
+  const chartData = useMemo(
+    () =>
+      data.map((d) => ({
+        ...d,
+        displayEval:
+          d.mate !== null
+            ? d.mate > 0
+              ? 500
+              : d.mate < 0
+                ? -500
+                : d.move % 2 === 1
+                  ? 500
+                  : -500
+            : Math.max(-500, Math.min(500, d.eval)),
+      })),
+    [data],
+  );
 
-  // Position-based click: calculate which move was clicked from X coordinate.
-  // Reliable on both quick clicks and touch — doesn't depend on Recharts activePayload.
-  function handlePositionClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (!containerRef.current || data.length === 0) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const idx = Math.min(data.length - 1, Math.max(0, Math.round(x * (data.length - 1))));
-    onMoveClick(data[idx].move);
-  }
+  const handlePositionClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!containerRef.current || data.length === 0) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const idx = Math.min(data.length - 1, Math.max(0, Math.round(x * (data.length - 1))));
+      onMoveClick(data[idx].move);
+    },
+    [data, onMoveClick],
+  );
 
   return (
     <div
@@ -123,3 +129,5 @@ export default function EvalGraph({ data, currentMove, onMoveClick, mini }: Prop
     </div>
   );
 }
+
+export default memo(EvalGraph);

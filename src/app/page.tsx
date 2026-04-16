@@ -52,79 +52,6 @@ const FEATURES = [
   },
 ];
 
-function SearchForm({ large = false }: { large?: boolean }) {
-  const router = useRouter();
-  const [input, setInput] = useState("");
-  const [focused, setFocused] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (input.trim()) router.push(`/player/${input.trim()}`);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} style={{ width: "100%" }}>
-      <div
-        style={{
-          display: "flex",
-          background: "var(--bg-card)",
-          border: `1.5px solid ${focused ? "#81b64c" : "var(--border)"}`,
-          borderRadius: large ? "10px" : "8px",
-          overflow: "hidden",
-          boxShadow: focused
-            ? "0 0 0 3px rgba(129,182,76,0.15), 0 8px 32px rgba(0,0,0,0.5)"
-            : "0 4px 20px rgba(0,0,0,0.4)",
-          transition: "border-color 0.2s, box-shadow 0.25s",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", paddingLeft: large ? "18px" : "14px", color: focused ? "#81b64c" : "var(--text-3)", transition: "color 0.2s" }}>
-          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholder="Enter your Chess.com username…"
-          style={{
-            flex: 1,
-            padding: large ? "14px 16px" : "11px 12px",
-            background: "transparent",
-            border: "none",
-            outline: "none",
-            color: "var(--text-1)",
-            fontSize: large ? "15px" : "13px",
-            fontFamily: "var(--font-sans)",
-          }}
-        />
-        <button
-          type="submit"
-          style={{
-            padding: large ? "14px 28px" : "11px 20px",
-            background: "#81b64c",
-            color: "#fff",
-            border: "none",
-            cursor: "pointer",
-            fontFamily: "var(--font-sans)",
-            fontSize: large ? "14px" : "13px",
-            fontWeight: 700,
-            letterSpacing: "0.01em",
-            transition: "background 0.15s",
-            whiteSpace: "nowrap",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#6fa53c")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "#81b64c")}
-        >
-          Analyze →
-        </button>
-      </div>
-    </form>
-  );
-}
-
 export default function Home() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -181,18 +108,18 @@ export default function Home() {
           <div
             className="animate-fade-up inline-flex items-center gap-2 mb-10"
             style={{
-              background: "rgba(129,182,76,0.1)",
-              border: "1px solid rgba(129,182,76,0.3)",
+              background: "var(--green-glow)",
+              border: "1px solid var(--green-line)",
               borderRadius: "100px",
               padding: "5px 14px 5px 10px",
               fontSize: "11px",
               fontFamily: "var(--font-mono)",
               letterSpacing: "0.1em",
-              color: "#81b64c",
+              color: "var(--green)",
               textTransform: "uppercase",
             }}
           >
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#81b64c", display: "inline-block", boxShadow: "0 0 8px #81b64c" }} />
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--green)", display: "inline-block", boxShadow: "0 0 8px var(--green)" }} />
             Stockfish powered · Deep analysis
           </div>
 
@@ -233,7 +160,7 @@ export default function Home() {
               animationDelay: "0.18s",
             }}
           >
-            Deep analytics for every Chess.com game you've ever played.
+            Deep analytics for every Chess.com game you&apos;ve ever played.
             Find the patterns behind your losses and train what actually matters.
           </p>
 
@@ -343,7 +270,7 @@ export default function Home() {
 
           {/* Section header */}
           <div style={{ marginBottom: "clamp(40px, 6vw, 64px)", maxWidth: "520px" }}>
-            <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#81b64c", marginBottom: "14px", fontFamily: "var(--font-mono)" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--green)", marginBottom: "14px", fontFamily: "var(--font-mono)" }}>
               What ChessIQ does
             </p>
             <h2
@@ -363,7 +290,7 @@ export default function Home() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
               gap: "2px",
               background: "var(--border)",
               border: "1px solid var(--border)",
@@ -371,8 +298,8 @@ export default function Home() {
               overflow: "hidden",
             }}
           >
-            {FEATURES.map((f, i) => (
-              <FeatureCard key={f.num} feature={f} index={i} />
+            {FEATURES.map((f) => (
+              <FeatureCard key={f.num} feature={f} />
             ))}
           </div>
         </div>
@@ -388,7 +315,7 @@ export default function Home() {
         }}
       >
         <div className="max-w-4xl mx-auto px-6">
-          <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "#81b64c", marginBottom: "14px", fontFamily: "var(--font-mono)", textAlign: "center" }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--green)", marginBottom: "14px", fontFamily: "var(--font-mono)", textAlign: "center" }}>
             How it works
           </p>
           <h2
@@ -415,19 +342,19 @@ export default function Home() {
                 step: "1",
                 title: "Create your account",
                 desc: "Sign up with your email and link your Chess.com username. Takes 30 seconds.",
-                color: "#81b64c",
+                color: "var(--green)",
               },
               {
                 step: "2",
                 title: "We analyze your games",
                 desc: "Your last 30 days of games are queued automatically. Stockfish does the rest — no waiting.",
-                color: "#5b8bb4",
+                color: "var(--blue)",
               },
               {
                 step: "3",
                 title: "Improve every session",
                 desc: "Deep stats, game review with Stockfish, and personalized puzzle recommendations waiting for you.",
-                color: "#f6c700",
+                color: "var(--gold)",
               },
             ].map((item) => (
               <div key={item.step} style={{ textAlign: "center" }}>
@@ -556,7 +483,7 @@ export default function Home() {
           }}
         >
           <div style={{ fontSize: "13px", color: "var(--text-3)", letterSpacing: "0.04em" }}>
-            Chess<span style={{ color: "#81b64c" }}>IQ</span>
+            Chess<span style={{ color: "var(--green)" }}>IQ</span>
             <span style={{ margin: "0 8px", opacity: 0.4 }}>·</span>
             Powered by Chess.com + Stockfish
           </div>
@@ -572,7 +499,7 @@ export default function Home() {
               textDecoration: "none",
               transition: "color 0.2s",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#81b64c")}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--green)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
           >
             github ↗
@@ -583,7 +510,7 @@ export default function Home() {
   );
 }
 
-function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: number }) {
+function FeatureCard({ feature }: { feature: typeof FEATURES[0] }) {
   const [hovered, setHovered] = useState(false);
 
   return (

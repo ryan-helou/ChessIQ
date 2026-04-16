@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import Header from "@/components/Header";
 import ChessLoader from "@/components/ChessLoader";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -93,7 +94,7 @@ export default function PlayerPage() {
   const [analysisStatus, setAnalysisStatus] = useState<{ pending: number; analyzing: number; complete: number; failed: number; total: number } | null>(null);
   const [showProgressBanner, setShowProgressBanner] = useState(true);
   const [puzzleRating, setPuzzleRating] = useState<number | null>(null);
-  const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function processResult(result: any): DashboardData {
     return {
@@ -161,37 +162,78 @@ export default function PlayerPage() {
     router.replace(`?months=${m}`, { scroll: false });
   };
 
-  // Fetch analysis progress + poll while games are pending
+  // Fetch analysis progress with adaptive polling — pauses when tab is hidden,
+  // backs off exponentially on errors, resets on success.
   useEffect(() => {
-    async function fetchStatus() {
+    const BASE_INTERVAL_MS = 30_000;
+    const MAX_INTERVAL_MS = 5 * 60_000;
+    let cancelled = false;
+    let consecutiveErrors = 0;
+    let abortController: AbortController | null = null;
+
+    const url = `/api/games/${encodeURIComponent(username)}/analysis-status`;
+
+    const schedule = (delay: number) => {
+      if (cancelled) return;
+      progressPollRef.current = setTimeout(tick, delay);
+    };
+
+    const computeDelay = () => {
+      if (consecutiveErrors === 0) return BASE_INTERVAL_MS;
+      const exp = Math.min(MAX_INTERVAL_MS, BASE_INTERVAL_MS * 2 ** (consecutiveErrors - 1));
+      return Math.floor(Math.random() * exp);
+    };
+
+    async function tick() {
+      if (cancelled) return;
+      // Pause polling while the tab is hidden to save bandwidth.
+      if (typeof document !== "undefined" && document.hidden) {
+        schedule(BASE_INTERVAL_MS);
+        return;
+      }
+      abortController = new AbortController();
       try {
-        const res = await fetch(`/api/games/${encodeURIComponent(username)}/analysis-status`);
-        if (!res.ok) return;
+        const res = await fetch(url, { signal: abortController.signal });
+        if (!res.ok) {
+          consecutiveErrors++;
+          schedule(computeDelay());
+          return;
+        }
         const status = await res.json();
+        if (cancelled) return;
         setAnalysisStatus(status);
-        // Auto-dismiss when all done
+        consecutiveErrors = 0;
         if (status.total > 0 && status.pending === 0 && status.analyzing === 0) {
           setShowProgressBanner(false);
+          // Done — stop polling entirely.
+          return;
         }
-      } catch {}
+        schedule(BASE_INTERVAL_MS);
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        consecutiveErrors++;
+        schedule(computeDelay());
+      }
     }
 
-    fetchStatus();
+    const onVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        // Tab just became visible — fire immediately and reset backoff.
+        if (progressPollRef.current) clearTimeout(progressPollRef.current);
+        consecutiveErrors = 0;
+        tick();
+      }
+    };
 
-    // Poll every 30s while there are pending/analyzing games
-    progressPollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/games/${encodeURIComponent(username)}/analysis-status`);
-        if (!res.ok) return;
-        const status = await res.json();
-        setAnalysisStatus(status);
-        if (status.total > 0 && status.pending === 0 && status.analyzing === 0) {
-          clearInterval(progressPollRef.current!);
-        }
-      } catch {}
-    }, 30_000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    tick();
 
-    return () => { if (progressPollRef.current) clearInterval(progressPollRef.current); };
+    return () => {
+      cancelled = true;
+      if (progressPollRef.current) clearTimeout(progressPollRef.current);
+      abortController?.abort();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [username]);
 
   // Fetch puzzle rating once
@@ -368,9 +410,12 @@ export default function PlayerPage() {
                   {/* Avatar with online dot */}
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     {data.profile.avatar ? (
-                      <img
+                      <Image
                         src={data.profile.avatar}
                         alt={data.profile.username}
+                        width={60}
+                        height={60}
+                        unoptimized
                         style={{
                           width: "60px",
                           height: "60px",

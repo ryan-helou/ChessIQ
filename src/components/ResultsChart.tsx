@@ -6,7 +6,6 @@ import {
   Cell,
   Tooltip,
   ResponsiveContainer,
-  Legend,
   BarChart,
   Bar,
   XAxis,
@@ -15,7 +14,8 @@ import {
 } from "recharts";
 import type { ResultBreakdown } from "@/lib/game-analysis";
 
-const C = { bg: "#262522", border: "#454340", text2: "#a0998c", text3: "#706e6b" };
+// Recharts takes raw SVG values, mirror globals.css hex tokens here.
+const C = { bg: "#262522", border: "#454340", text1: "#e8e6e1", text2: "#a0998c", text3: "#706e6b" };
 
 const RESULT_COLORS: Record<string, string> = {
   Checkmate:                 "#81b64c",
@@ -71,9 +71,10 @@ export function WinLossDrawChart({ wins, losses, draws }: WinLossDrawProps) {
               backgroundColor: C.bg,
               border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: C.text1,
               fontSize: "12px",
-              fontFamily: "monospace",
+              fontFamily: "var(--font-mono)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
             }}
           />
         </PieChart>
@@ -104,9 +105,10 @@ export function ResultBreakdownChart({ data }: Props) {
               backgroundColor: C.bg,
               border: `1px solid ${C.border}`,
               borderRadius: "8px",
-              color: "#e8e6e1",
+              color: C.text1,
               fontSize: "12px",
-              fontFamily: "monospace",
+              fontFamily: "var(--font-mono)",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
             }}
           />
           <Bar dataKey="count" radius={[0, 4, 4, 0]}>

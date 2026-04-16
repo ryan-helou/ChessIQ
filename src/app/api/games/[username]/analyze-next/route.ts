@@ -1,5 +1,3 @@
-export const maxDuration = 60;
-
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { analyzeGame, type AnalyzedMove } from "@/modules/game-review/analyzer";

@@ -5,10 +5,13 @@ import { ensureDbInit } from "@/lib/db-init";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
-  // 3 password reset requests per IP per 10 minutes
+  // 3 password reset requests per IP per 10 minutes — fail closed (silent) if Redis is down
   const ip = getClientIp(req.headers);
-  if (!await checkRateLimit(`forgot-password:${ip}`, 3, 10 * 60 * 1000)) {
-    return NextResponse.json({ ok: true }); // Return ok:true to not reveal rate limiting to attackers
+  const rl = await checkRateLimit(`forgot-password:${ip}`, 3, 10 * 60 * 1000, { failOpen: false });
+  if (!rl.allowed) {
+    // Always respond 200 so attackers can't tell whether they hit the limit or
+    // whether the email exists. Silently drop the request.
+    return NextResponse.json({ ok: true });
   }
 
   await ensureDbInit();

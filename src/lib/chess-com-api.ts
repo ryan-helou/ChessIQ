@@ -1,6 +1,21 @@
 import { redis, ensureRedisConnected } from "@/lib/redis";
+import { fetchWithTimeout, sleep, backoffMs } from "@/lib/fetch-with-timeout";
 
 const BASE_URL = "https://api.chess.com/pub";
+
+export class ChessComRateLimitError extends Error {
+  constructor(public retryAfterSec: number) {
+    super(`Chess.com rate limit exceeded — retry after ${retryAfterSec}s`);
+    this.name = "ChessComRateLimitError";
+  }
+}
+
+export class ChessComNotFoundError extends Error {
+  constructor(public username: string) {
+    super(`Chess.com player not found: ${username}`);
+    this.name = "ChessComNotFoundError";
+  }
+}
 
 async function redisCacheGet(key: string): Promise<string | null> {
   try { await ensureRedisConnected(); return await redis.get(key); } catch { return null; }
@@ -59,22 +74,60 @@ export interface GamePlayer {
   uuid: string;
 }
 
+const MAX_ATTEMPTS = 4;
+
 async function fetchJSON<T>(url: string): Promise<T> {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "ChessIQ/1.0" },
-      signal: AbortSignal.timeout(10_000),
-      next: { revalidate: 300 },
-    });
-    if (res.status === 429) {
-      // Rate limited — wait 2s then retry once
-      if (attempt === 0) { await new Promise(r => setTimeout(r, 2000)); continue; }
-      throw new Error("Chess.com rate limit exceeded");
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url, {
+        headers: { "User-Agent": "ChessIQ/1.0 (contact@chessiq.io)" },
+        timeoutMs: 8_000,
+        next: { revalidate: 300 },
+      });
+
+      if (res.status === 404) {
+        // Don't retry 404s; surface a typed error.
+        const u = url.split("/player/")[1]?.split("/")[0] ?? url;
+        throw new ChessComNotFoundError(u);
+      }
+
+      if (res.status === 429 || res.status === 503) {
+        // Honor Retry-After when present; otherwise back off exponentially.
+        const retryAfterRaw = res.headers.get("retry-after");
+        const retryAfterSec = retryAfterRaw ? parseInt(retryAfterRaw, 10) || 0 : 0;
+        if (attempt === MAX_ATTEMPTS - 1) {
+          throw new ChessComRateLimitError(retryAfterSec || Math.ceil(backoffMs(attempt) / 1000));
+        }
+        const waitMs = retryAfterSec > 0
+          ? Math.min(retryAfterSec * 1000, 8_000)
+          : backoffMs(attempt, 1_000, 8_000);
+        await sleep(waitMs);
+        continue;
+      }
+
+      if (res.status >= 500 && res.status < 600) {
+        // Transient upstream error — back off and retry
+        if (attempt === MAX_ATTEMPTS - 1) {
+          throw new Error(`Chess.com API error: ${res.status}`);
+        }
+        await sleep(backoffMs(attempt, 500, 4_000));
+        continue;
+      }
+
+      if (!res.ok) throw new Error(`Chess.com API error: ${res.status}`);
+      return res.json() as Promise<T>;
+    } catch (err) {
+      lastErr = err;
+      // Don't retry typed errors that aren't transient
+      if (err instanceof ChessComNotFoundError) throw err;
+      if (err instanceof ChessComRateLimitError) throw err;
+      // Network / timeout — retry with backoff
+      if (attempt === MAX_ATTEMPTS - 1) break;
+      await sleep(backoffMs(attempt, 500, 4_000));
     }
-    if (!res.ok) throw new Error(`Chess.com API error: ${res.status}`);
-    return res.json();
   }
-  throw new Error("Chess.com API fetch failed");
+  throw lastErr instanceof Error ? lastErr : new Error("Chess.com API fetch failed");
 }
 
 export async function getProfile(username: string): Promise<ChessComProfile> {

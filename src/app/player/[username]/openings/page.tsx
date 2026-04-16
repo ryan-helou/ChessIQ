@@ -3,11 +3,13 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Chess } from "chess.js";
 import { neoPieces } from "@/lib/chess-pieces";
 import EvalBar from "@/components/game-review/EvalBar";
 import { getOpeningStats, type ParsedGame } from "@/lib/game-analysis";
+import { useEngineStream, type EngineLine } from "@/hooks/useEngineStream";
 
 const Chessboard = dynamic(
   () => import("react-chessboard").then((m) => m.Chessboard),
@@ -35,20 +37,12 @@ interface PersonalMoveStats {
   losses: number;
 }
 
-interface ExplorerMove {
-  san: string;
-  uci: string;
-  winrate: number;      // win% for the side that made this move
-  rank: number;         // 2=best, 1=good, 0=questionable
-  score: number | null; // centipawns from side-to-move perspective
-}
-
 interface LichessMove {
   san: string;
   uci: string;
-  white: number;  // games won by white
+  white: number;
   draws: number;
-  black: number;  // games won by black
+  black: number;
 }
 
 interface TopGame {
@@ -57,9 +51,9 @@ interface TopGame {
   white: { name: string; rating: number };
   black: { name: string; rating: number };
   year: number;
+  month: string | null;
 }
 
-// ──  kept for "My Games" notable games panel
 interface PositionGame {
   id: string;
   url: string;
@@ -69,7 +63,16 @@ interface PositionGame {
   opponentName: string;
   opponentRating: number;
   opening: string;
+  timeClass: string;
 }
+
+interface LoadedGameMeta {
+  gameId: string;
+  white: { name: string; rating: number };
+  black: { name: string; rating: number };
+}
+
+type TimeFilter = "all" | "bullet" | "blitz" | "rapid";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +80,24 @@ function fmtCount(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
   if (n >= 1_000) return (n / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
   return String(n);
+}
+
+function fmtEval(scoreCp: number | null, mate: number | null): string {
+  if (mate !== null) {
+    return (mate >= 0 ? "M" : "−M") + Math.abs(mate);
+  }
+  if (scoreCp === null) return "—";
+  const v = scoreCp / 100;
+  if (v === 0) return "0.00";
+  return (v > 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+}
+
+function evalTextColor(scoreCp: number | null, mate: number | null): string {
+  if (mate !== null) return mate >= 0 ? "#81b64c" : "#ca3431";
+  if (scoreCp === null) return "var(--text-4)";
+  if (scoreCp > 15) return "#81b64c";
+  if (scoreCp < -15) return "#ca3431";
+  return "var(--text-3)";
 }
 
 function buildPersonalMaps(games: ParsedGame[]): {
@@ -88,22 +109,21 @@ function buildPersonalMaps(games: ParsedGame[]): {
 
   for (const game of games) {
     const chess = new Chess();
-    const seenFens = new Set<string>(); // track visited FENs in this game
+    const seenFens = new Set<string>();
 
     for (const san of game.moves) {
       const fen = chess.fen();
 
-      // Record this game reached this FEN (once per game)
       if (!seenFens.has(fen)) {
         seenFens.add(fen);
         let gl = gamesMap.get(fen);
         if (!gl) { gl = []; gamesMap.set(fen, gl); }
-        if (gl.length < 20) { // cap at 20 per position
+        if (gl.length < 20) {
           gl.push({
             id: game.id, url: game.url, date: game.date,
             result: game.result, playerColor: game.playerColor,
             opponentName: game.opponentName, opponentRating: game.opponentRating,
-            opening: game.opening,
+            opening: game.opening, timeClass: game.timeClass,
           });
         }
       }
@@ -157,7 +177,7 @@ function PageHeader({ username }: { username: string }) {
       flexShrink: 0,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        <a href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
           <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
             <rect width="32" height="32" rx="6" fill="var(--green)" opacity="0.9" />
             <path d="M11 25V23.5C11 23.5 9 22 9 19C9 16 11 14 11 14L10 12H12L13 10H15L15.5 11.5C17 11 18 11 19 12C20 13 20 14 20 14L18 15L19 17C19 17 20 19 19 21C18 23 17 23.5 17 23.5V25H11Z" fill="white" opacity="0.95" />
@@ -166,7 +186,7 @@ function PageHeader({ username }: { username: string }) {
           <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text-1)" }}>
             Chess<span style={{ color: "var(--green)" }}>IQ</span>
           </span>
-        </a>
+        </Link>
         <a
           href={`/player/${encodeURIComponent(username)}`}
           style={{ fontSize: 12, color: "var(--text-3)", textDecoration: "none" }}
@@ -192,6 +212,47 @@ function PageHeader({ username }: { username: string }) {
   );
 }
 
+// ─── Player strip ──────────────────────────────────────────────────────────────
+
+function PlayerStrip({
+  color,
+  name,
+  rating,
+  isActive,
+}: {
+  color: "white" | "black";
+  name: string;
+  rating: number | null;
+  isActive: boolean;
+}) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8,
+      height: 30, padding: "0 10px",
+      background: "var(--bg-surface)",
+      border: "1px solid var(--border)",
+      borderRadius: 4,
+    }}>
+      <div style={{
+        width: 12, height: 12, borderRadius: "50%",
+        background: color === "white" ? "#eeeed2" : "#2a2a2a",
+        border: color === "black" ? "1px solid #555" : "1px solid #ccc",
+        flexShrink: 0,
+      }} />
+      <span style={{
+        fontSize: 13, fontWeight: 700,
+        color: isActive ? "var(--text-1)" : "var(--text-4)",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>{name}</span>
+      {rating !== null && rating > 0 && (
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-5)", fontVariantNumeric: "tabular-nums" }}>
+          ({rating})
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OpeningsPage() {
@@ -204,24 +265,21 @@ export default function OpeningsPage() {
 
   // Board navigation state
   const [movesPlayed, setMovesPlayed] = useState<string[]>([]);
-  const [futureMoves, setFutureMoves] = useState<string[]>([]); // for → key
+  const [, setFutureMoves] = useState<string[]>([]);
   const [boardFlipped, setBoardFlipped] = useState(false);
   const [pendingSquare, setPendingSquare] = useState<string | null>(null);
 
   // Panel tab
   const [activeTab, setActiveTab] = useState<"masters" | "my-games">("masters");
 
-  // Engine state
-  const [engineOn, setEngineOn] = useState(false);
-  const [bestMoveUci, setBestMoveUci] = useState<string | null>(null);
-  const [evalCp, setEvalCp] = useState<number | null>(null);
-  const [currentDepth, setCurrentDepth] = useState(0);
-  const [engineLoading, setEngineLoading] = useState(false);
-  const engineControllerRef = useRef<AbortController | null>(null);
+  // Engine toggle
+  const [engineOn, setEngineOn] = useState(true);
 
-  // Explorer (chessdb.cn) data
-  const [explorerMoves, setExplorerMoves] = useState<ExplorerMove[]>([]);
-  const [explorerLoading, setExplorerLoading] = useState(false);
+  // Time-control filter (My Games only)
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+
+  // Loaded master-game metadata (for player strips)
+  const [loadedGameMeta, setLoadedGameMeta] = useState<LoadedGameMeta | null>(null);
 
   // Lichess master games + moves for this position
   const [masterGames, setMasterGames] = useState<TopGame[]>([]);
@@ -229,10 +287,6 @@ export default function OpeningsPage() {
   const [lichessTotal, setLichessTotal] = useState(0);
   const [gameLoadingId, setGameLoadingId] = useState<string | null>(null);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
-
-  // Personal stats map + position→games map, built once when games load
-  const personalStatsMapRef = useRef<Map<string, PersonalMoveStats[]>>(new Map());
-  const positionGamesRef = useRef<Map<string, PositionGame[]>>(new Map());
 
   // Derived FEN from moves
   const fen = useMemo(() => {
@@ -243,71 +297,52 @@ export default function OpeningsPage() {
     return chess.fen();
   }, [movesPlayed]);
 
-  // Ref so callbacks always read the latest FEN without stale-closure issues
   const fenRef = useRef(START_FEN);
   fenRef.current = fen;
 
-  // Ref so onSquareClick always reads the latest pendingSquare
   const pendingSquareRef = useRef<string | null>(null);
   pendingSquareRef.current = pendingSquare;
 
-  // Load games and build personal stats + position-games maps
+  // Engine stream (multiPv=8, depths 8→22)
+  const engineStream = useEngineStream(fen, { enabled: engineOn, maxDepth: 22, multiPv: 8 });
+
+  // Load games
   useEffect(() => {
     fetch(`/api/games/${encodeURIComponent(username)}?months=6`)
       .then(r => r.json())
       .then(data => {
         const games: ParsedGame[] = data.games ?? [];
         setAllGames(games);
-        const { moveMap, gamesMap } = buildPersonalMaps(games);
-        personalStatsMapRef.current = moveMap;
-        positionGamesRef.current = gamesMap;
       })
       .catch(err => setLoadError(err instanceof Error ? err.message : "Failed to load games"))
       .finally(() => setLoading(false));
   }, [username]);
 
+  // Time-filtered games
+  const filteredGames = useMemo(
+    () => timeFilter === "all" ? allGames : allGames.filter(g => g.timeClass === timeFilter),
+    [allGames, timeFilter]
+  );
+
+  // Personal maps (rebuild when filter or games change)
+  const { moveMap: personalStatsMap, gamesMap: positionGamesMap } = useMemo(
+    () => buildPersonalMaps(filteredGames),
+    [filteredGames]
+  );
+
   // Quick-jump opening shortcuts (top 6 by game count)
   const quickJumps = useMemo(() => {
-    if (allGames.length === 0) return [];
-    const stats = getOpeningStats(allGames).sort((a, b) => b.games - a.games);
+    if (filteredGames.length === 0) return [];
+    const stats = getOpeningStats(filteredGames).sort((a, b) => b.games - a.games);
     return stats
       .map(op => {
-        const opGames = allGames.filter(g => g.opening === op.name);
+        const opGames = filteredGames.filter(g => g.opening === op.name);
         const common = getCommonPrefix(opGames).slice(0, 20);
         return { name: op.name, moves: common, games: op.games };
       })
       .filter(j => j.moves.length > 0)
       .slice(0, 6);
-  }, [allGames]);
-
-  // Fetch engine analysis from chessdb.cn (public API, no auth needed)
-  useEffect(() => {
-    setExplorerMoves([]);
-    setExplorerLoading(true);
-    const controller = new AbortController();
-    fetch(
-      `https://www.chessdb.cn/cdb.php?action=queryall&board=${encodeURIComponent(fen)}&json=1`,
-      { signal: controller.signal }
-    )
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then((data: any) => {
-        if (data?.status === "ok" && Array.isArray(data.moves)) {
-          setExplorerMoves(
-            data.moves.slice(0, 12).map((m: { san: string; uci: string; rank?: number; winrate?: string; score?: number }) => ({
-              san: m.san,
-              uci: m.uci,
-              rank: m.rank ?? 0,
-              winrate: parseFloat(m.winrate ?? "50"),
-              score: typeof m.score === "number" ? m.score : null,
-            }))
-          );
-        }
-      })
-      .catch(() => { /* ignore aborts / errors */ })
-      .finally(() => setExplorerLoading(false));
-    return () => controller.abort();
-  }, [fen]);
+  }, [filteredGames]);
 
   // Fetch Lichess master games + moves for this position
   useEffect(() => {
@@ -327,68 +362,20 @@ export default function OpeningsPage() {
     return () => controller.abort();
   }, [fen]);
 
-  // Progressive engine deepening
+  // Clear loaded-game meta when user navigates off the loaded line
   useEffect(() => {
-    setBestMoveUci(null);
-    setEvalCp(null);
-    setCurrentDepth(0);
-    if (!engineOn) return;
-
-    engineControllerRef.current?.abort();
-    const controller = new AbortController();
-    engineControllerRef.current = controller;
-
-    (async () => {
-      setEngineLoading(true);
-
-      // Start position: backend can't analyze it; show neutral eval immediately
-      if (movesPlayed.length === 0) {
-        setEvalCp(0);
-        setCurrentDepth(20);
-        setEngineLoading(false);
-        return;
-      }
-
-      for (const depth of [10, 14, 20]) {
-        if (controller.signal.aborted) return;
-        try {
-          const r = await fetch("/api/stockfish/position", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ moves: movesPlayed, depth }),
-            signal: controller.signal,
-          });
-          if (controller.signal.aborted) return;
-          const d = await r.json();
-          setBestMoveUci(d.bestMove ?? null);
-          if (typeof d.evalCp === "number") setEvalCp(d.evalCp);
-          setCurrentDepth(depth);
-          setEngineLoading(false);
-        } catch {
-          if (!controller.signal.aborted) { setBestMoveUci(null); setEngineLoading(false); }
-          return;
-        }
-      }
-    })();
-
-    return () => {
-      controller.abort();
-      engineControllerRef.current = null;
-    };
-  }, [engineOn, movesPlayed]);
+    if (activeGameId === null && loadedGameMeta !== null) setLoadedGameMeta(null);
+  }, [activeGameId, loadedGameMeta]);
 
   // Play a move (SAN) — clears future when a new branch is taken
   const playMoveSan = useCallback((san: string) => {
     setPendingSquare(null);
-    setBestMoveUci(null);
-    setEvalCp(null);
-    setCurrentDepth(0);
     setFutureMoves([]);
     setActiveGameId(null);
     setMovesPlayed(prev => [...prev, san]);
   }, []);
 
-  // Load a master game — fetches PGN via our proxy, then loads moves into futureMoves
+  // Load a master game
   const loadGame = useCallback(async (game: TopGame) => {
     setGameLoadingId(game.id);
     try {
@@ -409,16 +396,14 @@ export default function OpeningsPage() {
         setFutureMoves(moves);
       }
       setPendingSquare(null);
-      setBestMoveUci(null);
-      setEvalCp(null);
-      setCurrentDepth(0);
       setActiveGameId(game.id);
+      setLoadedGameMeta({ gameId: game.id, white: game.white, black: game.black });
     } finally {
       setGameLoadingId(null);
     }
   }, [movesPlayed]);
 
-  // Drag-to-move — uses fenRef so the closure never goes stale
+  // Drag-to-move
   const onPieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { piece: unknown; sourceSquare: string; targetSquare: string | null }): boolean => {
       if (!targetSquare) return false;
@@ -434,7 +419,7 @@ export default function OpeningsPage() {
     [playMoveSan]
   );
 
-  // Two-click move — uses refs so closures never go stale
+  // Two-click move
   const onSquareClick = useCallback(
     ({ square }: { piece: unknown; square: string }) => {
       const chess = new Chess(fenRef.current);
@@ -472,7 +457,13 @@ export default function OpeningsPage() {
     return styles;
   }, [pendingSquare, fen]);
 
-  // Engine arrow
+  // Best-move arrow (from engine)
+  const bestMoveUci = useMemo(() => {
+    if (!engineOn) return null;
+    const top = engineStream.lines.find(l => l.rank === 1);
+    return top?.uci[0] ?? null;
+  }, [engineOn, engineStream.lines]);
+
   const engineArrows = useMemo(() => {
     if (!engineOn || !bestMoveUci || bestMoveUci.length < 4) return [];
     return [{ startSquare: bestMoveUci.slice(0, 2), endSquare: bestMoveUci.slice(2, 4), color: "#22c55e" }];
@@ -489,7 +480,6 @@ export default function OpeningsPage() {
     return items;
   }, [movesPlayed]);
 
-  // Navigate to a specific ply via breadcrumb
   const navigateTo = useCallback((ply: number) => {
     setMovesPlayed(prev => {
       setFutureMoves(prev.slice(ply));
@@ -497,7 +487,6 @@ export default function OpeningsPage() {
     });
     setPendingSquare(null);
   }, []);
-
 
   // Arrow key navigation
   useEffect(() => {
@@ -525,42 +514,51 @@ export default function OpeningsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Side to move — read directly from FEN string (field 2)
+  // Side to move
   const sideToMove = useMemo(() => fen.split(" ")[1] as "w" | "b", [fen]);
 
   // Personal moves at current FEN
   const personalMoves = useMemo(
-    () => personalStatsMapRef.current.get(fen) ?? [],
-    [fen]
+    () => personalStatsMap.get(fen) ?? [],
+    [personalStatsMap, fen]
   );
 
-  // Games at current position (from user's history)
   const gamesAtPosition = useMemo(
-    () => positionGamesRef.current.get(fen) ?? [],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fen, loading]
+    () => positionGamesMap.get(fen) ?? [],
+    [positionGamesMap, fen]
   );
 
-  // Top 3 engine moves for "Best Moves" section (ChessDB ranked, cross-ref Lichess for W/D/L)
-  const bestThreeMoves = useMemo(() => {
-    return [...explorerMoves]
-      .sort((a, b) => b.rank - a.rank || b.winrate - a.winrate)
-      .slice(0, 3)
-      .map(em => {
-        const lm = lichessMoves.find(l => l.san === em.san);
-        const lTotal = lm ? lm.white + lm.draws + lm.black : 0;
-        const wPct = lTotal > 0
-          ? ((sideToMove === "w" ? lm!.white : lm!.black) / lTotal) * 100
-          : em.winrate;
-        const dPct = lTotal > 0 ? (lm!.draws / lTotal) * 100 : null;
-        const lPct = lTotal > 0
-          ? ((sideToMove === "w" ? lm!.black : lm!.white) / lTotal) * 100
-          : null;
-        return { san: em.san, score: em.score, wPct, dPct, lPct, hasLichess: lTotal > 0 };
-      });
-  }, [explorerMoves, lichessMoves, sideToMove]);
+  // Eval for display (white-POV): flip sign when black to move
+  const displayEvalCp = useMemo(() => {
+    const top = engineStream.lines.find(l => l.rank === 1);
+    if (!top) return null;
+    if (top.scoreCp === null) return null;
+    return sideToMove === "w" ? top.scoreCp : -top.scoreCp;
+  }, [engineStream.lines, sideToMove]);
 
-  // Master games most-likely moves: Lichess frequency, W/D/L from side-to-move perspective
+  const displayMate = useMemo(() => {
+    const top = engineStream.lines.find(l => l.rank === 1);
+    if (!top || top.mate === null) return null;
+    return sideToMove === "w" ? top.mate : -top.mate;
+  }, [engineStream.lines, sideToMove]);
+
+  // Top 3 engine moves for Best Moves section
+  const bestThreeLines = useMemo<EngineLine[]>(() => {
+    return [...engineStream.lines].sort((a, b) => a.rank - b.rank).slice(0, 3);
+  }, [engineStream.lines]);
+
+  // Lookup map: first-ply SAN → scoreCp (from side-to-move POV)
+  const engineSanEval = useMemo(() => {
+    const m = new Map<string, { scoreCp: number | null; mate: number | null }>();
+    for (const line of engineStream.lines) {
+      const firstSan = line.san[0];
+      if (!firstSan) continue;
+      if (!m.has(firstSan)) m.set(firstSan, { scoreCp: line.scoreCp, mate: line.mate });
+    }
+    return m;
+  }, [engineStream.lines]);
+
+  // Master moves: Lichess frequency + engine eval
   const masterMovesTable = useMemo(() => {
     if (lichessMoves.length === 0) return [];
     return [...lichessMoves]
@@ -570,12 +568,13 @@ export default function OpeningsPage() {
         const wPct = total > 0 ? ((sideToMove === "w" ? m.white : m.black) / total) * 100 : 0;
         const dPct = total > 0 ? (m.draws / total) * 100 : 0;
         const lPct = total > 0 ? ((sideToMove === "w" ? m.black : m.white) / total) * 100 : 0;
-        return { san: m.san, uci: m.uci, freqPct, total, wPct, dPct, lPct };
+        const ev = engineSanEval.get(m.san) ?? null;
+        return { san: m.san, uci: m.uci, freqPct, total, wPct, dPct, lPct, scoreCp: ev?.scoreCp ?? null, mate: ev?.mate ?? null };
       })
       .sort((a, b) => b.total - a.total);
-  }, [lichessMoves, lichessTotal, sideToMove]);
+  }, [lichessMoves, lichessTotal, sideToMove, engineSanEval]);
 
-  // My games most-likely moves: personal frequency, W/D/L
+  // My games moves: personal frequency + engine eval
   const myMovesTable = useMemo(() => {
     const totalAtPos = personalMoves.reduce((s, m) => s + m.wins + m.draws + m.losses, 0);
     return [...personalMoves]
@@ -585,12 +584,13 @@ export default function OpeningsPage() {
         const wPct = total > 0 ? (m.wins / total) * 100 : 0;
         const dPct = total > 0 ? (m.draws / total) * 100 : 0;
         const lPct = total > 0 ? (m.losses / total) * 100 : 0;
-        return { san: m.san, uci: m.uci, freqPct, total, wPct, dPct, lPct };
+        const ev = engineSanEval.get(m.san) ?? null;
+        return { san: m.san, uci: m.uci, freqPct, total, wPct, dPct, lPct, scoreCp: ev?.scoreCp ?? null, mate: ev?.mate ?? null };
       })
       .sort((a, b) => b.total - a.total);
-  }, [personalMoves]);
+  }, [personalMoves, engineSanEval]);
 
-  // Aggregate personal stats across all moves at this position (for position summary)
+  // Aggregate personal stats
   const positionSummary = useMemo(() => {
     const wins = personalMoves.reduce((s, m) => s + m.wins, 0);
     const draws = personalMoves.reduce((s, m) => s + m.draws, 0);
@@ -599,13 +599,45 @@ export default function OpeningsPage() {
     return { wins, draws, losses, total };
   }, [personalMoves]);
 
-  const evalDisplay = evalCp !== null
-    ? (evalCp >= 0 ? "+" : "") + (evalCp / 100).toFixed(1)
-    : null;
+  // Notable master games — sort by avgRating + (year − 1990) * 3
+  const sortedMasterGames = useMemo(() => {
+    return [...masterGames]
+      .map(g => {
+        const avgRating = ((g.white.rating || 0) + (g.black.rating || 0)) / 2;
+        const yearRef = g.month ? parseInt(g.month.slice(0, 4), 10) || g.year : g.year;
+        const monthRef = g.month ? (parseInt(g.month.slice(5, 7), 10) || 0) / 12 : 0;
+        const score = avgRating + (yearRef + monthRef - 1990) * 3;
+        return { ...g, _score: score };
+      })
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 10);
+  }, [masterGames]);
 
-  // header(44) + engine status(24) + padding(32) = ~100px vertical overhead
-  // right panel min width = 320px + eval bar = ~336px horizontal overhead
-  const BOARD_SIZE = "min(calc(100vh - 100px), calc(100vw - 336px))";
+  // Player strips: figure out who goes on top/bottom
+  const userRating = useMemo(
+    () => allGames.length > 0 ? allGames[0].playerRating : null,
+    [allGames]
+  );
+
+  const { topStrip, bottomStrip } = useMemo(() => {
+    // bottomColor = the color whose pieces are at the bottom of the board
+    const bottomColor: "white" | "black" = boardFlipped ? "black" : "white";
+    const topColor: "white" | "black" = boardFlipped ? "white" : "black";
+
+    if (loadedGameMeta) {
+      return {
+        topStrip: { color: topColor, name: loadedGameMeta[topColor].name, rating: loadedGameMeta[topColor].rating, isActive: true },
+        bottomStrip: { color: bottomColor, name: loadedGameMeta[bottomColor].name, rating: loadedGameMeta[bottomColor].rating, isActive: true },
+      };
+    }
+    return {
+      topStrip: { color: topColor, name: "—", rating: null as number | null, isActive: false },
+      bottomStrip: { color: bottomColor, name: username, rating: userRating, isActive: true },
+    };
+  }, [boardFlipped, loadedGameMeta, username, userRating]);
+
+  // Board size: account for header(44) + strips(2*30 + gap*2 = 72) + engine status(24) + padding(32)
+  const BOARD_SIZE = "min(calc(100vh - 180px), calc(100vw - 356px))";
 
   // ─── Error state ─────────────────────────────────────────────────────────────
 
@@ -626,10 +658,9 @@ export default function OpeningsPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden", background: "var(--bg-page)" }}>
       <PageHeader username={username} />
 
-      {/* ── Two-column layout ──────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-        {/* ── LEFT: Board ────────────────────────────────────────────────────────── */}
+        {/* ── LEFT: Board ───────────────────────────────────────────────────────── */}
         <div style={{
           flexShrink: 0,
           display: "flex", flexDirection: "column", justifyContent: "center",
@@ -637,62 +668,74 @@ export default function OpeningsPage() {
           borderRight: "1px solid var(--border)",
           background: "var(--bg-page)",
         }}>
-          {/* Board + eval bar */}
-          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-            <div style={{ width: BOARD_SIZE, height: BOARD_SIZE }}>
-              <Chessboard options={{
-                position: fen,
-                pieces: neoPieces,
-                boardOrientation: boardFlipped ? "black" : "white",
-                squareStyles,
-                arrows: engineArrows,
-                allowDragging: true,
-                animationDurationInMs: 150,
-                darkSquareStyle: { backgroundColor: "#769656" },
-                lightSquareStyle: { backgroundColor: "#eeeed2" },
-                onPieceDrop,
-                onSquareClick,
-              }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {/* Top player strip */}
+            <div style={{ width: BOARD_SIZE, marginLeft: engineOn ? 20 : 0 }}>
+              <PlayerStrip {...topStrip} />
             </div>
-            {engineOn && (
-              <div style={{ width: 12, alignSelf: "stretch", flexShrink: 0 }}>
-                <EvalBar eval_={evalCp ?? 0} mate={null} />
+
+            {/* Eval bar + Board */}
+            <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+              {engineOn && (
+                <div style={{ width: 12, alignSelf: "stretch", flexShrink: 0 }}>
+                  <EvalBar eval_={displayEvalCp ?? 0} mate={displayMate} />
+                </div>
+              )}
+              <div style={{ width: BOARD_SIZE, height: BOARD_SIZE }}>
+                <Chessboard options={{
+                  position: fen,
+                  pieces: neoPieces,
+                  boardOrientation: boardFlipped ? "black" : "white",
+                  squareStyles,
+                  arrows: engineArrows,
+                  allowDragging: true,
+                  animationDurationInMs: 150,
+                  darkSquareStyle: { backgroundColor: "#769656" },
+                  lightSquareStyle: { backgroundColor: "#eeeed2" },
+                  onPieceDrop,
+                  onSquareClick,
+                }} />
               </div>
-            )}
+            </div>
+
+            {/* Bottom player strip */}
+            <div style={{ width: BOARD_SIZE, marginLeft: engineOn ? 20 : 0 }}>
+              <PlayerStrip {...bottomStrip} />
+            </div>
           </div>
 
           {/* Engine status line */}
           <div style={{ marginTop: 8, height: 16, display: "flex", alignItems: "center", gap: 10 }}>
-            {engineOn ? (
-              engineLoading && currentDepth === 0 ? (
+            {engineOn && (
+              engineStream.status === "streaming" && engineStream.depth === 0 ? (
                 <span style={{ fontSize: 11, color: "var(--text-4)", fontStyle: "italic" }}>Analyzing…</span>
-              ) : currentDepth > 0 ? (
+              ) : engineStream.depth > 0 ? (
                 <>
-                  <span style={{ fontSize: 11, color: "var(--text-4)" }}>Depth {currentDepth}</span>
-                  {evalDisplay && (
-                    <span style={{
-                      fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono)",
-                      color: evalCp !== null && evalCp > 0 ? "#e8e6e1" : evalCp !== null && evalCp < 0 ? "#aaa" : "var(--text-2)",
-                    }}>
-                      {evalDisplay}
-                    </span>
+                  <span style={{ fontSize: 11, color: "var(--text-4)" }}>
+                    Depth {engineStream.depth}
+                    {engineStream.finalDepth !== null && engineStream.status === "done" && " (final)"}
+                  </span>
+                  <span style={{
+                    fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono)",
+                    color: evalTextColor(displayEvalCp, displayMate),
+                  }}>
+                    {fmtEval(displayEvalCp, displayMate)}
+                  </span>
+                  {engineStream.status === "streaming" && (
+                    <span style={{ fontSize: 10, color: "var(--text-5)", fontStyle: "italic" }}>deepening…</span>
                   )}
-                  {bestMoveUci && (
-                    <span style={{ fontSize: 11, color: "var(--text-4)" }}>
-                      Best: <span style={{ color: "#22c55e", fontFamily: "var(--font-mono)", fontWeight: 700 }}>{bestMoveUci}</span>
-                    </span>
-                  )}
-                  {engineLoading && <span style={{ fontSize: 10, color: "var(--text-5)", fontStyle: "italic" }}>deepening…</span>}
                 </>
+              ) : engineStream.status === "error" ? (
+                <span style={{ fontSize: 11, color: "#ca3431" }}>Engine: {engineStream.error}</span>
               ) : null
-            ) : null}
+            )}
           </div>
         </div>
 
-        {/* ── RIGHT: Panel ───────────────────────────────────────────────────────── */}
+        {/* ── RIGHT: Panel ────────────────────────────────────────────────────── */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-          {/* Panel header: controls only */}
+          {/* Panel header */}
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "flex-end",
             padding: "8px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0, gap: 8,
@@ -710,13 +753,13 @@ export default function OpeningsPage() {
               >
                 ⚡ Engine {engineOn ? "ON" : "OFF"}
               </button>
-              {engineOn && currentDepth > 0 && (
+              {engineOn && engineStream.depth > 0 && (
                 <span style={{
                   fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600,
                   color: "var(--text-4)", background: "rgba(255,255,255,0.06)",
                   border: "1px solid var(--border)", borderRadius: 4, padding: "2px 7px",
                 }}>
-                  depth={currentDepth}
+                  depth={engineStream.depth}
                 </span>
               )}
               <button
@@ -726,7 +769,10 @@ export default function OpeningsPage() {
                 ⇅
               </button>
               <button
-                onClick={() => { setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); setActiveGameId(null); }}
+                onClick={() => {
+                  setMovesPlayed([]); setFutureMoves([]); setPendingSquare(null);
+                  setActiveGameId(null); setLoadedGameMeta(null);
+                }}
                 style={{ padding: "3px 9px", borderRadius: 5, fontSize: 11, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-3)", cursor: "pointer" }}
               >
                 ↺
@@ -741,7 +787,7 @@ export default function OpeningsPage() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
-                  flex: 1, padding: "10px 0", fontSize: 13, fontWeight: 600,
+                  flex: 1, padding: "10px 0", fontSize: 13, fontWeight: 700,
                   border: "none", cursor: "pointer",
                   background: activeTab === tab ? "rgba(129,182,76,0.08)" : "none",
                   color: activeTab === tab ? "var(--green)" : "var(--text-3)",
@@ -756,6 +802,28 @@ export default function OpeningsPage() {
             ))}
           </div>
 
+          {/* Time-control filter chips — My Games only */}
+          {activeTab === "my-games" && (
+            <div style={{ display: "flex", gap: 5, padding: "8px 16px", alignItems: "center", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: "var(--text-4)", flexShrink: 0 }}>Time:</span>
+              {(["all", "bullet", "blitz", "rapid"] as const).map(tc => (
+                <button
+                  key={tc}
+                  onClick={() => setTimeFilter(tc)}
+                  style={{
+                    padding: "2px 10px", borderRadius: 10, fontSize: 10, fontWeight: 700,
+                    border: `1px solid ${timeFilter === tc ? "var(--green)" : "var(--border)"}`,
+                    background: timeFilter === tc ? "rgba(129,182,76,0.12)" : "none",
+                    color: timeFilter === tc ? "var(--green)" : "var(--text-3)",
+                    cursor: "pointer", textTransform: "capitalize",
+                  }}
+                >
+                  {tc}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Quick-jump chips */}
           {quickJumps.length > 0 && (
             <div style={{ display: "flex", gap: 5, padding: "8px 16px", flexWrap: "wrap", alignItems: "center", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
@@ -763,7 +831,10 @@ export default function OpeningsPage() {
               {quickJumps.map(j => (
                 <button
                   key={j.name}
-                  onClick={() => { setMovesPlayed(j.moves); setFutureMoves([]); setPendingSquare(null); setBestMoveUci(null); setEvalCp(null); setCurrentDepth(0); }}
+                  onClick={() => {
+                    setMovesPlayed(j.moves); setFutureMoves([]); setPendingSquare(null);
+                    setActiveGameId(null); setLoadedGameMeta(null);
+                  }}
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
                   style={{ padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, border: "1px solid var(--border)", background: "none", color: "var(--text-2)", cursor: "pointer" }}
@@ -782,7 +853,7 @@ export default function OpeningsPage() {
           >
             <button
               onClick={() => navigateTo(0)}
-              style={{ background: movesPlayed.length === 0 ? "rgba(129,182,76,0.12)" : "none", border: "none", borderRadius: 3, padding: "2px 6px", fontSize: 11, color: movesPlayed.length === 0 ? "var(--green)" : "var(--text-4)", cursor: "pointer", flexShrink: 0, fontWeight: movesPlayed.length === 0 ? 700 : 400 }}
+              style={{ background: movesPlayed.length === 0 ? "rgba(129,182,76,0.12)" : "none", border: "none", borderRadius: 3, padding: "2px 6px", fontSize: 11, color: movesPlayed.length === 0 ? "var(--green)" : "var(--text-4)", cursor: "pointer", flexShrink: 0, fontWeight: movesPlayed.length === 0 ? 700 : 500 }}
             >
               Start
             </button>
@@ -791,7 +862,7 @@ export default function OpeningsPage() {
                 <span style={{ color: "var(--border)", fontSize: 12, margin: "0 1px" }}>›</span>
                 <button
                   onClick={() => navigateTo(item.ply)}
-                  style={{ background: i === breadcrumbItems.length - 1 ? "rgba(129,182,76,0.12)" : "none", border: "none", borderRadius: 3, padding: "2px 5px", fontSize: 11, fontFamily: "var(--font-mono)", color: i === breadcrumbItems.length - 1 ? "var(--green)" : "var(--text-3)", cursor: "pointer", flexShrink: 0, fontWeight: i === breadcrumbItems.length - 1 ? 700 : 400 }}
+                  style={{ background: i === breadcrumbItems.length - 1 ? "rgba(129,182,76,0.12)" : "none", border: "none", borderRadius: 3, padding: "2px 5px", fontSize: 11, fontFamily: "var(--font-mono)", color: i === breadcrumbItems.length - 1 ? "var(--green)" : "var(--text-3)", cursor: "pointer", flexShrink: 0, fontWeight: i === breadcrumbItems.length - 1 ? 700 : 500 }}
                 >
                   {item.label}
                 </button>
@@ -807,107 +878,128 @@ export default function OpeningsPage() {
             )}
           </div>
 
+          {/* ── Best Moves — engine top-3 with PV lines ── */}
+          <div style={{ flexShrink: 0, borderBottom: "2px solid var(--border)", background: "rgba(129,182,76,0.03)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 16px 4px" }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: "var(--green)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                ★ Best Moves
+              </span>
+              <span style={{ fontSize: 9, color: "var(--text-5)" }}>
+                {engineOn
+                  ? engineStream.status === "streaming"
+                    ? `stockfish · depth ${engineStream.depth}…`
+                    : engineStream.status === "done"
+                      ? `stockfish · depth ${engineStream.finalDepth ?? engineStream.depth}`
+                      : engineStream.status === "error"
+                        ? "engine offline"
+                        : "engine starting…"
+                  : "engine off"}
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "28px 56px 60px 1fr", gap: 6, padding: "3px 16px 4px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>#</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Eval</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Principal Variation</span>
+            </div>
 
-          {/* ── Best Moves — always visible, above tab content ── */}
-          {(bestThreeMoves.length > 0 || explorerLoading) && (
-            <div style={{ flexShrink: 0, borderBottom: "2px solid var(--border)", background: "rgba(129,182,76,0.03)" }}>
-              {/* Section header */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 16px 4px" }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--green)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  ★ Best Moves
-                </span>
-                <span style={{ fontSize: 9, color: "var(--text-5)" }}>engine · click to play</span>
-              </div>
-              {/* Column header */}
-              <div style={{ display: "grid", gridTemplateColumns: "52px 52px 1fr", gap: 6, padding: "3px 16px 4px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Move</span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Eval</span>
-                <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>W · D · L</span>
-              </div>
-              {/* Skeleton while loading */}
-              {explorerLoading && bestThreeMoves.length === 0 && [1, 2, 3].map(k => (
-                <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 52px 1fr", gap: 6, padding: "8px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                  <div style={{ height: 14, width: 28, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
-                  <div style={{ height: 14, width: 36, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
-                  <div style={{ height: 6, background: "var(--border)", borderRadius: 3, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
-                </div>
-              ))}
-              {/* Move rows */}
-              {bestThreeMoves.map((bm, i) => {
-                const evalStr = bm.score !== null
-                  ? (bm.score >= 0 ? "+" : "") + (bm.score / 100).toFixed(2)
-                  : "—";
+            {/* Rows or skeleton */}
+            {engineOn && bestThreeLines.length > 0 ? (
+              bestThreeLines.map((line, i) => {
+                const firstSan = line.san[0] ?? "";
                 return (
-                  <button
-                    key={bm.san}
-                    onClick={() => playMoveSan(bm.san)}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                  <div
+                    key={line.rank}
                     style={{
-                      width: "100%", display: "grid", gridTemplateColumns: "52px 52px 1fr",
-                      gap: 6, padding: "8px 16px", background: "none", border: "none",
-                      borderBottom: i < bestThreeMoves.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                      cursor: "pointer", textAlign: "left", alignItems: "center",
+                      display: "grid", gridTemplateColumns: "28px 56px 60px 1fr",
+                      gap: 6, padding: "8px 16px",
+                      borderBottom: i < bestThreeLines.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                      alignItems: "center",
                     }}
                   >
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{bm.san}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-4)", fontVariantNumeric: "tabular-nums" }}>{line.rank}.</span>
+                    <button
+                      onClick={() => firstSan && playMoveSan(firstSan)}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(34,197,94,0.08)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                      style={{
+                        background: "none", border: "none", textAlign: "left",
+                        fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 800, color: "var(--text-1)",
+                        cursor: firstSan ? "pointer" : "default", padding: "2px 4px", borderRadius: 3,
+                      }}
+                    >{firstSan || "—"}</button>
                     <span style={{
-                      fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600,
-                      color: bm.score !== null && bm.score > 0 ? "#d4d0ca" : bm.score !== null && bm.score < 0 ? "#888" : "var(--text-3)",
-                    }}>{evalStr}</span>
-                    {bm.hasLichess && bm.dPct !== null && bm.lPct !== null ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                        <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 72, flexShrink: 0 }}>
-                          <div style={{ width: `${bm.wPct}%`, background: "#d4d0ca" }} />
-                          <div style={{ width: `${bm.dPct}%`, background: "#555" }} />
-                          <div style={{ width: `${bm.lPct}%`, background: "#8b8b8b" }} />
-                        </div>
-                        <span style={{ fontSize: 10, color: "var(--text-3)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                          <span style={{ color: "#d4d0ca" }}>{bm.wPct.toFixed(0)}%</span>
-                          <span style={{ color: "var(--text-5)" }}> · {bm.dPct.toFixed(0)}% · </span>
-                          <span style={{ color: "#888" }}>{bm.lPct.toFixed(0)}%</span>
-                        </span>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                        <div style={{ position: "relative", height: 6, borderRadius: 3, overflow: "hidden", width: 72, flexShrink: 0, background: "rgba(255,255,255,0.08)" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${bm.wPct}%`, background: "#81b64c", borderRadius: 3 }} />
-                        </div>
-                        <span style={{ fontSize: 10, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{bm.wPct.toFixed(0)}% win</span>
-                      </div>
-                    )}
-                  </button>
+                      fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700,
+                      color: evalTextColor(line.scoreCp, line.mate),
+                      fontVariantNumeric: "tabular-nums",
+                    }}>{fmtEval(line.scoreCp, line.mate)}</span>
+                    <div
+                      style={{ display: "flex", gap: 4, overflowX: "auto", alignItems: "center" }}
+                      className="scrollbar-hide"
+                    >
+                      {line.san.slice(0, 10).map((san, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            const path = line.san.slice(0, idx + 1);
+                            setMovesPlayed(prev => [...prev, ...path]);
+                            setFutureMoves([]); setPendingSquare(null);
+                            setActiveGameId(null); setLoadedGameMeta(null);
+                          }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+                          style={{
+                            background: "none", border: "none",
+                            fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: idx === 0 ? 700 : 500,
+                            color: idx === 0 ? "var(--text-2)" : "var(--text-4)",
+                            padding: "1px 4px", borderRadius: 3, cursor: "pointer",
+                            whiteSpace: "nowrap", flexShrink: 0,
+                          }}
+                        >{san}</button>
+                      ))}
+                    </div>
+                  </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            ) : engineOn ? (
+              [1, 2, 3].map(k => (
+                <div key={k} style={{ display: "grid", gridTemplateColumns: "28px 56px 60px 1fr", gap: 6, padding: "8px 16px", borderBottom: k < 3 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                  <div style={{ height: 12, width: 14, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div style={{ height: 14, width: 36, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div style={{ height: 14, width: 40, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div style={{ height: 12, background: "var(--border)", borderRadius: 2, opacity: 0.25, animation: "pulse 1.5s ease-in-out infinite" }} />
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: "16px", textAlign: "center", color: "var(--text-4)", fontSize: 12 }}>
+                Turn the engine on to see the best moves.
+              </div>
+            )}
+          </div>
 
-          {/* ── Tab content — scrollable ── */}
+          {/* ── Tab content ── */}
           <div style={{ flex: 1, overflowY: "auto" }}>
 
             {/* ── MASTERS TAB ── */}
             {activeTab === "masters" && (
               <>
-                {/* Section label */}
                 <div style={{ padding: "8px 16px 4px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                    {masterMovesTable.length > 0 ? "Master Most Likely Moves" : "Engine Suggestions"}
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                    Most Common Moves
                   </span>
                   {lichessTotal > 0 && (
                     <span style={{ fontSize: 9, color: "var(--text-5)" }}>{fmtCount(lichessTotal)} games</span>
                   )}
                 </div>
 
-                {/* Column header */}
                 {masterMovesTable.length > 0 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
-                    {["Move", "%", "Count", "W · D · L"].map((h, i) => (
-                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: i === 1 || i === 2 ? "right" : "left" }}>{h}</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 52px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
+                    {["Move", "%", "Count", "Eval", "W · D · L"].map((h, i) => (
+                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: i === 1 || i === 2 || i === 3 ? "right" : "left" }}>{h}</span>
                     ))}
                   </div>
                 )}
 
-                {/* Master move rows (Lichess data) */}
                 {masterMovesTable.map((row, i) => (
                   <button
                     key={row.san}
@@ -915,15 +1007,20 @@ export default function OpeningsPage() {
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
                     style={{
-                      width: "100%", display: "grid", gridTemplateColumns: "52px 40px 52px 1fr",
+                      width: "100%", display: "grid", gridTemplateColumns: "52px 40px 52px 52px 1fr",
                       gap: 6, padding: "9px 16px", background: "none", border: "none",
                       borderBottom: i < masterMovesTable.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                       cursor: "pointer", textAlign: "left", alignItems: "center",
                     }}
                   >
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{row.san}</span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 800, color: "var(--text-1)" }}>{row.san}</span>
                     <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.freqPct.toFixed(0)}%</span>
                     <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtCount(row.total)}</span>
+                    <span style={{
+                      fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, textAlign: "right",
+                      color: evalTextColor(row.scoreCp, row.mate),
+                      fontVariantNumeric: "tabular-nums",
+                    }}>{row.scoreCp === null && row.mate === null ? "—" : fmtEval(row.scoreCp, row.mate)}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
                       <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
                         <div style={{ width: `${row.wPct}%`, background: "#d4d0ca" }} />
@@ -939,63 +1036,25 @@ export default function OpeningsPage() {
                   </button>
                 ))}
 
-                {/* Fallback: no Lichess data — show ChessDB quality moves */}
-                {masterMovesTable.length === 0 && explorerMoves.length > 0 && (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "52px 48px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
-                      {["Move", "Quality", "Win %"].map((h, i) => (
-                        <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
-                      ))}
-                    </div>
-                    {explorerMoves.map((em, i) => {
-                      const rankLabel = em.rank === 2 ? "Best" : em.rank === 1 ? "Good" : "OK";
-                      const rankColor = em.rank === 2 ? "#81b64c" : em.rank === 1 ? "#60a5fa" : "var(--text-5)";
-                      const rankBg = em.rank === 2 ? "rgba(129,182,76,0.12)" : em.rank === 1 ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.04)";
-                      return (
-                        <button
-                          key={em.san}
-                          onClick={() => playMoveSan(em.san)}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-                          style={{ width: "100%", display: "grid", gridTemplateColumns: "52px 48px 1fr", gap: 6, padding: "9px 16px", background: "none", border: "none", borderBottom: i < explorerMoves.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", cursor: "pointer", textAlign: "left", alignItems: "center" }}
-                        >
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{em.san}</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, color: rankColor, background: rankBg, border: `1px solid ${rankColor}33`, borderRadius: 3, padding: "1px 5px", textAlign: "center", whiteSpace: "nowrap", alignSelf: "center" }}>{rankLabel}</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                            <div style={{ position: "relative", height: 6, borderRadius: 3, overflow: "hidden", width: 72, flexShrink: 0, background: "rgba(255,255,255,0.08)" }}>
-                              <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${em.winrate}%`, background: "#81b64c", borderRadius: 3 }} />
-                            </div>
-                            <span style={{ fontSize: 10, color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}>{em.winrate.toFixed(0)}%</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </>
+                {masterMovesTable.length === 0 && (
+                  <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--text-4)", fontSize: 13 }}>
+                    No master games at this position.
+                  </div>
                 )}
 
-                {/* Loading skeleton */}
-                {masterMovesTable.length === 0 && explorerMoves.length === 0 && explorerLoading && [1, 2, 3, 4].map(k => (
-                  <div key={k} style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 1fr", gap: 6, padding: "9px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                    <div style={{ height: 14, width: 28, background: "var(--border)", borderRadius: 2, opacity: 0.4, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ height: 14, width: 24, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ height: 14, width: 32, background: "var(--border)", borderRadius: 2, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ height: 6, background: "var(--border)", borderRadius: 3, opacity: 0.3, animation: "pulse 1.5s ease-in-out infinite" }} />
-                  </div>
-                ))}
-
                 {/* Notable master games */}
-                {masterGames.length > 0 && (
+                {sortedMasterGames.length > 0 && (
                   <div style={{ borderTop: "1px solid var(--border)", marginTop: 4 }}>
                     <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Notable Master Games</span>
-                      <span style={{ fontSize: 9, color: "var(--text-5)" }}>click to replay · ← → navigate</span>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Notable Master Games</span>
+                      <span style={{ fontSize: 9, color: "var(--text-5)" }}>rating × recency · click to replay</span>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr 40px 56px 36px", gap: 4, padding: "4px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                       {["White", "Rtg", "Black", "Rtg", "Result", "Year"].map((h, i) => (
                         <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
                       ))}
                     </div>
-                    {masterGames.map(game => {
+                    {sortedMasterGames.map(game => {
                       const isLoading = gameLoadingId === game.id;
                       const isActive = activeGameId === game.id;
                       const resultSymbol = game.winner === "white" ? "1-0" : game.winner === "black" ? "0-1" : "½-½";
@@ -1028,23 +1087,16 @@ export default function OpeningsPage() {
                     })}
                   </div>
                 )}
-
-                {explorerMoves.length > 0 && (
-                  <div style={{ padding: "6px 16px", fontSize: 9, color: "var(--text-5)", textAlign: "right", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-                    Engine · ChessDB{lichessTotal > 0 ? " · Games · Lichess" : ""}
-                  </div>
-                )}
               </>
             )}
 
             {/* ── MY GAMES TAB ── */}
             {activeTab === "my-games" && (
               <>
-                {/* Position summary bar */}
                 {positionSummary.total > 0 && (
                   <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>Your results at this position</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)" }}>Your results at this position</span>
                       <span style={{ fontSize: 11, color: "var(--text-4)" }}>{positionSummary.total} games</span>
                     </div>
                     <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 5 }}>
@@ -1053,28 +1105,25 @@ export default function OpeningsPage() {
                       {positionSummary.losses > 0 && <div style={{ flex: positionSummary.losses, background: "#ca3431" }} />}
                     </div>
                     <div style={{ display: "flex", gap: 12 }}>
-                      <span style={{ fontSize: 11, color: "#81b64c", fontWeight: 600 }}>{((positionSummary.wins / positionSummary.total) * 100).toFixed(0)}% W</span>
+                      <span style={{ fontSize: 11, color: "#81b64c", fontWeight: 700 }}>{((positionSummary.wins / positionSummary.total) * 100).toFixed(0)}% W</span>
                       <span style={{ fontSize: 11, color: "var(--text-4)" }}>{((positionSummary.draws / positionSummary.total) * 100).toFixed(0)}% D</span>
-                      <span style={{ fontSize: 11, color: "#ca3431", fontWeight: 600 }}>{((positionSummary.losses / positionSummary.total) * 100).toFixed(0)}% L</span>
+                      <span style={{ fontSize: 11, color: "#ca3431", fontWeight: 700 }}>{((positionSummary.losses / positionSummary.total) * 100).toFixed(0)}% L</span>
                     </div>
                   </div>
                 )}
 
-                {/* Section label */}
                 <div style={{ padding: "8px 16px 4px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>My Most Likely Moves</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Most Common Moves</span>
                 </div>
 
-                {/* Column header */}
                 {myMovesTable.length > 0 && (
-                  <div style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
-                    {["Move", "%", "Count", "W · D · L"].map((h, i) => (
-                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: i === 1 || i === 2 ? "right" : "left" }}>{h}</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "52px 40px 52px 52px 1fr", gap: 6, padding: "4px 16px", background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 0, zIndex: 1 }}>
+                    {["Move", "%", "Count", "Eval", "W · D · L"].map((h, i) => (
+                      <span key={i} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: i === 1 || i === 2 || i === 3 ? "right" : "left" }}>{h}</span>
                     ))}
                   </div>
                 )}
 
-                {/* My move rows */}
                 {myMovesTable.length === 0 ? (
                   <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--text-4)", fontSize: 13 }}>
                     {loading ? "Loading games…" : "No personal games at this position"}
@@ -1086,15 +1135,20 @@ export default function OpeningsPage() {
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
                     style={{
-                      width: "100%", display: "grid", gridTemplateColumns: "52px 40px 52px 1fr",
+                      width: "100%", display: "grid", gridTemplateColumns: "52px 40px 52px 52px 1fr",
                       gap: 6, padding: "9px 16px", background: "none", border: "none",
                       borderBottom: i < myMovesTable.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                       cursor: "pointer", textAlign: "left", alignItems: "center",
                     }}
                   >
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700, color: "var(--text-1)" }}>{row.san}</span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 800, color: "var(--text-1)" }}>{row.san}</span>
                     <span style={{ fontSize: 11, color: "var(--text-3)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.freqPct.toFixed(0)}%</span>
                     <span style={{ fontSize: 11, color: "var(--text-4)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.total}</span>
+                    <span style={{
+                      fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, textAlign: "right",
+                      color: evalTextColor(row.scoreCp, row.mate),
+                      fontVariantNumeric: "tabular-nums",
+                    }}>{row.scoreCp === null && row.mate === null ? "—" : fmtEval(row.scoreCp, row.mate)}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
                       <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", width: 64, flexShrink: 0 }}>
                         <div style={{ width: `${row.wPct}%`, background: "#81b64c" }} />
@@ -1110,41 +1164,50 @@ export default function OpeningsPage() {
                   </button>
                 ))}
 
-                {/* Your games at this position */}
+                {/* Notable My Games — sorted by date desc, cap 10, with TC chip */}
                 {gamesAtPosition.length > 0 && (
                   <div style={{ borderTop: "1px solid var(--border)", marginTop: 4 }}>
                     <div style={{ padding: "10px 16px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Your Games Here</span>
-                      <span style={{ fontSize: 9, color: "var(--text-5)" }}>{gamesAtPosition.length} game{gamesAtPosition.length !== 1 ? "s" : ""}</span>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Notable Games</span>
+                      <span style={{ fontSize: 9, color: "var(--text-5)" }}>most recent first</span>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 36px 56px", gap: 4, padding: "4px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                      {["Result", "Opponent", "Rtg", "Date"].map(h => (
+                    <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 44px 36px 56px", gap: 4, padding: "4px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      {["Result", "Opponent", "TC", "Rtg", "Date"].map(h => (
                         <span key={h} style={{ fontSize: 9, fontWeight: 700, color: "var(--text-5)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
                       ))}
                     </div>
-                    {gamesAtPosition.slice(0, 10).map((g, i) => {
-                      const resultColor = g.result === "win" ? "#81b64c" : g.result === "loss" ? "#ca3431" : "var(--text-4)";
-                      const resultLabel = g.result === "win" ? "▲ Win" : g.result === "loss" ? "▼ Loss" : "½ Draw";
-                      const dateStr = g.date instanceof Date && !isNaN(g.date.getTime())
-                        ? g.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
-                        : "";
-                      return (
-                        <a
-                          key={g.id + i}
-                          href={g.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.04)"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "none"; }}
-                          style={{ display: "grid", gridTemplateColumns: "48px 1fr 36px 56px", gap: 4, padding: "8px 16px", background: "none", textDecoration: "none", borderBottom: i < Math.min(gamesAtPosition.length, 10) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems: "center" }}
-                        >
-                          <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, whiteSpace: "nowrap" }}>{resultLabel}</span>
-                          <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.opponentName}</span>
-                          <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{g.opponentRating || "—"}</span>
-                          <span style={{ fontSize: 10, color: "var(--text-5)", textAlign: "right" }}>{dateStr}</span>
-                        </a>
-                      );
-                    })}
+                    {[...gamesAtPosition]
+                      .sort((a, b) => b.date.getTime() - a.date.getTime())
+                      .slice(0, 10)
+                      .map((g, i, arr) => {
+                        const resultColor = g.result === "win" ? "#81b64c" : g.result === "loss" ? "#ca3431" : "var(--text-4)";
+                        const resultLabel = g.result === "win" ? "▲ Win" : g.result === "loss" ? "▼ Loss" : "½ Draw";
+                        const dateStr = g.date instanceof Date && !isNaN(g.date.getTime())
+                          ? g.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+                          : "";
+                        return (
+                          <a
+                            key={g.id + i}
+                            href={g.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.04)"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "none"; }}
+                            style={{ display: "grid", gridTemplateColumns: "48px 1fr 44px 36px 56px", gap: 4, padding: "8px 16px", background: "none", textDecoration: "none", borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems: "center" }}
+                          >
+                            <span style={{ fontSize: 11, fontWeight: 700, color: resultColor, whiteSpace: "nowrap" }}>{resultLabel}</span>
+                            <span style={{ fontSize: 12, color: "var(--text-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.opponentName}</span>
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, color: "var(--text-4)",
+                              textTransform: "uppercase", letterSpacing: "0.03em",
+                              background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)",
+                              borderRadius: 3, padding: "1px 4px", textAlign: "center",
+                            }}>{g.timeClass.slice(0, 4)}</span>
+                            <span style={{ fontSize: 11, color: "var(--text-5)", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{g.opponentRating || "—"}</span>
+                            <span style={{ fontSize: 10, color: "var(--text-5)", textAlign: "right" }}>{dateStr}</span>
+                          </a>
+                        );
+                      })}
                   </div>
                 )}
               </>

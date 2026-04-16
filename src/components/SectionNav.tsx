@@ -53,6 +53,7 @@ export default function SectionNav({ username }: Props) {
 
   return (
     <nav
+      aria-label="Player analysis sections"
       className="sticky scrollbar-hide"
       style={{
         top: "56px",
@@ -79,7 +80,7 @@ export default function SectionNav({ username }: Props) {
                   color: isActive ? "var(--green)" : "var(--text-3)",
                   borderBottom: isActive ? "1px solid var(--green)" : "1px solid transparent",
                   marginBottom: "-1px",
-                  transition: "color 0.18s, border-color 0.18s",
+                  transition: "all 0.18s",
                   cursor: "pointer",
                 }}
                 onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = "var(--text-2)"; }}
@@ -89,11 +90,18 @@ export default function SectionNav({ username }: Props) {
               </span>
             );
             return s.href ? (
-              <Link key={s.id} href={s.href} style={{ textDecoration: "none" }}>
+              <Link key={s.id} href={s.href} style={{ textDecoration: "none" }} aria-label={`Go to ${s.label}`}>
                 {inner}
               </Link>
             ) : (
-              <button key={s.id} onClick={() => scrollTo(s.id)} style={{ background: "none", border: "none", padding: 0 }}>
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => scrollTo(s.id)}
+                aria-label={`Scroll to ${s.label} section`}
+                aria-current={isActive ? "true" : undefined}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              >
                 {inner}
               </button>
             );

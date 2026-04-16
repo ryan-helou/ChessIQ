@@ -190,8 +190,43 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
         </span>
       </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {sorted.length === 0 ? (
+        <div style={{
+          textAlign: "center",
+          padding: "48px 16px",
+          border: "1px dashed var(--border)",
+          borderRadius: 8,
+          color: "var(--text-3)",
+        }}>
+          <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.6 }}>♞</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-2)", marginBottom: 4 }}>
+            No openings with {minGames}+ game{minGames !== 1 ? "s" : ""}
+          </div>
+          <div style={{ fontSize: 12, marginBottom: 12 }}>
+            Try lowering the minimum, or play more rated games.
+          </div>
+          {minGames > 1 && (
+            <button
+              type="button"
+              onClick={() => setMinGames(1)}
+              style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                padding: "5px 14px",
+                fontSize: 12,
+                color: "var(--text-2)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              Show all openings
+            </button>
+          )}
+        </div>
+      ) : (
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th style={{ width: "28px", padding: "10px 8px" }} />
@@ -205,6 +240,10 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
               ).map(([key, label]) => (
                 <th
                   key={key}
+                  role="columnheader"
+                  aria-sort={sortBy === key ? (sortDir === "desc" ? "descending" : "ascending") : "none"}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSort(key); } }}
                   style={{
                     textAlign: "left",
                     padding: "10px 12px",
@@ -235,6 +274,7 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
               return (
                 <Fragment key={family.name}>
                   <tr
+                    aria-expanded={hasLines ? isExpanded : undefined}
                     style={{
                       borderBottom: "1px solid var(--border-subtle)",
                       background: isExpanded ? "var(--bg-card)" : "transparent",
@@ -302,6 +342,7 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
@@ -343,7 +384,10 @@ export default function OpeningTable({ openings, games }: Props) {
             return (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setColorTab(tab.key)}
+                aria-pressed={isActive}
+                aria-label={`Show ${tab.label.toLowerCase()} opening stats (${tab.count} games)`}
                 style={{
                   display: "flex",
                   alignItems: "center",

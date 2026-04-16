@@ -1,9 +1,8 @@
 /**
- * Stockfish Engine HTTP Wrapper
- *
- * Delegates to Railway backend for position evaluation.
- * Railway backend URL: https://chessiq-production.up.railway.app
+ * Stockfish Engine HTTP Wrapper — delegates to the Railway backend.
  */
+
+import { STOCKFISH_BACKEND_URL } from "@/lib/stockfish-backend";
 
 export interface EngineEval {
   bestMove: string;
@@ -22,13 +21,13 @@ export interface MultiLineEval {
  * for position evaluation.
  */
 export class StockfishEngine {
-  private railwayBackendUrl = "https://chessiq-production.up.railway.app";
+  private readonly backendUrl = STOCKFISH_BACKEND_URL;
 
   async start(): Promise<void> {
     // No initialization needed for HTTP-based engine
     // Just verify the backend is available
     try {
-      const response = await fetch(`${this.railwayBackendUrl}/health`);
+      const response = await fetch(`${this.backendUrl}/health`);
       if (!response.ok) {
         throw new Error("Railway backend is not available");
       }
