@@ -168,7 +168,7 @@ export async function analyzeGame(
       blunderCounts: analysis.blunders || analysis.blunderCounts || { white: 0, black: 0 },
       mistakeCounts: analysis.mistakes || analysis.mistakeCounts || { white: 0, black: 0 },
       inaccuracyCounts: analysis.inaccuracies || analysis.inaccuracyCounts || { white: 0, black: 0 },
-      criticalMoments: analysis.criticalMoments,
+      criticalMoments: detectCriticalMoments(recalcedMoves),
       analysisDepth: depth,
     };
   } catch (error) {
@@ -287,6 +287,54 @@ export async function analyzeGameStreaming(
   });
 }
 
+function detectCriticalMoments(moves: AnalyzedMove[]): CriticalMoment[] {
+  const candidates: CriticalMoment[] = [];
+
+  for (let i = 0; i < moves.length; i++) {
+    const m = moves[i];
+    if (typeof m.evalBefore !== "number" || typeof m.engineEval !== "number") continue;
+    if (m.classification === "book" || m.classification === "forced") continue;
+
+    const swing = Math.abs(m.engineEval - m.evalBefore);
+    const signFlipped = (m.evalBefore > 0 && m.engineEval < 0) || (m.evalBefore < 0 && m.engineEval > 0);
+    const sideSign = m.color === "white" ? 1 : -1;
+    const wasWinning = m.evalBefore * sideSign >= 300;
+    const gotWorse = (m.engineEval - m.evalBefore) * sideSign < 0;
+
+    let type: CriticalMoment["type"] | null = null;
+    let description = "";
+
+    if (m.classification === "brilliant" || (m.classification === "great" && swing >= 150 && !gotWorse)) {
+      type = "brilliant_find";
+      description = `Brilliant move — swung ${(swing / 100).toFixed(1)} pawns`;
+    } else if (wasWinning && gotWorse && swing >= 200) {
+      type = "missed_win";
+      description = `Missed a winning position (was +${(Math.abs(m.evalBefore) / 100).toFixed(1)})`;
+    } else if (m.classification === "blunder" && swing >= 200) {
+      type = "decisive_blunder";
+      description = `Decisive blunder — lost ${(swing / 100).toFixed(1)} pawns`;
+    } else if (signFlipped && swing >= 150) {
+      type = "turning_point";
+      description = `Turning point — eval swung ${(swing / 100).toFixed(1)} pawns`;
+    }
+
+    if (type) {
+      candidates.push({
+        moveIndex: i,
+        moveNumber: m.moveNumber,
+        color: m.color,
+        type,
+        evalSwing: swing,
+        evalBefore: m.evalBefore,
+        evalAfter: m.engineEval,
+        description,
+      });
+    }
+  }
+
+  return candidates.sort((a, b) => b.evalSwing - a.evalSwing).slice(0, 6);
+}
+
 function adaptAnalysis(pgn: string, depth: number, analysis: any): GameAnalysisResult {
   const recalcedMoves: AnalyzedMove[] = analysis.moves.map((m: any) => ({
     ...m,
@@ -322,7 +370,7 @@ function adaptAnalysis(pgn: string, depth: number, analysis: any): GameAnalysisR
     blunderCounts: analysis.blunders || analysis.blunderCounts || { white: 0, black: 0 },
     mistakeCounts: analysis.mistakes || analysis.mistakeCounts || { white: 0, black: 0 },
     inaccuracyCounts: analysis.inaccuracies || analysis.inaccuracyCounts || { white: 0, black: 0 },
-    criticalMoments: analysis.criticalMoments,
+    criticalMoments: detectCriticalMoments(recalcedMoves),
     analysisDepth: depth,
   };
 }

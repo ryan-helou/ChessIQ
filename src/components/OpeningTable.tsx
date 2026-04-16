@@ -3,9 +3,17 @@
 import { Fragment, useState, useMemo } from "react";
 import type { OpeningStats, ParsedGame } from "@/lib/game-analysis";
 
+export interface PrepDataEntry {
+  name: string;
+  eco: string;
+  avgPrepDepth: number;
+  firstNonBookAccuracy: number | null;
+}
+
 interface Props {
   openings: OpeningStats[];
   games?: ParsedGame[];
+  prepData?: PrepDataEntry[];
 }
 
 interface OpeningFamily {
@@ -123,7 +131,7 @@ function groupOpenings(openings: OpeningStats[]): OpeningFamily[] {
     .sort((a, b) => b.games - a.games);
 }
 
-type SortKey = "games" | "winRate" | "avgAccuracy" | "name";
+type SortKey = "games" | "winRate" | "avgAccuracy" | "name" | "prepDepth" | "firstNonBookAcc";
 
 function WinRateBar({ wins, losses, draws, games }: { wins: number; losses: number; draws: number; games: number }) {
   return (
@@ -151,7 +159,13 @@ function winRateColor(rate: number): string {
   return "var(--loss)";
 }
 
-function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
+function prepDepthColor(depth: number): string {
+  if (depth >= 8) return "var(--win)";
+  if (depth >= 4) return "var(--gold)";
+  return "var(--loss)";
+}
+
+function OpeningFamilyTable({ families, prepMap }: { families: OpeningFamily[]; prepMap: Map<string, { avgPrepDepth: number; firstNonBookAccuracy: number | null }> }) {
   const [sortBy, setSortBy] = useState<SortKey>("games");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [minGames, setMinGames] = useState(2);
@@ -163,6 +177,8 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
     let cmp = 0;
     if (sortBy === "name") cmp = a.name.localeCompare(b.name);
     else if (sortBy === "avgAccuracy") cmp = (a.avgAccuracy ?? 0) - (b.avgAccuracy ?? 0);
+    else if (sortBy === "prepDepth") cmp = (prepMap.get(a.name)?.avgPrepDepth ?? 0) - (prepMap.get(b.name)?.avgPrepDepth ?? 0);
+    else if (sortBy === "firstNonBookAcc") cmp = (prepMap.get(a.name)?.firstNonBookAccuracy ?? 0) - (prepMap.get(b.name)?.firstNonBookAccuracy ?? 0);
     else cmp = a[sortBy] - b[sortBy];
     return sortDir === "desc" ? -cmp : cmp;
   });
@@ -236,6 +252,7 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
                   ["games", "Games"],
                   ["winRate", "Win %"],
                   ["avgAccuracy", "Accuracy"],
+                  ...(prepMap.size > 0 ? [["prepDepth", "Prep Depth"] as [SortKey, string], ["firstNonBookAcc", "1st Move"] as [SortKey, string]] : []),
                 ] as [SortKey, string][]
               ).map(([key, label]) => (
                 <th
@@ -309,6 +326,19 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
                     <td style={{ padding: "12px", fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>
                       {family.avgAccuracy ? `${family.avgAccuracy.toFixed(1)}%` : "—"}
                     </td>
+                    {prepMap.size > 0 && (() => {
+                      const prep = prepMap.get(family.name);
+                      return (
+                        <>
+                          <td style={{ padding: "12px", fontFamily: "var(--font-mono)", fontWeight: 600, color: prep ? prepDepthColor(prep.avgPrepDepth) : "var(--text-4)" }}>
+                            {prep ? prep.avgPrepDepth.toFixed(1) : "—"}
+                          </td>
+                          <td style={{ padding: "12px", fontFamily: "var(--font-mono)", color: "var(--text-3)" }}>
+                            {prep?.firstNonBookAccuracy != null ? `${prep.firstNonBookAccuracy.toFixed(1)}%` : "—"}
+                          </td>
+                        </>
+                      );
+                    })()}
                     <td style={{ padding: "12px", minWidth: "180px" }}>
                       <WinRateBar wins={family.wins} losses={family.losses} draws={family.draws} games={family.games} />
                     </td>
@@ -331,6 +361,12 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
                       <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "var(--text-3)", fontSize: "12px" }}>
                         {line.avgAccuracy ? `${line.avgAccuracy.toFixed(1)}%` : "—"}
                       </td>
+                      {prepMap.size > 0 && (
+                        <>
+                          <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "var(--text-4)", fontSize: "12px" }}>—</td>
+                          <td style={{ padding: "10px 12px", fontFamily: "var(--font-mono)", color: "var(--text-4)", fontSize: "12px" }}>—</td>
+                        </>
+                      )}
                       <td style={{ padding: "10px 12px", minWidth: "180px" }}>
                         <WinRateBar wins={line.wins} losses={line.losses} draws={line.draws} games={line.games} />
                       </td>
@@ -347,8 +383,21 @@ function OpeningFamilyTable({ families }: { families: OpeningFamily[] }) {
   );
 }
 
-export default function OpeningTable({ openings, games }: Props) {
+export default function OpeningTable({ openings, games, prepData }: Props) {
   const [colorTab, setColorTab] = useState<"all" | "white" | "black">("all");
+
+  const prepMap = useMemo(() => {
+    const map = new Map<string, { avgPrepDepth: number; firstNonBookAccuracy: number | null }>();
+    if (!prepData) return map;
+    for (const entry of prepData) {
+      const family = getOpeningFamily(entry.name);
+      const existing = map.get(family);
+      if (!existing || entry.avgPrepDepth > existing.avgPrepDepth) {
+        map.set(family, { avgPrepDepth: entry.avgPrepDepth, firstNonBookAccuracy: entry.firstNonBookAccuracy });
+      }
+    }
+    return map;
+  }, [prepData]);
 
   const { allFamilies, whiteFamilies, blackFamilies } = useMemo(() => {
     const allFamilies = groupOpenings(openings);
@@ -418,7 +467,7 @@ export default function OpeningTable({ openings, games }: Props) {
         </div>
       )}
 
-      <OpeningFamilyTable families={activeFamilies} />
+      <OpeningFamilyTable families={activeFamilies} prepMap={prepMap} />
     </div>
   );
 }

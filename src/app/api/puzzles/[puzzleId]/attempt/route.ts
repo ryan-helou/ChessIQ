@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
-import { calcEloChange, getUserRating, updateUserRating, recordRatingHistory } from "@/modules/puzzle-engine";
+import { calcEloChange, getUserRating, updateUserRating, recordRatingHistory, getRecentPerformance } from "@/modules/puzzle-engine";
 
 /**
  * POST /api/puzzles/[puzzleId]/attempt
@@ -39,7 +39,8 @@ export async function POST(
     // Only update Elo for rated modes (random / weak spots) — not blunders
     const currentRating = await getUserRating(username);
     if (typeof puzzleRating === "number" && puzzleRating > 0) {
-      const ratingChange = calcEloChange(currentRating, puzzleRating, solved, attempts || 1);
+      const perf = await getRecentPerformance(username);
+      const ratingChange = calcEloChange(currentRating, puzzleRating, solved, attempts || 1, perf);
       const newRating = Math.max(100, currentRating + ratingChange);
       await updateUserRating(username, newRating);
       await recordRatingHistory(username, newRating);

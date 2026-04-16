@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
 import { withCache, cachedResponse } from "@/lib/api-cache";
+import { getRecentPerformance } from "@/modules/puzzle-engine";
 
-async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number, username?: string): Promise<any[]> {
+async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number, username?: string, ratingRange?: [number, number]): Promise<any[]> {
   try {
     const attemptedIds: string[] = username
       ? (await query(
@@ -12,8 +13,8 @@ async function fetchDbPuzzles(themes: string[] | null, count: number, rating: nu
         )).rows.map((r: { puzzle_id: string }) => r.puzzle_id)
       : [];
 
-    const ratingLo = rating - 150;
-    const ratingHi = rating + 150;
+    const ratingLo = ratingRange ? ratingRange[0] : rating - 150;
+    const ratingHi = ratingRange ? ratingRange[1] : rating + 150;
     const conditions: string[] = [`rating BETWEEN $1 AND $2`];
     const params: any[] = [ratingLo, ratingHi];
     let idx = 3;
@@ -83,6 +84,13 @@ export async function GET(
 
     await ensureDbInit().catch((err: Error) => console.error("[recommendations] db-init failed:", err.message));
 
+    const perf = await getRecentPerformance(username).catch(() => ({ solveRate: 0.5, streak: 0 }));
+    const range: [number, number] = perf.solveRate > 0.7
+      ? [rating - 50, rating + 250]
+      : perf.solveRate < 0.4
+      ? [rating - 250, rating + 50]
+      : [rating - 150, rating + 150];
+
     // Get all blunders for this player (white or black)
     let blundersResult;
     try {
@@ -131,8 +139,8 @@ export async function GET(
     if (totalBlunders === 0) {
       const generalThemes = ["fork", "pin", "skewer", "hangingPiece", "mate"];
       const [fallbackPuzzles, randomPuzzles] = await Promise.all([
-        fetchDbPuzzles(generalThemes, limit, rating, username),
-        fetchDbPuzzles(null, limit, rating, username),
+        fetchDbPuzzles(generalThemes, limit, rating, username, range),
+        fetchDbPuzzles(null, limit, rating, username, range),
       ]);
       return NextResponse.json({
         weaknesses: [],
@@ -197,8 +205,8 @@ export async function GET(
       try {
         const topThemes = weaknesses.map((w) => w.theme);
         const [p, rp, statsResult] = await Promise.all([
-          topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating, username) : Promise.resolve([]),
-          fetchDbPuzzles(null, limit, rating, username),
+          topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating, username, range) : Promise.resolve([]),
+          fetchDbPuzzles(null, limit, rating, username, range),
           query(
             `SELECT COUNT(*) as total_attempted, SUM(CASE WHEN solved THEN 1 ELSE 0 END) as total_solved
              FROM puzzle_attempts WHERE username = $1`,

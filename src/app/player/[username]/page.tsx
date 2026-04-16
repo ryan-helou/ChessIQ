@@ -96,6 +96,7 @@ export default function PlayerPage() {
   const [showProgressBanner, setShowProgressBanner] = useState(true);
   const [puzzleRating, setPuzzleRating] = useState<number | null>(null);
   const [prepDepth, setPrepDepth] = useState<number | null>(null);
+  const [prepOpenings, setPrepOpenings] = useState<{ name: string; eco: string; avgPrepDepth: number; firstNonBookAccuracy: number | null }[]>([]);
   const progressPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function processResult(result: any): DashboardData {
@@ -252,6 +253,9 @@ export default function PlayerPage() {
       .then((d) => {
         if (d && typeof d.overallAvgDepth === "number" && d.overallAvgDepth > 0) {
           setPrepDepth(d.overallAvgDepth);
+        }
+        if (d?.openings && Array.isArray(d.openings)) {
+          setPrepOpenings(d.openings);
         }
       })
       .catch(() => {});
@@ -687,7 +691,7 @@ export default function PlayerPage() {
             <div id="openings" className="scroll-mt-28 card" style={{ padding: "22px", marginBottom: "12px" }}>
               <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Opening Statistics</h2>
               <ErrorBoundary>
-                <OpeningTable openings={data.openings} games={data.games} />
+                <OpeningTable openings={data.openings} games={data.games} prepData={prepOpenings} />
               </ErrorBoundary>
             </div>
 
