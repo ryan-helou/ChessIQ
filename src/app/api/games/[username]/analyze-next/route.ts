@@ -101,7 +101,7 @@ export async function POST(
       await query(
         `UPDATE games SET analysis_status = 'failed' WHERE id = $1`,
         [game.id]
-      ).catch(() => {});
+      ).catch((err) => console.error("[analyze-next] failed status update:", err.message));
 
       // Count remaining and continue — don't crash the loop over one bad game
       const remainingResult = await query(

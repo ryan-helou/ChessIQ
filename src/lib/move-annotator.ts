@@ -39,14 +39,66 @@ function pawns(cp: number): string {
   return (Math.abs(cp) / 100).toFixed(1);
 }
 
+// Tactic-specific descriptions for bad moves (what the opponent can now do)
+const TACTIC_ALLOWS: Record<string, string> = {
+  mate:              "This allows checkmate",
+  backRankMate:      "This allows a devastating back-rank mate",
+  promotion:         "This allows a pawn promotion to queen",
+  hangingPiece:      "This leaves a piece hanging and undefended",
+  fork:              "This allows a fork attacking two pieces simultaneously",
+  discoveredAttack:  "This allows a dangerous discovered attack",
+  skewer:            "This allows a skewer winning material behind the attacked piece",
+  materialGain:      "This gives away material",
+  pin:               "This allows a pin against the king",
+  exposedKing:       "This fatally exposes the king",
+  weakKingSafety:    "This weakens the king shelter",
+  inactivePieces:    "This leaves pieces passive and uncoordinated",
+  pawnStructure:     "This damages the pawn structure",
+  poorPawnStructure: "This creates a lasting pawn weakness",
+  overextension:     "This overextends the position dangerously",
+  positional:        "This concedes a significant positional advantage",
+};
+
 /**
  * Generate a human-readable annotation for a single analyzed move.
- * Returns null for good moves (best/excellent/great/brilliant/good/book/forced).
+ * Returns annotations for both positive moves (brilliant, great, best, excellent, forced)
+ * and negative moves (blunder, mistake, inaccuracy, miss).
+ * Returns null for routine moves (good, book).
  */
 export function annotateMove(move: AnalyzedMove): string | null {
   const { classification, evalDrop, san, bestMoveSan, fenBefore, bestMove } = move;
 
-  // Only annotate bad moves
+  // --- Positive move annotations ---
+
+  if (classification === "brilliant") {
+    if (bestMoveSan && bestMoveSan === san) {
+      return `A brilliant sacrifice — ${san} is an unexpected move that creates a decisive advantage.`;
+    }
+    return "A brilliant sacrifice — this unexpected move creates a decisive advantage.";
+  }
+
+  if (classification === "great") {
+    return "An excellent move — capitalizing on the opponent's error with the strongest continuation.";
+  }
+
+  if (classification === "best") {
+    return "The engine's top choice in this position.";
+  }
+
+  if (classification === "excellent") {
+    return "A strong move maintaining the advantage.";
+  }
+
+  if (classification === "good" || classification === "book") {
+    return null;
+  }
+
+  if (classification === "forced") {
+    return "The only reasonable move in this position.";
+  }
+
+  // --- Negative move annotations ---
+
   if (!["blunder", "mistake", "inaccuracy", "miss"].includes(classification)) {
     return null;
   }
@@ -62,6 +114,9 @@ export function annotateMove(move: AnalyzedMove): string | null {
   const bestLabel = bestMoveSan ? `${bestMoveSan}` : "the engine move";
 
   if (classification === "blunder") {
+    if (missedTactic && TACTIC_ALLOWS[missedTactic]) {
+      return `${severityPrefix(drop)}${TACTIC_ALLOWS[missedTactic]}. ${bestLabel} ${TACTIC_VERB[missedTactic]}, saving ${pawns(drop)} pawns.`;
+    }
     if (missedTactic && TACTIC_VERB[missedTactic]) {
       return `${severityPrefix(drop)}${bestLabel} ${TACTIC_VERB[missedTactic]}. This move loses ${pawns(drop)} pawns of material.`;
     }
@@ -69,6 +124,9 @@ export function annotateMove(move: AnalyzedMove): string | null {
   }
 
   if (classification === "mistake") {
+    if (missedTactic && TACTIC_ALLOWS[missedTactic]) {
+      return `${TACTIC_ALLOWS[missedTactic]}. ${bestLabel} would ${TACTIC_VERB[missedTactic]} instead (${pawns(drop)} pawn difference).`;
+    }
     if (missedTactic && TACTIC_VERB[missedTactic]) {
       return `${bestLabel} would ${TACTIC_VERB[missedTactic]} more effectively (${pawns(drop)} pawn difference).`;
     }
@@ -76,6 +134,9 @@ export function annotateMove(move: AnalyzedMove): string | null {
   }
 
   if (classification === "inaccuracy") {
+    if (missedTactic && TACTIC_ALLOWS[missedTactic]) {
+      return `Slightly inaccurate — ${TACTIC_ALLOWS[missedTactic].toLowerCase().replace("this ", "")}. ${bestLabel} was more precise.`;
+    }
     if (missedTactic && TACTIC_VERB[missedTactic]) {
       return `Slightly inaccurate — ${bestLabel} could ${TACTIC_VERB[missedTactic]}.`;
     }
@@ -83,6 +144,9 @@ export function annotateMove(move: AnalyzedMove): string | null {
   }
 
   if (classification === "miss") {
+    if (missedTactic && TACTIC_ALLOWS[missedTactic]) {
+      return `Missed opportunity: ${bestLabel} would ${TACTIC_VERB[missedTactic]}.`;
+    }
     if (missedTactic && TACTIC_VERB[missedTactic]) {
       return `Missed opportunity: ${bestLabel} would ${TACTIC_VERB[missedTactic]}.`;
     }

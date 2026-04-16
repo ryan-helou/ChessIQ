@@ -19,7 +19,7 @@ export async function GET(
   }
 
   try {
-    await ensureDbInit().catch(() => {});
+    await ensureDbInit().catch((err: Error) => console.warn("[db-init]", err.message));
 
     const userId = usernameToUserId(username);
 

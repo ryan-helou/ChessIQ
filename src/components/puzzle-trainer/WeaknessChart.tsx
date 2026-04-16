@@ -85,6 +85,7 @@ export default function WeaknessChart({ weaknesses, activeTheme, onThemeClick }:
               ]}
             />
             <Bar
+              isAnimationActive={false}
               dataKey="count"
               radius={[0, 4, 4, 0]}
               cursor="pointer"

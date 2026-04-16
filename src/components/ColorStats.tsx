@@ -92,6 +92,7 @@ export default function ColorStats({ colorStats }: Props) {
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
+                  isAnimationActive={false}
                   data={pieData}
                   cx="50%"
                   cy="50%"

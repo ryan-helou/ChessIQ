@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       await query(
         "UPDATE games SET analysis_status = $1 WHERE id = $2",
         [nextStatus, games[i].id]
-      ).catch(() => {});
+      ).catch((err) => console.error("[analyze-pending] status update failed:", err.message));
     }
   }
 

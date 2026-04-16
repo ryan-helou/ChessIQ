@@ -80,6 +80,7 @@ export function AccuracyOverTime({ games }: Props) {
             )}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="accuracy"
             stroke="rgba(129,182,76,0.25)"
@@ -88,6 +89,7 @@ export function AccuracyOverTime({ games }: Props) {
             name="Game Accuracy"
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="rollingAvg"
             stroke="#81b64c"

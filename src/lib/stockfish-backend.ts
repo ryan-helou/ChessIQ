@@ -5,8 +5,8 @@ function resolveBackendUrl(): string {
   if (fromEnv) return fromEnv.replace(/\/$/, "");
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "STOCKFISH_BACKEND_URL is required in production. Set it in Railway environment variables.",
+    console.warn(
+      "STOCKFISH_BACKEND_URL is not set. Set it in Railway environment variables.",
     );
   }
 

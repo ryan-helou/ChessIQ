@@ -48,6 +48,17 @@ export interface Blunder {
   consequence: string | null;
 }
 
+export interface CriticalMoment {
+  moveIndex: number;
+  moveNumber: number;
+  color: "white" | "black";
+  type: "turning_point" | "decisive_blunder" | "missed_win" | "brilliant_find";
+  evalSwing: number;
+  evalBefore: number;
+  evalAfter: number;
+  description: string;
+}
+
 export interface GameAnalysisResult {
   gameId: string;
   pgn: string;
@@ -59,6 +70,7 @@ export interface GameAnalysisResult {
   blunderCounts: { white: number; black: number };
   mistakeCounts: { white: number; black: number };
   inaccuracyCounts: { white: number; black: number };
+  criticalMoments?: CriticalMoment[];
   analysisDepth: number;
 }
 
@@ -156,6 +168,7 @@ export async function analyzeGame(
       blunderCounts: analysis.blunders || analysis.blunderCounts || { white: 0, black: 0 },
       mistakeCounts: analysis.mistakes || analysis.mistakeCounts || { white: 0, black: 0 },
       inaccuracyCounts: analysis.inaccuracies || analysis.inaccuracyCounts || { white: 0, black: 0 },
+      criticalMoments: analysis.criticalMoments,
       analysisDepth: depth,
     };
   } catch (error) {
@@ -309,6 +322,7 @@ function adaptAnalysis(pgn: string, depth: number, analysis: any): GameAnalysisR
     blunderCounts: analysis.blunders || analysis.blunderCounts || { white: 0, black: 0 },
     mistakeCounts: analysis.mistakes || analysis.mistakeCounts || { white: 0, black: 0 },
     inaccuracyCounts: analysis.inaccuracies || analysis.inaccuracyCounts || { white: 0, black: 0 },
+    criticalMoments: analysis.criticalMoments,
     analysisDepth: depth,
   };
 }

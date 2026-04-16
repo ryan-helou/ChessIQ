@@ -6,6 +6,7 @@ import { Chess } from "chess.js";
 import Header from "@/components/Header";
 import ChessLoader from "@/components/ChessLoader";
 import PuzzleBoard from "@/components/puzzle-trainer/PuzzleBoard";
+import RecommendationCards from "@/components/puzzle-trainer/RecommendationCards";
 import {
   getPuzzleRecommendations,
   getUserPuzzleRating,
@@ -217,6 +218,16 @@ export default function PuzzlesPage() {
     setModeSelected(true);
   }, [handleModeChange]);
 
+  const handleSelectWeaknessTheme = useCallback((theme: string) => {
+    modeRef.current = "weakness";
+    setMode("weakness");
+    activeThemeRef.current = theme;
+    setActiveTheme(theme);
+    setRatingChange(null);
+    if (recommendation) buildQueue(recommendation, theme, "weakness");
+    setModeSelected(true);
+  }, [recommendation, buildQueue]);
+
   const currentPuzzle = puzzleQueue[currentIndex] ?? null;
 
   const handleSolved = useCallback((attempts: number, timeSeconds: number) => {
@@ -382,6 +393,17 @@ export default function PuzzlesPage() {
                 </button>
               )}
             </div>
+
+            {/* Recommendation Cards */}
+            {recommendation && (
+              <div className="mt-10">
+                <RecommendationCards
+                  weaknesses={recommendation.weaknesses ?? []}
+                  stats={recommendation.stats}
+                  onSelectTheme={handleSelectWeaknessTheme}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

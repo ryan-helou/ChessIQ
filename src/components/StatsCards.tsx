@@ -149,6 +149,7 @@ interface Props {
   ratings: { timeClass: string; current: number; best: number }[];
   periodLabel?: string;
   puzzleRating?: number;
+  prepDepth?: number;
 }
 
 export default function StatsCards({
@@ -161,6 +162,7 @@ export default function StatsCards({
   ratings,
   periodLabel = "Last 6 months",
   puzzleRating,
+  prepDepth,
 }: Props) {
   const streakAccent =
     currentStreak.type === "win" ? "var(--win)" :
@@ -222,6 +224,16 @@ export default function StatsCards({
           accent="var(--blue)"
           delay={0.16 + ratings.length * 0.04}
           tooltip="Your puzzle rating based on tactical training sessions. Starts at 1200."
+        />
+      )}
+      {prepDepth != null && (
+        <StatCard
+          label="Opening Prep"
+          value={`${prepDepth} moves`}
+          sub="Avg book depth"
+          accent="var(--text-1)"
+          delay={0.2 + ratings.length * 0.04}
+          tooltip="Average number of book moves you play before going on your own. Higher means deeper opening preparation."
         />
       )}
     </div>

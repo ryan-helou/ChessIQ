@@ -20,6 +20,7 @@ import ColorStatsPanel from "@/components/ColorStats";
 import TimePressurePanel from "@/components/TimePressurePanel";
 import ConversionRateCard from "@/components/ConversionRateCard";
 import OpeningRecommendations from "@/components/OpeningRecommendations";
+import ProgressTimeline from "@/components/ProgressTimeline";
 import { getUserPuzzleRating } from "@/lib/puzzle-api";
 import type {
   ParsedGame,
@@ -94,6 +95,7 @@ export default function PlayerPage() {
   const [analysisStatus, setAnalysisStatus] = useState<{ pending: number; analyzing: number; complete: number; failed: number; total: number } | null>(null);
   const [showProgressBanner, setShowProgressBanner] = useState(true);
   const [puzzleRating, setPuzzleRating] = useState<number | null>(null);
+  const [prepDepth, setPrepDepth] = useState<number | null>(null);
   const progressPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function processResult(result: any): DashboardData {
@@ -241,6 +243,18 @@ export default function PlayerPage() {
     getUserPuzzleRating(username).then((r) => {
       if (r > 1200) setPuzzleRating(r); // 1200 = default (never played puzzles)
     }).catch(() => {});
+  }, [username]);
+
+  // Fetch opening prep depth once
+  useEffect(() => {
+    fetch(`/api/opening-prep/${encodeURIComponent(username)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d && typeof d.overallAvgDepth === "number" && d.overallAvgDepth > 0) {
+          setPrepDepth(d.overallAvgDepth);
+        }
+      })
+      .catch(() => {});
   }, [username]);
 
   // "You're improving!" — compare last 10 vs previous 10 accuracy
@@ -553,6 +567,7 @@ export default function PlayerPage() {
                 ratings={ratings}
                 periodLabel={rangeLabel}
                 puzzleRating={puzzleRating ?? undefined}
+                prepDepth={prepDepth ?? undefined}
               />
             </div>
 
@@ -673,6 +688,14 @@ export default function PlayerPage() {
               <h2 className="" style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Opening Statistics</h2>
               <ErrorBoundary>
                 <OpeningTable openings={data.openings} games={data.games} />
+              </ErrorBoundary>
+            </div>
+
+            {/* Progress Timeline */}
+            <div id="progress" className="scroll-mt-28 card" style={{ padding: "22px", marginBottom: "12px" }}>
+              <h2 style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "0.02em", color: "var(--text-2)", textTransform: "uppercase", marginBottom: "16px" }}>Progress Timeline</h2>
+              <ErrorBoundary>
+                <ProgressTimeline username={username} />
               </ErrorBoundary>
             </div>
 

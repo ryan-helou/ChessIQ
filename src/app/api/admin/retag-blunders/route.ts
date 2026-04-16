@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       await query(
         `UPDATE blunders SET missed_tactic = $1 WHERE id = $2`,
         [tactic ?? "positional", row.id]
-      ).catch(() => {});
+      ).catch((err) => console.error("[retag-blunders] update failed:", err.message));
       updated++;
     }
 

@@ -1,9 +1,18 @@
+import * as Sentry from "@sentry/node";
 import express, { Request, Response, NextFunction } from "express";
 import { initRedis } from "./cache/redis.js";
 import { healthCheck as dbHealthCheck, closePool } from "./db/index.js";
 import { getEngine, shutdownEngine } from "./lib/stockfish.js";
 import analyzeRouter from "./routes/analyze.js";
 import puzzlesRouter from "./routes/puzzles.js";
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    tracesSampleRate: 0.2,
+    environment: process.env.NODE_ENV || "production",
+  });
+}
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);
@@ -62,9 +71,13 @@ app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });
 });
 
+// Sentry error handler (must be before custom error handler)
+Sentry.setupExpressErrorHandler(app);
+
 // Error handling middleware
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Unhandled error:", err);
+  Sentry.captureException(err);
   res.status(500).json({
     error: "Internal server error",
     message: process.env.NODE_ENV === "development" ? err.message : undefined,

@@ -1,47 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
-
-/**
- * Chess.com-style puzzle rating gain — always positive, first try = big bonus.
- *
- * First try:        75–125 pts  (scales with puzzle difficulty vs player rating)
- * Wrong then right:  5–15 pts
- * View solution:     0 pts
- */
-function calcRatingGain(playerRating: number, puzzleRating: number, solved: boolean, attempts: number): number {
-  if (!solved) return 0;
-
-  // Difficulty offset: ±25 for first try, ±5 for multi-attempt, capped at ±400 rating diff
-  const diff = Math.max(-400, Math.min(400, puzzleRating - playerRating));
-
-  if (attempts === 1) {
-    // Base 100, ±25 based on difficulty → range 75–125
-    return Math.round(100 + (diff / 400) * 25);
-  }
-
-  // Base 10, ±5 based on difficulty → range 5–15
-  return Math.round(10 + (diff / 400) * 5);
-}
-
-async function getUserRating(username: string): Promise<number> {
-  const result = await query(
-    `SELECT rating FROM user_puzzle_ratings WHERE username = $1`,
-    [username]
-  );
-  return result.rows[0]?.rating ?? 1200;
-}
-
-async function updateUserRating(username: string, newRating: number): Promise<void> {
-  await query(`
-    INSERT INTO user_puzzle_ratings (username, rating, games_played)
-    VALUES ($1, $2, 1)
-    ON CONFLICT (username) DO UPDATE SET
-      rating = $2,
-      games_played = user_puzzle_ratings.games_played + 1,
-      updated_at = NOW()
-  `, [username, newRating]);
-}
+import { calcEloChange, getUserRating, updateUserRating, recordRatingHistory } from "@/modules/puzzle-engine";
 
 /**
  * POST /api/puzzles/[puzzleId]/attempt
@@ -69,20 +29,20 @@ export async function POST(
        ON CONFLICT DO NOTHING`,
       [username, puzzleId, solved, attempts || 1, timeSeconds || null]
     ).catch(() => {
-      // Retry without ON CONFLICT if schema doesn't support it
       return query(
         `INSERT INTO puzzle_attempts (username, puzzle_id, solved, attempts, time_seconds)
          VALUES ($1, $2, $3, $4, $5)`,
         [username, puzzleId, solved, attempts || 1, timeSeconds || null]
-      ).catch(() => {});
+      ).catch((err) => console.warn("[puzzle-attempt] insert failed:", err.message));
     });
 
-    // Only update ELO for rated modes (random / weak spots) — not blunders
+    // Only update Elo for rated modes (random / weak spots) — not blunders
     const currentRating = await getUserRating(username);
     if (typeof puzzleRating === "number" && puzzleRating > 0) {
-      const ratingChange = calcRatingGain(currentRating, puzzleRating, solved, attempts || 1);
+      const ratingChange = calcEloChange(currentRating, puzzleRating, solved, attempts || 1);
       const newRating = Math.max(100, currentRating + ratingChange);
       await updateUserRating(username, newRating);
+      await recordRatingHistory(username, newRating);
       return NextResponse.json({ success: true, ratingChange, newRating });
     }
 

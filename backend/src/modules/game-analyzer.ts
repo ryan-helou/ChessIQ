@@ -53,6 +53,17 @@ export interface Blunder {
   consequence: string | null;
 }
 
+export interface CriticalMoment {
+  moveIndex: number;
+  moveNumber: number;
+  color: "white" | "black";
+  type: "turning_point" | "decisive_blunder" | "missed_win" | "brilliant_find";
+  evalSwing: number;
+  evalBefore: number;
+  evalAfter: number;
+  description: string;
+}
+
 export interface GameAnalysis {
   gameId: string;
   pgn: string;
@@ -64,6 +75,7 @@ export interface GameAnalysis {
   blunderCounts: { white: number; black: number };
   mistakeCounts: { white: number; black: number };
   inaccuracyCounts: { white: number; black: number };
+  criticalMoments: CriticalMoment[];
   analysisDepth: number;
 }
 
@@ -245,6 +257,101 @@ function moveAccuracyFromWinDiff(winDiff: number): number {
   // Lichess formula with +1 uncertainty bonus, but slightly stricter decay (0.048 vs 0.04354)
   const raw = 103.1668 * Math.exp(-0.048 * winDiff) - 3.1669 + 1;
   return Math.max(0, Math.min(100, raw));
+}
+
+// ─────────────────────────────────────────────────────────────
+// Critical moments detection
+// ─────────────────────────────────────────────────────────────
+
+function detectCriticalMoments(moves: AnalyzedMove[]): CriticalMoment[] {
+  if (moves.length < 2) return [];
+
+  // Compute eval swing for each move (compared to previous move's eval)
+  const candidates: {
+    moveIndex: number;
+    swing: number;
+    move: AnalyzedMove;
+    prevMove: AnalyzedMove;
+  }[] = [];
+
+  for (let i = 1; i < moves.length; i++) {
+    const swing = Math.abs(moves[i].engineEval - moves[i - 1].engineEval);
+    candidates.push({
+      moveIndex: i,
+      swing,
+      move: moves[i],
+      prevMove: moves[i - 1],
+    });
+  }
+
+  // Sort by swing descending, take top 5, filter out swings < 100cp
+  const top = candidates
+    .sort((a, b) => b.swing - a.swing)
+    .filter((c) => c.swing >= 100)
+    .slice(0, 5);
+
+  // Classify each critical moment
+  const moments: CriticalMoment[] = top.map((c) => {
+    const { move, prevMove, moveIndex, swing } = c;
+    const evalBefore = prevMove.engineEval;
+    const evalAfter = move.engineEval;
+
+    // Determine type
+    let type: CriticalMoment["type"];
+    if (move.classification === "blunder" || move.classification === "mistake") {
+      type = "decisive_blunder";
+    } else if (
+      (evalBefore > 0 && evalAfter < 0) ||
+      (evalBefore < 0 && evalAfter > 0)
+    ) {
+      type = "turning_point";
+    } else if (move.classification === "brilliant" || move.classification === "great") {
+      type = "brilliant_find";
+    } else if (move.classification === "miss") {
+      type = "missed_win";
+    } else {
+      type = "turning_point";
+    }
+
+    // Generate description
+    const colorName = move.color === "white" ? "White" : "Black";
+    const evalBeforeStr = (evalBefore >= 0 ? "+" : "") + (evalBefore / 100).toFixed(2);
+    const evalAfterStr = (evalAfter >= 0 ? "+" : "\u2212") + (Math.abs(evalAfter) / 100).toFixed(2);
+
+    let action: string;
+    switch (type) {
+      case "decisive_blunder":
+        action = "blundered";
+        break;
+      case "turning_point":
+        action = "turned the game";
+        break;
+      case "brilliant_find":
+        action = "found a brilliant move";
+        break;
+      case "missed_win":
+        action = "missed a win";
+        break;
+    }
+
+    const description = `${colorName} ${action} on move ${move.moveNumber} \u2014 eval swung from ${evalBeforeStr} to ${evalAfterStr}`;
+
+    return {
+      moveIndex,
+      moveNumber: move.moveNumber,
+      color: move.color,
+      type,
+      evalSwing: swing,
+      evalBefore,
+      evalAfter,
+      description,
+    };
+  });
+
+  // Sort chronologically by moveIndex
+  moments.sort((a, b) => a.moveIndex - b.moveIndex);
+
+  return moments;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -789,6 +896,8 @@ export async function analyzeGame(
     return total / playerMoves.length;
   }
 
+  const criticalMoments = detectCriticalMoments(moves);
+
   return {
     gameId,
     pgn,
@@ -809,6 +918,7 @@ export async function analyzeGame(
       white: whiteMoves.filter((m) => m.classification === "inaccuracy").length,
       black: blackMoves.filter((m) => m.classification === "inaccuracy").length,
     },
+    criticalMoments,
     analysisDepth: depth,
   };
 }

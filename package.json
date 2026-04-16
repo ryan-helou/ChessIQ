@@ -11,7 +11,9 @@
     "db:seed": "node scripts/seed-data.js",
     "db:seed-puzzles": "node scripts/load-puzzles.js",
     "db:import-puzzles": "node scripts/import-lichess-puzzles.js",
-    "db:migrate": "node scripts/migrate.js"
+    "db:migrate": "node scripts/migrate.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.48.0",
@@ -30,10 +32,13 @@
     "redis": "^5.11.0",
     "resend": "^6.11.0",
     "stockfish": "^18.0.7",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
@@ -41,7 +46,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^16.2.4",
+    "jsdom": "^29.0.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.4"
   }
 }

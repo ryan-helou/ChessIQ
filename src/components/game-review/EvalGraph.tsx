@@ -116,13 +116,13 @@ function EvalGraph({ data, currentMove, onMoveClick, mini }: Props) {
             />
           )}
           <Area
+            isAnimationActive={false}
             type="monotone"
             dataKey="displayEval"
             stroke="#9e9b98"
             strokeWidth={mini ? 1 : 1.5}
             fill="url(#evalGradient)"
             fillOpacity={1}
-            isAnimationActive={false}
           />
         </AreaChart>
       </ResponsiveContainer>

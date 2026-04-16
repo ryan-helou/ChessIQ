@@ -16,8 +16,8 @@ Transform raw game data into actionable improvement strategies through:
 - **Backend:** Next.js API Routes
 - **Engine:** Stockfish (position evaluation & deep analysis)
 - **Libraries:** chess.js (PGN parsing), recharts (visualizations), date-fns (dates)
-- **APIs:** Chess.com Public API, Lichess API (future), Puzzle sources (Chessprogramming, etc.)
-- **Data Storage:** PostgreSQL (user progress, analysis cache, custom data)
+- **APIs:** Chess.com Public API, Lichess Puzzle DB, Lichess Opening Explorer, Lichess Syzygy Tablebase API
+- **Data Storage:** PostgreSQL via raw SQL (pg), Redis (caching, rate limiting)
 
 ---
 
@@ -60,7 +60,6 @@ interface GameAnalysis {
   openingPhase: { ecCode: string; name: string; moveNumber: number };
   middlegameStart: number;
   endgameStart: number;
-  timeManagement?: TimeIssue[];
 }
 
 interface AnalyzedMove {
@@ -132,11 +131,6 @@ type LossReason =
   | "poor_pawn_structure"
   | "inactive_pieces"
   | "pawn_breakthrough_missed"
-
-  // Time Management
-  | "time_pressure_blunder"
-  | "move_too_fast"
-  | "time_pressure_loss"
 
   // Opening/Strategy
   | "bad_opening_preparation"
@@ -448,7 +442,7 @@ chess-iq/
 │   │   └── pgn-parser.ts
 │   │
 │   └── db/
-│       ├── schema.ts                     # Drizzle/Prisma schema
+│       ├── migrations/                   # SQL migration files
 │       └── migrations/
 │
 ├── public/
@@ -471,7 +465,7 @@ chess-iq/
 
 ---
 
-## Database Schema (PostgreSQL with Prisma/Drizzle)
+## Database Schema (PostgreSQL with raw SQL via pg)
 
 ```typescript
 // Core user & game data
@@ -1593,44 +1587,38 @@ if (!process.env.DATABASE_URL) {
 
 ## Development Roadmap
 
-### Phase 1: MVP (Current Focus)
-- ✅ Import games from Chess.com
-- ✅ Basic game analysis (openings, accuracy)
-- [ ] Stockfish deep analysis integration
-- [ ] Game review UI (Chess.com-style)
-- [ ] Loss pattern detection (initial version)
-- [ ] Opening analytics dashboard
+### Phase 1: Core Platform (COMPLETE)
+- ✅ Import games from Chess.com (auto-sync every 1 min)
+- ✅ Stockfish deep analysis (depth 12-18, Railway backend)
+- ✅ Move classification (brilliant, great, best, excellent, good, inaccuracy, mistake, blunder, miss, forced, book)
+- ✅ Game review UI (Chess.com-style with eval bar, eval graph, move list, annotations)
+- ✅ Loss pattern detection (tactical, opening, positional, outplayed categories + trend)
+- ✅ Opening analytics (interactive board explorer, Lichess masters, personal stats, engine eval)
+- ✅ User accounts & authentication (NextAuth, email/password, password reset)
+- ✅ Dashboard (rating charts, accuracy charts, opening stats, game list, stats cards)
+- ✅ Streaming game analysis with SSE progress
+- ✅ Position eval caching (PostgreSQL)
 
-### Phase 2: Intelligent Recommendations
-- [ ] Puzzle curation engine (Lichess API integration)
-- [ ] Tactical weakness detection (pins, forks, etc.)
-- [ ] Smart puzzle recommendation algorithm
-- [ ] Puzzle solving tracker & progress UI
-- [ ] Difficulty calibration based on player skill
+### Phase 2: Intelligent Recommendations (COMPLETE)
+- ✅ Puzzle curation engine (Lichess puzzle DB, 700K+ puzzles)
+- ✅ Tactical weakness detection (12+ themes: fork, pin, skewer, etc.)
+- ✅ Smart puzzle recommendations based on blunder patterns
+- ✅ Puzzle solving tracker & progress UI
+- ✅ Own-blunder puzzles (convert your mistakes into training positions)
+- ✅ Blunder replay mode
 
-### Phase 3: Advanced Analytics
-- [ ] Time management analysis
-- [ ] Opening preparation depth tracking
-- [ ] Rating progress timeline
-- [ ] Specific player weakness profiles
-  - "Weak in queen endgames?"
-  - "Get trapped in a corner often?"
-  - "Overextend the king?"
-- [ ] Comparative stats (vs. rating bracket)
-
-### Phase 4: Community & Growth
-- [ ] User accounts & authentication
-- [ ] Sharing analysis reports
-- [ ] Leaderboards (tactical mastery, accuracy, etc.)
-- [ ] Community puzzle creation
-- [ ] Integration with Lichess, Chess24 games
-- [ ] Premium features (unlimited analysis, custom puzzles)
-
-### Phase 5: AI Coaching (Future)
-- [ ] GPT integration for move explanations
-- [ ] Personalized improvement plan generation
-- [ ] Adaptive puzzle difficulty based on performance
-- [ ] Real-time game coach (during live games?)
+### Phase 3: Advanced Analytics (IN PROGRESS)
+- ✅ Phase-by-phase accuracy (opening/middlegame/endgame)
+- ✅ Time pressure analysis (blunder rate by clock)
+- ✅ Winning position conversion rate
+- [ ] Critical moments detection (identify game turning points)
+- [ ] Tactical profile page (per-theme accuracy, radar chart, improvement tracking)
+- [ ] Opening preparation depth tracking (where book knowledge runs out)
+- [ ] Progress timeline (tactical mastery, accuracy trends, puzzle rating history)
+- [ ] Endgame tablebases (Lichess Syzygy API for ≤7-piece positions)
+- [ ] Multi-PV alternative lines in game review
+- [ ] Adaptive puzzle difficulty (Elo-based calibration)
+- [ ] Puzzle recommendation cards (grouped by weakness theme)
 
 ---
 

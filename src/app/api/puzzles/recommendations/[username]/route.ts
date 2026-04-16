@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
+import { withCache, cachedResponse } from "@/lib/api-cache";
 
 async function fetchDbPuzzles(themes: string[] | null, count: number, rating: number, username?: string): Promise<any[]> {
   try {
-    // Pre-fetch attempted puzzle IDs as a bounded array (max 5000).
-    // Using an array + = ANY() is far faster than NOT IN (subquery) as the
-    // attempts table grows — avoids a correlated subquery scan per row.
     const attemptedIds: string[] = username
       ? (await query(
           `SELECT puzzle_id FROM puzzle_attempts WHERE username = $1 LIMIT 5000`,
@@ -14,47 +12,38 @@ async function fetchDbPuzzles(themes: string[] | null, count: number, rating: nu
         )).rows.map((r: { puzzle_id: string }) => r.puzzle_id)
       : [];
 
-    const exclusionClause = attemptedIds.length > 0
-      ? `AND id != ALL($${themes ? "3" : "2"}::text[])`
-      : "";
+    const ratingLo = rating - 150;
+    const ratingHi = rating + 150;
+    const conditions: string[] = [`rating BETWEEN $1 AND $2`];
+    const params: any[] = [ratingLo, ratingHi];
+    let idx = 3;
 
-    const result = themes && themes.length > 0
-      ? await query(
-            `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-             FROM puzzles TABLESAMPLE BERNOULLI(10)
-             WHERE themes && $1::TEXT[]
-             ${exclusionClause}
-             LIMIT $2`,
-            attemptedIds.length > 0 ? [themes, count, attemptedIds] : [themes, count]
-          ).then(async (r) =>
-            r.rows.length >= count ? r :
-            query(
-              `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-               FROM puzzles
-               WHERE themes && $1::TEXT[]
-               ${exclusionClause}
-               ORDER BY RANDOM() LIMIT $2`,
-              attemptedIds.length > 0 ? [themes, count, attemptedIds] : [themes, count]
-            )
-          )
-      : await query(
-            `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-             FROM puzzles TABLESAMPLE BERNOULLI(1)
-             WHERE 1=1
-             ${exclusionClause}
-             LIMIT $1`,
-            attemptedIds.length > 0 ? [count, attemptedIds] : [count]
-          ).then(async (r) =>
-            r.rows.length >= count ? r :
-            query(
-              `SELECT id, fen, moves, rating, themes, opening_tags, move_count
-               FROM puzzles
-               WHERE 1=1
-               ${exclusionClause}
-               ORDER BY RANDOM() LIMIT $1`,
-              attemptedIds.length > 0 ? [count, attemptedIds] : [count]
-            )
-          );
+    if (themes && themes.length > 0) {
+      conditions.push(`themes && $${idx}::TEXT[]`);
+      params.push(themes);
+      idx++;
+    }
+    if (attemptedIds.length > 0) {
+      conditions.push(`id != ALL($${idx}::text[])`);
+      params.push(attemptedIds);
+      idx++;
+    }
+
+    const where = conditions.join(" AND ");
+
+    const fast = await query(
+      `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+       FROM puzzles TABLESAMPLE BERNOULLI(${themes ? 10 : 1})
+       WHERE ${where} LIMIT $${idx}`,
+      [...params, count]
+    );
+
+    const result = fast.rows.length >= count ? fast : await query(
+      `SELECT id, fen, moves, rating, themes, opening_tags, move_count
+       FROM puzzles WHERE ${where}
+       ORDER BY ABS(rating - $${idx}) LIMIT $${idx + 1}`,
+      [...params, rating, count]
+    );
 
     return result.rows.map((p: any) => ({
       id: p.id,
@@ -155,96 +144,101 @@ export async function GET(
       });
     }
 
-    // Count blunders by tactical theme
-    const themeMap = new Map<string, number>();
-    const ownBlunderMap = new Map<string, BlunderPuzzle>();
+    // Wrap the main recommendation computation in cache
+    const { data, cached } = await withCache(`puzzle-recs:${username}`, async () => {
+      // Count blunders by tactical theme
+      const themeMap = new Map<string, number>();
+      const ownBlunderMap = new Map<string, BlunderPuzzle>();
 
-    for (const blunder of blundersResult.rows) {
-      const theme = blunder.missed_tactic;
-      if (!theme) continue;
-      themeMap.set(theme, (themeMap.get(theme) ?? 0) + 1);
+      for (const blunder of blundersResult.rows) {
+        const theme = blunder.missed_tactic;
+        if (!theme) continue;
+        themeMap.set(theme, (themeMap.get(theme) ?? 0) + 1);
 
-      // Create blunder puzzle entries (limit to top ones)
-      if (ownBlunderMap.size < limit) {
-        try {
-          // Use fen_before stored directly on the blunder row (most reliable)
-          const fenBefore = blunder.fen_before;
-          if (fenBefore) {
-            const id = `${blunder.game_id}-${blunder.move_number}`;
-            ownBlunderMap.set(id, {
-              gameId: blunder.game_id,
-              moveNumber: blunder.move_number,
-              fen: fenBefore,
-              bestMove: blunder.best_move,
-              bestMoveSan: blunder.player_move,
-              severity: blunder.severity,
-              evalDrop: Math.abs(blunder.eval_after_cp - (blunder.eval_before_cp ?? 0)),
-              theme,
-            });
+        // Create blunder puzzle entries (limit to top ones)
+        if (ownBlunderMap.size < limit) {
+          try {
+            // Use fen_before stored directly on the blunder row (most reliable)
+            const fenBefore = blunder.fen_before;
+            if (fenBefore) {
+              const id = `${blunder.game_id}-${blunder.move_number}`;
+              ownBlunderMap.set(id, {
+                gameId: blunder.game_id,
+                moveNumber: blunder.move_number,
+                fen: fenBefore,
+                bestMove: blunder.best_move,
+                bestMoveSan: blunder.player_move,
+                severity: blunder.severity,
+                evalDrop: Math.abs(blunder.eval_after_cp - (blunder.eval_before_cp ?? 0)),
+                theme,
+              });
+            }
+          } catch (err) {
+            console.error("Error fetching move details:", err);
           }
-        } catch (err) {
-          console.error("Error fetching move details:", err);
         }
       }
-    }
 
-    // Build weakness profiles
-    const weaknesses: WeaknessProfile[] = Array.from(themeMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([theme, count]) => ({
-        theme,
-        count,
-        percentage: totalBlunders > 0 ? Math.round((count / totalBlunders) * 100) : 0,
-      }));
+      // Build weakness profiles
+      const weaknesses: WeaknessProfile[] = Array.from(themeMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([theme, count]) => ({
+          theme,
+          count,
+          percentage: totalBlunders > 0 ? Math.round((count / totalBlunders) * 100) : 0,
+        }));
 
-    // Fetch puzzles + stats all in parallel
-    let puzzles: Puzzle[] = [];
-    let randomPuzzles: Puzzle[] = [];
-    let stats: PuzzleStats = { totalAttempted: 0, totalSolved: 0, solveRate: 0, byTheme: [] };
+      // Fetch puzzles + stats all in parallel
+      let puzzles: Puzzle[] = [];
+      let randomPuzzles: Puzzle[] = [];
+      let stats: PuzzleStats = { totalAttempted: 0, totalSolved: 0, solveRate: 0, byTheme: [] };
 
-    try {
-      const topThemes = weaknesses.map((w) => w.theme);
-      const [p, rp, statsResult] = await Promise.all([
-        topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating, username) : Promise.resolve([]),
-        fetchDbPuzzles(null, limit, rating, username),
-        query(
-          `SELECT COUNT(*) as total_attempted, SUM(CASE WHEN solved THEN 1 ELSE 0 END) as total_solved
-           FROM puzzle_attempts WHERE username = $1`,
-          [username]
-        ).catch(() => ({ rows: [] as any[] })),
-      ]);
-      puzzles = p;
-      randomPuzzles = rp;
+      try {
+        const topThemes = weaknesses.map((w) => w.theme);
+        const [p, rp, statsResult] = await Promise.all([
+          topThemes.length > 0 ? fetchDbPuzzles(topThemes, limit, rating, username) : Promise.resolve([]),
+          fetchDbPuzzles(null, limit, rating, username),
+          query(
+            `SELECT COUNT(*) as total_attempted, SUM(CASE WHEN solved THEN 1 ELSE 0 END) as total_solved
+             FROM puzzle_attempts WHERE username = $1`,
+            [username]
+          ).catch(() => ({ rows: [] as any[] })),
+        ]);
+        puzzles = p;
+        randomPuzzles = rp;
 
-      const row = statsResult.rows[0];
-      if (row?.total_attempted) {
-        const attempted = parseInt(row.total_attempted ?? "0");
-        const solved = parseInt(row.total_solved ?? "0");
-        stats = {
-          totalAttempted: attempted,
-          totalSolved: solved,
-          solveRate: attempted > 0 ? Math.round((solved / attempted) * 100) : 0,
-          byTheme: [],
-        };
+        const row = statsResult.rows[0];
+        if (row?.total_attempted) {
+          const attempted = parseInt(row.total_attempted ?? "0");
+          const solved = parseInt(row.total_solved ?? "0");
+          stats = {
+            totalAttempted: attempted,
+            totalSolved: solved,
+            solveRate: attempted > 0 ? Math.round((solved / attempted) * 100) : 0,
+            byTheme: [],
+          };
+        }
+      } catch (err) {
+        console.error("Error fetching puzzles/stats:", err);
       }
-    } catch (err) {
-      console.error("Error fetching puzzles/stats:", err);
-    }
 
-    const recommendation: PuzzleRecommendation = {
-      weaknesses,
-      totalBlunders,
-      puzzles,
-      randomPuzzles,
-      ownBlunderPuzzles: Array.from(ownBlunderMap.values()),
-      stats,
-    };
+      const recommendation: PuzzleRecommendation = {
+        weaknesses,
+        totalBlunders,
+        puzzles,
+        randomPuzzles,
+        ownBlunderPuzzles: Array.from(ownBlunderMap.values()),
+        stats,
+      };
 
-    return NextResponse.json(recommendation);
+      return recommendation;
+    });
+
+    return cachedResponse(data, cached);
   } catch (error) {
     console.error("Error fetching puzzle recommendations:", error);
-    return NextResponse.json(
+    return cachedResponse(
       {
         weaknesses: [],
         totalBlunders: 0,
@@ -258,7 +252,7 @@ export async function GET(
           byTheme: [],
         },
       },
-      { status: 200 }
+      false
     );
   }
 }

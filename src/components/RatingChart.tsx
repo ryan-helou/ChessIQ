@@ -94,6 +94,7 @@ export default function RatingChart({ data, filter }: Props) {
           />
           {timeClasses.map((tc) => (
             <Line
+              isAnimationActive={false}
               key={tc}
               type="monotone"
               dataKey={tc}

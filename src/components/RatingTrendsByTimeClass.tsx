@@ -73,6 +73,7 @@ function MiniRatingChart({ timeClass, data }: MiniChartProps) {
             labelFormatter={(label) => new Date(label).toLocaleDateString()}
           />
           <Line
+            isAnimationActive={false}
             type="monotone"
             dataKey="rating"
             stroke={TC_COLORS[timeClass] ?? "#9e9b98"}

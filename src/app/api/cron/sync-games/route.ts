@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
       fetch(`http://localhost:${process.env.PORT || 3000}/api/cron/analyze-pending`, {
         headers: { Authorization: `Bearer ${secret}` },
         signal: AbortSignal.timeout(90_000),
-      }).catch(() => {});
+      }).catch((err) => console.warn("[sync-games] analyze-pending trigger failed:", err.message));
     }
   }
 

@@ -397,7 +397,7 @@ export default function LossesPage() {
                         allowDecimals={false}
                       />
                       <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         {weaknessData.weaknesses.map((w) => (
                           <Cell key={w.theme} fill={getThemeColor(w.theme)} />
                         ))}

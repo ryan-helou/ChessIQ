@@ -103,8 +103,10 @@ function PuzzleBoard({
   ratingChange = null,
   username,
 }: Props) {
-  const initialChess = (() => { try { return new Chess(puzzle.fen); } catch { return new Chess(); } })();
-  const chessRef = useRef(initialChess);
+  const chessRef = useRef<Chess>(null!);
+  if (chessRef.current === null) {
+    try { chessRef.current = new Chess(puzzle.fen); } catch { chessRef.current = new Chess(); }
+  }
   const [fen, setFen] = useState(puzzle.fen);
   const [phase, setPhase] = useState<Phase>("init");
   const moveIdxRef = useRef(0);

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { analyzeGame, type GameAnalysis } from "@/modules/game-review/analyzer";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { gameReviewBodySchema } from "@/lib/schemas";
 
 /**
  * POST /api/game-review
@@ -16,20 +18,25 @@ import { ensureDbInit } from "@/lib/db-init";
  * }
  */
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request.headers);
+  const rl = await checkRateLimit(`game-review:${ip}`, 10, 60_000, { failOpen: false });
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Rate limited" }, { status: 429 });
+  }
+
   try {
     const rawBody = await request.text();
     if (rawBody.length > 200_000) {
       return NextResponse.json({ error: "PGN too large" }, { status: 413 });
     }
-    const body = JSON.parse(rawBody);
-    const { pgn, depth = 12, chessComId } = body;
-
-    if (!pgn || typeof pgn !== "string") {
+    const parsed = gameReviewBodySchema.safeParse(JSON.parse(rawBody));
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request: pgn is required" },
+        { error: "Invalid request", details: parsed.error.issues },
         { status: 400 }
       );
     }
+    const { pgn, depth = 12, chessComId } = parsed.data;
 
     // Ensure analysis_cache column exists (idempotent)
     await ensureDbInit().catch((err: Error) => console.error('[db-init] failed:', err.message));

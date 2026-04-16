@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STOCKFISH_BACKEND_URL } from "@/lib/stockfish-backend";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req.headers);
+  const rl = await checkRateLimit(`game-review-stream:${ip}`, 10, 60_000, { failOpen: false });
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Rate limited" }, { status: 429 });
+  }
+
   let body: { pgn?: string; depth?: number };
   try {
     body = await req.json();

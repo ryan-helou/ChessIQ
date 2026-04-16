@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
+import { withCache, cachedResponse } from "@/lib/api-cache";
 
 interface PhaseStats {
   avg: number;
@@ -21,59 +22,41 @@ export async function GET(
 ) {
   const { username } = await params;
 
-  await ensureDbInit().catch(() => {});
+  await ensureDbInit().catch((err: Error) => console.warn("[db-init]", err.message));
 
   try {
-    const result = await query(
-      `SELECT am.move_number, am.accuracy
-       FROM analyzed_moves am
-       JOIN games g ON am.game_id = g.id
-       WHERE (g.white_username = $1 OR g.black_username = $1)
-         AND am.accuracy IS NOT NULL
-       LIMIT 50000`,
-      [username]
-    );
+    const { data, cached } = await withCache<PhaseAccuracyResult>(`phase-accuracy:${username}`, async () => {
+      const result = await query(
+        `SELECT
+           CASE WHEN am.move_number <= 10 THEN 'opening'
+                WHEN am.move_number <= 25 THEN 'middlegame'
+                ELSE 'endgame' END AS phase,
+           ROUND(AVG(am.accuracy)::numeric, 1) AS avg,
+           COUNT(*) AS count
+         FROM analyzed_moves am
+         JOIN games g ON am.game_id = g.id
+         WHERE (g.white_username = $1 OR g.black_username = $1)
+           AND am.accuracy IS NOT NULL
+         GROUP BY phase`,
+        [username]
+      );
 
-    const phases = {
-      opening: { sum: 0, count: 0 },
-      middlegame: { sum: 0, count: 0 },
-      endgame: { sum: 0, count: 0 },
-    };
+      const toStats = (phase: string): PhaseStats | null => {
+        const row = result.rows.find((r: { phase: string }) => r.phase === phase);
+        if (!row || parseInt(row.count) < MIN_MOVES) return null;
+        return { avg: parseFloat(row.avg), count: parseInt(row.count) };
+      };
 
-    for (const row of result.rows) {
-      const move: number = row.move_number;
-      const acc: number = parseFloat(row.accuracy);
-      if (isNaN(acc)) continue;
+      return {
+        opening: toStats("opening"),
+        middlegame: toStats("middlegame"),
+        endgame: toStats("endgame"),
+      };
+    });
 
-      if (move <= 10) {
-        phases.opening.sum += acc;
-        phases.opening.count++;
-      } else if (move <= 25) {
-        phases.middlegame.sum += acc;
-        phases.middlegame.count++;
-      } else {
-        phases.endgame.sum += acc;
-        phases.endgame.count++;
-      }
-    }
-
-    const toStats = (p: { sum: number; count: number }): PhaseStats | null => {
-      if (p.count < MIN_MOVES) return null;
-      return { avg: parseFloat((p.sum / p.count).toFixed(1)), count: p.count };
-    };
-
-    const response: PhaseAccuracyResult = {
-      opening: toStats(phases.opening),
-      middlegame: toStats(phases.middlegame),
-      endgame: toStats(phases.endgame),
-    };
-
-    return NextResponse.json(response);
+    return cachedResponse(data, cached);
   } catch (error) {
     console.error("[phase-accuracy]", error);
-    return NextResponse.json(
-      { opening: null, middlegame: null, endgame: null },
-      { status: 200 }
-    );
+    return cachedResponse({ opening: null, middlegame: null, endgame: null }, false);
   }
 }

@@ -19,11 +19,11 @@ export async function persistGameAnalysis(
   );
 
   // ── Batch INSERT analyzed_moves ──
-  await query(`DELETE FROM analyzed_moves WHERE game_id = $1`, [gameId]).catch(() => {});
+  await query(`DELETE FROM analyzed_moves WHERE game_id = $1`, [gameId]).catch((err) => console.warn("[game-persistence] delete analyzed_moves:", err.message));
   if (moves.length > 0) {
-    const cols = 11;
+    const cols = 17;
     const placeholders = moves.map((_, i) =>
-      `($${i * cols + 1},$${i * cols + 2},$${i * cols + 3},$${i * cols + 4},$${i * cols + 5},$${i * cols + 6},$${i * cols + 7},$${i * cols + 8},$${i * cols + 9},$${i * cols + 10},$${i * cols + 11})`
+      `($${i * cols + 1},$${i * cols + 2},$${i * cols + 3},$${i * cols + 4},$${i * cols + 5},$${i * cols + 6},$${i * cols + 7},$${i * cols + 8},$${i * cols + 9},$${i * cols + 10},$${i * cols + 11},$${i * cols + 12},$${i * cols + 13},$${i * cols + 14},$${i * cols + 15},$${i * cols + 16},$${i * cols + 17})`
     ).join(",");
     const flat = moves.flatMap((m) => [
       gameId, m.moveNumber, m.fen, m.move, m.san, m.bestMove,
@@ -31,10 +31,18 @@ export async function persistGameAnalysis(
       m.classification === "blunder",
       m.classification === "mistake",
       m.classification === "inaccuracy",
+      m.classification ?? null,
+      m.fenBefore ?? null,
+      m.evalBefore ?? null,
+      typeof m.evalDrop === "number" ? m.evalDrop : null,
+      m.color ?? null,
+      m.bestMoveSan ?? null,
     ]);
     await query(
       `INSERT INTO analyzed_moves
-        (game_id, move_number, fen, move, san, best_move, evaluation_cp, accuracy, is_blunder, is_mistake, is_inaccuracy)
+        (game_id, move_number, fen, move, san, best_move, evaluation_cp, accuracy,
+         is_blunder, is_mistake, is_inaccuracy,
+         classification, fen_before, eval_before, eval_drop, color, best_move_san)
        VALUES ${placeholders}
        ON CONFLICT DO NOTHING`,
       flat
@@ -42,7 +50,7 @@ export async function persistGameAnalysis(
   }
 
   // ── Batch INSERT blunders ──
-  await query(`DELETE FROM blunders WHERE game_id = $1`, [gameId]).catch(() => {});
+  await query(`DELETE FROM blunders WHERE game_id = $1`, [gameId]).catch((err) => console.warn("[game-persistence] delete blunders:", err.message));
   const badMoves = userMoves.filter(
     (m) => m.classification === "blunder" || m.classification === "mistake"
   );
