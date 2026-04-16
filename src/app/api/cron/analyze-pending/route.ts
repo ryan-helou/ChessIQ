@@ -1,5 +1,3 @@
-export const maxDuration = 60;
-
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { ensureDbInit } from "@/lib/db-init";
@@ -56,7 +54,10 @@ export async function GET(req: NextRequest) {
       ? game.white_username
       : game.black_username ?? game.white_username;
 
-    const analysis = await analyzeGame(game.pgn, 14);
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Analysis timed out")), 60_000)
+    );
+    const analysis = await Promise.race([analyzeGame(game.pgn, 14), timeout]);
 
     await persistGameAnalysis(
       game.id,

@@ -30,17 +30,26 @@ export async function cacheGameAnalysis(
   ttlSeconds: number = 604800
 ): Promise<void> {
   if (!client) return;
-  const key = `game:${gameId}`;
-  const value = JSON.stringify(analysis);
-  await client.setEx(key, ttlSeconds, value);
+  try {
+    const key = `game:${gameId}`;
+    const value = JSON.stringify(analysis);
+    await client.setEx(key, ttlSeconds, value);
+  } catch (err) {
+    console.warn("Redis cache write failed:", (err as Error).message);
+  }
 }
 
 export async function getCachedGameAnalysis(gameId: string): Promise<unknown | null> {
   if (!client) return null;
-  const key = `game:${gameId}`;
-  const value = await client.get(key);
-  if (!value) return null;
-  return JSON.parse(value);
+  try {
+    const key = `game:${gameId}`;
+    const value = await client.get(key);
+    if (!value) return null;
+    return JSON.parse(value);
+  } catch (err) {
+    console.warn("Redis cache read failed:", (err as Error).message);
+    return null;
+  }
 }
 
 export async function healthCheck(): Promise<boolean> {

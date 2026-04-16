@@ -3,6 +3,10 @@ import { AnalyzedMove, Blunder } from "../modules/game-analyzer.js";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes("localhost") ? false : { rejectUnauthorized: false },
+  max: 10,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
 });
 
 pool.on("error", (err: Error) => {
@@ -103,19 +107,18 @@ export async function insertAnalyzedMoves(
     INSERT INTO analyzed_moves (
       game_id, move_number, fen, move, san, best_move, principal_variation,
       evaluation_cp, accuracy, is_blunder, is_mistake, is_inaccuracy,
-      tactical_themes, depth_analyzed, analyzed_at
+      tactical_themes
     ) VALUES
     ${moves.map((_, i) => {
-      const base = i * 11;
+      const base = i * 12;
       return `($1, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13})`;
     }).join(",")}
-    ON CONFLICT (game_id, move_number, depth_analyzed) DO UPDATE SET
+    ON CONFLICT (game_id, move_number) DO UPDATE SET
       evaluation_cp = EXCLUDED.evaluation_cp,
       accuracy = EXCLUDED.accuracy,
       is_blunder = EXCLUDED.is_blunder,
       is_mistake = EXCLUDED.is_mistake,
-      is_inaccuracy = EXCLUDED.is_inaccuracy,
-      analyzed_at = NOW()
+      is_inaccuracy = EXCLUDED.is_inaccuracy
   `;
 
   const values: any[] = [gameId];

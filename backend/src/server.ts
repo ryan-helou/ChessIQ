@@ -15,7 +15,6 @@ app.use(express.text({ limit: "50mb", type: "text/plain" }));
 // CORS
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(",") || [
   "http://localhost:3000",
-  "https://chess-iq.vercel.app",
 ];
 
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -39,14 +38,15 @@ app.get("/health", async (_req: Request, res: Response) => {
   try {
     const engine = await getEngine();
     const engineHealthy = engine.isRunning();
+    const status = engineHealthy ? 200 : 503;
 
-    res.json({
+    res.status(status).json({
       status: engineHealthy ? "healthy" : "degraded",
       timestamp: new Date().toISOString(),
       engine: engineHealthy ? "ready" : "not ready",
     });
   } catch (error) {
-    res.status(500).json({
+    res.status(503).json({
       status: "error",
       error: error instanceof Error ? error.message : "Unknown error",
     });
@@ -74,8 +74,15 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // Graceful shutdown
 async function shutdown() {
   console.log("Shutting down server...");
-  await shutdownEngine();
+  const forceExit = setTimeout(() => {
+    console.error("Forced exit after shutdown timeout");
+    process.exit(1);
+  }, 5000);
+  forceExit.unref();
+
+  try { await shutdownEngine(); } catch { /* ignore */ }
   try { await closePool(); } catch { /* db may not be connected */ }
+  clearTimeout(forceExit);
   process.exit(0);
 }
 

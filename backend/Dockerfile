@@ -12,15 +12,16 @@ RUN ln -sf $(which stockfish || echo "/usr/games/stockfish") /usr/local/bin/stoc
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (all, including devDeps for build)
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
-# Copy source
+# Copy source and build
 COPY . .
-
-# Build TypeScript
 RUN npm run build
+
+# Remove devDependencies after build
+RUN npm prune --production
 
 # Expose port
 EXPOSE 3001
