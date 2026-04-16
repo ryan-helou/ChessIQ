@@ -42,7 +42,7 @@ async function _init(): Promise<void> {
         rating INTEGER NOT NULL,
         recorded_at TIMESTAMPTZ DEFAULT NOW()
       )
-    `, []).catch(() => {}),
+    `, []).catch((err: Error) => console.warn("[db-init] table:", err.message)),
   ]);
 
   // Group 2: ALTER TABLE statements (all independent, parallelized)
@@ -66,7 +66,7 @@ async function _init(): Promise<void> {
 
   // Group 3: Indexes + TTL cleanup (all independent, parallelized)
   const idx = (sql: string) => query(sql, []).catch((err: Error) => console.warn("[db-init] index:", err.message));
-  const cleanup = (sql: string) => query(sql, []).catch(() => {});
+  const cleanup = (sql: string) => query(sql, []).catch((err: Error) => console.warn("[db-init] cleanup:", err.message));
   await Promise.all([
     cleanup(`DELETE FROM position_good_moves WHERE cached_at < NOW() - INTERVAL '30 days'`),
     cleanup(`DELETE FROM position_evals WHERE cached_at < NOW() - INTERVAL '90 days'`),

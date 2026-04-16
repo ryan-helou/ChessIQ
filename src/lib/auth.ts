@@ -16,26 +16,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         try {
           if (!credentials?.email || !credentials?.password) {
-            console.log("[auth] missing credentials");
             return null;
           }
 
           const email = String(credentials.email).toLowerCase().trim();
           const password = String(credentials.password);
-          console.log("[auth] authorizing:", email);
 
           const result = await query(
             "SELECT id, email, password_hash, chess_com_username FROM users WHERE email = $1",
             [email]
           );
+          if (result.rows.length === 0) return null;
           const user = result.rows[0];
-          if (!user) {
-            console.log("[auth] user not found:", email);
-            return null;
-          }
 
           const valid = await compare(password, user.password_hash);
-          console.log("[auth] password valid:", valid);
           if (!valid) return null;
 
           return {

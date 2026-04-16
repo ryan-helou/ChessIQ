@@ -243,7 +243,7 @@ export default function PlayerPage() {
   useEffect(() => {
     getUserPuzzleRating(username).then((r) => {
       if (r > 1200) setPuzzleRating(r); // 1200 = default (never played puzzles)
-    }).catch(() => {});
+    }).catch((err) => console.warn("[dashboard] puzzle rating fetch failed:", err.message));
   }, [username]);
 
   // Fetch opening prep depth once
@@ -258,7 +258,7 @@ export default function PlayerPage() {
           setPrepOpenings(d.openings);
         }
       })
-      .catch(() => {});
+      .catch((err) => console.warn("[dashboard] opening-prep fetch failed:", err.message));
   }, [username]);
 
   // "You're improving!" — compare last 10 vs previous 10 accuracy

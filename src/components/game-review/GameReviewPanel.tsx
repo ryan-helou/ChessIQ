@@ -64,8 +64,8 @@ export const GameReviewPanel = React.memo(function GameReviewPanel({
 }: GameReviewPanelProps) {
   const whiteMoves = analysis.moves.filter((m) => m.color === "white");
   const blackMoves = analysis.moves.filter((m) => m.color === "black");
-  const whiteCounts: Record<MoveClassification, number> = {} as any;
-  const blackCounts: Record<MoveClassification, number> = {} as any;
+  const whiteCounts = Object.fromEntries(CLASSIFICATIONS.map((c) => [c.key, 0])) as Record<MoveClassification, number>;
+  const blackCounts = Object.fromEntries(CLASSIFICATIONS.map((c) => [c.key, 0])) as Record<MoveClassification, number>;
   for (const c of CLASSIFICATIONS) {
     whiteCounts[c.key] = whiteMoves.filter((m) => m.classification === c.key).length;
     blackCounts[c.key] = blackMoves.filter((m) => m.classification === c.key).length;

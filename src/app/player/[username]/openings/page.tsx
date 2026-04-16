@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Chess } from "chess.js";
+import { Chess, type Square } from "chess.js";
 import { neoPieces } from "@/lib/chess-pieces";
 import EvalBar from "@/components/game-review/EvalBar";
 import { type ParsedGame } from "@/lib/game-analysis";
@@ -337,7 +337,7 @@ export default function OpeningsPage() {
         setLichessTotal((data.white ?? 0) + (data.draws ?? 0) + (data.black ?? 0));
         if (data.opening?.name) setOpeningName(data.opening.name);
       })
-      .catch(() => {});
+      .catch((err) => { if (err.name !== "AbortError") console.warn("[openings] lichess fetch failed:", err.message); });
     return () => controller.abort();
   }, [fen]);
 
@@ -404,8 +404,7 @@ export default function OpeningsPage() {
       const chess = new Chess(fenRef.current);
       const pending = pendingSquareRef.current;
       if (pending === null) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const piece = chess.get(square as any);
+        const piece = chess.get(square as Square);
         if (piece && piece.color === chess.turn()) setPendingSquare(square);
       } else {
         try {
@@ -428,8 +427,7 @@ export default function OpeningsPage() {
     if (!pendingSquare) return styles;
     styles[pendingSquare] = { backgroundColor: "rgba(129,182,76,0.4)" };
     const chess = new Chess(fen);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const moves = chess.moves({ square: pendingSquare as any, verbose: true });
+    const moves = chess.moves({ square: pendingSquare as Square, verbose: true });
     for (const m of moves) {
       styles[m.to] = { backgroundColor: "rgba(129,182,76,0.2)", borderRadius: "50%" };
     }

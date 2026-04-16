@@ -256,18 +256,17 @@ export async function analyzeGameStreaming(
           if (line.startsWith("event: ")) {
             currentEvent = line.slice(7).trim();
           } else if (line.startsWith("data: ") && currentEvent) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (currentEvent === "progress" && onProgress) {
-                onProgress(data);
-              } else if (currentEvent === "done") {
-                resolve(adaptAnalysis(pgn, depth, data));
-                return;
-              } else if (currentEvent === "error") {
-                reject(new Error(data.message || "Analysis failed"));
-                return;
-              }
-            } catch {}
+            let data: any;
+            try { data = JSON.parse(line.slice(6)); } catch { continue; }
+            if (currentEvent === "progress" && onProgress) {
+              onProgress(data);
+            } else if (currentEvent === "done") {
+              resolve(adaptAnalysis(pgn, depth, data));
+              return;
+            } else if (currentEvent === "error") {
+              reject(new Error(data.message || "Analysis failed"));
+              return;
+            }
             currentEvent = "";
           } else if (line === "") {
             currentEvent = "";

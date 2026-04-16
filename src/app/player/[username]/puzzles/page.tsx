@@ -43,7 +43,7 @@ function warmGoodMovesCache(fen: string) {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fen }),
-  }).catch(() => {});
+  }).catch((err) => console.warn("[puzzles] precompute failed:", err.message));
 }
 
 export default function PuzzlesPage() {
@@ -249,7 +249,7 @@ export default function PuzzlesPage() {
             setPlayerRating(result.newRating);
             setRatingChange(result.ratingChange);
           }
-        }).catch(() => {});
+        }).catch((err) => console.warn("[puzzles] attempt record failed:", err.message));
     }
   }, [currentPuzzle, username]);
 
@@ -264,7 +264,7 @@ export default function PuzzlesPage() {
             setPlayerRating(result.newRating);
             setRatingChange(result.ratingChange);
           }
-        }).catch(() => {});
+        }).catch((err) => console.warn("[puzzles] attempt record failed:", err.message));
     }
   }, [currentPuzzle, username]);
 

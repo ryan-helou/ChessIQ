@@ -72,13 +72,13 @@ export async function POST(req: NextRequest) {
           `,
         });
         if (error) console.error("[forgot-password] Resend error:", error);
-        else console.log("[forgot-password] Email sent to:", normalizedEmail);
+        else console.info("[forgot-password] Email sent to:", normalizedEmail);
       } catch (err) {
         console.error("[forgot-password] Failed to send email:", err);
       }
     } else {
       // Dev fallback: log the reset URL
-      console.log("[forgot-password] Reset URL (no RESEND_API_KEY set):", resetUrl);
+      console.info("[forgot-password] Reset URL (no RESEND_API_KEY set):", resetUrl);
     }
   }
 

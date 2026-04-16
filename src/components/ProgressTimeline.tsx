@@ -120,7 +120,7 @@ export default function ProgressTimeline({ username }: { username: string }) {
       .then((d) => {
         if (!cancelled) setData(d);
       })
-      .catch(() => {})
+      .catch((err) => console.warn("[progress] fetch failed:", err.message))
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
