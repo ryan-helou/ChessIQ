@@ -296,7 +296,7 @@ export default function OpeningsPage() {
 
   // Load games
   useEffect(() => {
-    fetch(`/api/games/${encodeURIComponent(username)}?months=6`)
+    fetch(`/api/games/${encodeURIComponent(username)}?months=120`)
       .then(r => r.json())
       .then(data => {
         const games: ParsedGame[] = (data.games ?? []).map((g: ParsedGame & { date: string | Date }) => ({
@@ -612,6 +612,27 @@ export default function OpeningsPage() {
 
   // Board size: account for header(44) + strips(2*30 + gap*2 = 72) + engine status(24) + padding(32)
   const BOARD_SIZE = "min(calc(100vh - 180px), calc(100vw - 356px))";
+
+  // ─── Loading state ──────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg-page)" }}>
+        <PageHeader username={username} />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: "50%",
+            border: "3px solid var(--border)", borderTopColor: "var(--green)",
+            animation: "spin 0.8s linear infinite",
+          }} />
+          <span style={{ color: "var(--text-3)", fontSize: 13, fontFamily: "var(--font-mono)" }}>
+            Loading games…
+          </span>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Error state ─────────────────────────────────────────────────────────────
 
