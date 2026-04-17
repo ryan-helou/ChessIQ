@@ -20,7 +20,7 @@ export async function GET(
 ) {
   const { username } = await params;
   const searchParams = request.nextUrl.searchParams;
-  const months = Math.min(Math.max(parseInt(searchParams.get("months") ?? "6", 10) || 6, 1), 24);
+  const months = Math.min(Math.max(parseInt(searchParams.get("months") ?? "6", 10) || 6, 1), 240);
 
   // Cache lookup (Redis, falls back silently on error)
   const cacheKey = `games:${username}:${months}`;
